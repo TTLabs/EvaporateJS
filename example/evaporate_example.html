@@ -25,9 +25,9 @@
          var files;
          
          var _e_ = new Evaporate({
-            signerUrl: '/testing/sign_auth',   
-            aws_key: 'AKIAIQC7JOOF6VS42H7Q',
-            bucket: '84685.videopixie.com',
+            signerUrl: 'your signing url here - e.g. for signing_example.py use /testing/sign_auth',   
+            aws_key: 'your aws_key here',
+            bucket: 'your s3 bucket name here',
          });
       
          $('#files').change(function(evt){
@@ -38,6 +38,9 @@
                _e_.add({
                   name: 'test_' + Math.floor(1000000000*Math.random()),
                   file: files[i],
+                  xAmzHeadersAtInitiate : {
+                     'x-amz-acl': 'public-read'
+                  },
                   signParams: {
                      foo: 'bar'
                   },

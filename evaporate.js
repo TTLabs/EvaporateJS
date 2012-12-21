@@ -14,6 +14,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 /***************************************************************************************************
 *                                                                                                  *
+*  version 0.0.1                                                                                   *
+*                                                                                                  *
 *  TODO:                                                                                           *
 *       calculate MD5s and send with PUTs                                                          *
 *       post eTags to application server to allow resumabilit after client-side crash/restart      *
