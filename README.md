@@ -1,7 +1,9 @@
 EvaporateJS
 ===========
 
-Javascript library for browser to S3 multipart resumable uploads
+EvaporateJS is a javascript library for directly uploading files from a web browser to AWS S3, using S3's multipart upload. 
+
+**Why?** EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say you're uploading a 1000MB file, you've uploaded the first 900MBs, and then there is a problem on the network. Normally at this point you'd have to restart the upload from the beginning. Not so with EvaporateJS - it will only redo a small ~5MB chunk of the file, and then carry on from where it left off, and upload the final 100MB.     
 
 This is an early-alpha release. It still needs lots more work and testing.
 
