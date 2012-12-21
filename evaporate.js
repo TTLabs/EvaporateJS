@@ -223,8 +223,8 @@ var Evaporate = function(config){
                   requester.onProgress(evt);
                };
             }
-            
-            xhr.send(requester.toSend ? requester.toSend() : null);
+            var payload = requester.toSend ? requester.toSend() : null
+            xhr.send(payload);
          }
       }
       
@@ -405,7 +405,7 @@ var Evaporate = function(config){
                if (part.size == 0){
                   l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
                }
-               return __.file[slicerFn](parts[partNumber].start, parts[partNumber].end);
+               return part;
             }
             
             setupRequest(upload);
