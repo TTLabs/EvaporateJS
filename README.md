@@ -50,12 +50,12 @@ So far the api contains just two methods, and one property
 
 `evap.add(config)`
 
-Config has 2 required parameters:
+`config` has 2 required parameters:
 
 * **name**: _String_. the S3 ObjectName that the completed file will have
 * **file**: _File_. a reference to the file object
 
-Config has 4 optional parameter:
+`config` has 4 optional parameter:
 
 
 * **xAmzHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'x-amz-acl':'public-read'}`
@@ -69,4 +69,4 @@ Config has 4 optional parameter:
 
 ###.supported
 
-The `supported` property is `Boolean`, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.      
+The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.      
