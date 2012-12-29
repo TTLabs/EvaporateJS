@@ -196,6 +196,8 @@ var Evaporate = function(config){
          requester.onGotAuth = function (){
          
             var xhr = new XMLHttpRequest();
+            var payload = requester.toSend ? requester.toSend() : null;
+            
             xhr.open(requester.method, AWS_URL + requester.path);
             xhr.setRequestHeader('Authorization', 'AWS ' + con.aws_key + ':' + requester.auth);
             
@@ -210,6 +212,7 @@ var Evaporate = function(config){
             }
             
             xhr.onload = function(){
+               if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
                if (xhr.status == 200){
                   requester.on200(xhr)
                }else{
@@ -223,7 +226,6 @@ var Evaporate = function(config){
                   requester.onProgress(evt);
                };
             }
-            var payload = requester.toSend ? requester.toSend() : null
             xhr.send(payload);
          }
       }
