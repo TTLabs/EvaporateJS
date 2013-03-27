@@ -234,7 +234,7 @@ var Evaporate = function(config){
       //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
       function authorizedSend(authRequester){
       
-         l.d('authorizedSend()')
+         l.d('authorizedSend() ' + authRequester.step);
          var xhr = new XMLHttpRequest(),
          url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester)
          
@@ -243,7 +243,6 @@ var Evaporate = function(config){
             url += ('&'+escape(param)+'='+escape(__.signParams[param]));
          }
          
-         xhr.open('GET', url);
          
          xhr.onload = function(){
             if (xhr.status == 200){
@@ -260,6 +259,7 @@ var Evaporate = function(config){
             l.d('Network error whilst attempting to get authorization for step: \'' + authRequester.step + '\'');
             authRequester.onErr(xhr);
          }
+         xhr.open('GET', url);
          xhr.send();
       }
       
