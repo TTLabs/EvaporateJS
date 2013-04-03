@@ -67,7 +67,7 @@ var Evaporate = function(config){
       /*if (!(file.file instanceof File)){
          err += '.file attribute must be instanceof File';
       }*/
-      if (err){return err};
+      if (err){return err;}
       
       var newId = addFile(file);
       asynProcessQueue();
@@ -181,12 +181,12 @@ var Evaporate = function(config){
       __.stop = function(){
       
       
-      }
+      };
       
             
       function setupRequest(requester){
       
-         l.d('setupRequest()')
+         l.d('setupRequest()');
          
          requester.dateString = new Date().toUTCString();
          requester.x_amz_headers = extend(requester.x_amz_headers,{
@@ -214,12 +214,12 @@ var Evaporate = function(config){
             xhr.onload = function(){
                if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
                if (xhr.status == 200){
-                  requester.on200(xhr)
+                  requester.on200(xhr);
                }else{
                   requester.onErr(xhr);
                }
             };
-            xhr.onerror = function(){requester.onErr(xhr)};
+            xhr.onerror = function(){requester.onErr(xhr);};
             
             if (typeof requester.onProgress == 'function'){
                xhr.upload.onprogress = function(evt){
@@ -227,7 +227,9 @@ var Evaporate = function(config){
                };
             }
             xhr.send(payload);
-         }
+         };
+         
+         requester.onFailedAuth = requester.onFailedAuth || function(xhr){};
       }
       
       
@@ -236,15 +238,33 @@ var Evaporate = function(config){
       
          l.d('authorizedSend() ' + authRequester.step);
          var xhr = new XMLHttpRequest(),
-         url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester)
+         url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester);
          
-         for (param in __.signParams) {
+         for (var param in __.signParams) {
             if (!__.signParams.hasOwnProperty(param)) {continue;}
             url += ('&'+escape(param)+'='+escape(__.signParams[param]));
          }
          
+         xhr.onreadystatechange = function(){
+            
+            if (xhr.readyState == 4){
+               
+               if (xhr.status == 200){
+               
+                  l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
+                  authRequester.auth = xhr.response;
+                  authRequester.onGotAuth();
+               
+               }else{
+                  l.w('xhr.onreadystatechange got status: ' + xhr.status  + ' while trying to get authorization for step: \'' + authRequester.step + '\'');
+                  authRequester.onFailedAuth(xhr);
+               }
+            
+            }
+         };
+            
          
-         xhr.onload = function(){
+         /*xhr.onload = function(){
             if (xhr.status == 200){
                l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
                authRequester.auth = xhr.response;
@@ -253,12 +273,13 @@ var Evaporate = function(config){
                l.w('Error ' + xhr.status  + ' trying to get authorization for step: \'' + authRequester.step + '\'');
                authRequester.onErr(xhr);
             }
-         }
+         }*/
          
          xhr.onerror = function(){
-            l.d('Network error whilst attempting to get authorization for step: \'' + authRequester.step + '\'');
-            authRequester.onErr(xhr);
-         }
+            l.w('xhr.onerror handled whilst attempting to get authorization for step: \'' + authRequester.step + '\'');
+            authRequester.onFailedAuth(xhr);
+         };
+         
          xhr.open('GET', url);
          xhr.send();
       }
@@ -276,7 +297,7 @@ var Evaporate = function(config){
          initiate.onErr = function(xhr){
             l.d('onInitiateError for FileUpload ' + __.id);
             setStatus(ERROR);
-         }
+         };
          
          initiate.on200 = function(xhr){
          
@@ -284,12 +305,12 @@ var Evaporate = function(config){
             if (match && match[1]){
                __.uploadId = match[1];
                l.d('requester success. got uploadId ' + __.uploadId);
-               makeParts()
+               makeParts();
                processPartsList();
             }else{
                initiate.onErr();
             }
-         }
+         };
          
          setupRequest(initiate);
          authorizedSend(initiate);
@@ -306,7 +327,7 @@ var Evaporate = function(config){
                end: (part*con.partSize),
                attempts: 0,
                loadedBytes: 0
-            }
+            };
          }
       }
       
@@ -331,7 +352,7 @@ var Evaporate = function(config){
                         uploadPart(i);
                         evaporatingCount++;
                      }
-                     break
+                     break;
                      
                   default:
                      break;
@@ -344,10 +365,11 @@ var Evaporate = function(config){
          }
       }
       
+      
       function uploadPart(partNumber){  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
          
          parts[partNumber].status = EVAPORATING;
-         var backOff = parts[partNumber].attempts++ == 0 ? 0 : 1000 * Math.min(
+         var backOff = parts[partNumber].attempts++ === 0 ? 0 : 1000 * Math.min(
             con.maxRetryBackoffSecs,
             Math.pow(con.retryBackoffPower,parts[partNumber].attempts-2)
          );
@@ -377,7 +399,7 @@ var Evaporate = function(config){
                   processPartsList();
                }
                // TODO: does AWS have other error codes that we can handle?
-            }
+            };
             
             upload.on200 = function (xhr){
                
@@ -392,23 +414,31 @@ var Evaporate = function(config){
                   l.w('  *** WARN: eTag matches MD5 of 0 length blob. Retrying part.');
                }
                processPartsList();
-            }
+            };
             
             upload.onProgress = function (evt){
             
                parts[partNumber].loadedBytes = evt.loaded;
-            }
+            };
             var slicerFn = (__.file.slice ? 'slice' : (__.file.mozSlice ? 'mozSlice' : 'webkitSlice'));
             // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
            
             upload.toSend = function() {
                var part = __.file[slicerFn](parts[partNumber].start, parts[partNumber].end);
                l.d('sending part # ' + partNumber + ' (bytes ' + parts[partNumber].start + ' -> ' + parts[partNumber].end + ')  reported length: ' + part.size);
-               if (part.size == 0){
+               if (part.size === 0){
                   l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
                }
                return part;
-            }
+            };
+            
+            upload.onFailedAuth = function(xhr){
+            
+               log.w('onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR');
+               parts[partNumber].status = ERROR;
+               parts[partNumber].loadedBytes = 0;
+               processPartsList();
+            };
             
             setupRequest(upload);
             authorizedSend(upload);
@@ -454,16 +484,16 @@ var Evaporate = function(config){
          complete.onErr = function (){
             l.w('Error completing uploading  id: ' + __.id);
             setStatus(ERROR);
-         }
+         };
          
          complete.on200 = function(xhr){
             __.complete();
             setStatus(COMPLETE);
-         }
+         };
          
          complete.toSend = function() {
             return completeDoc;
-         }
+         };
          
          setupRequest(complete);
          authorizedSend(complete);
@@ -488,7 +518,7 @@ var Evaporate = function(config){
                header_key_array.push(key);
             }
          }
-         header_key_array.sort()
+         header_key_array.sort();
          
          header_key_array.forEach(function(header_key,i){
             x_amz_headers += (header_key + ':'+ request.x_amz_headers[header_key] + '\n');
@@ -508,7 +538,7 @@ var Evaporate = function(config){
     
    function extend(obj1, obj2, obj3){
       
-      if (typeof obj1 == 'undefined'){obj1 = {}};
+      if (typeof obj1 == 'undefined'){obj1 = {};}
       
       if (typeof obj3 == 'object'){
          for (var key in obj3){
@@ -516,8 +546,8 @@ var Evaporate = function(config){
          }
       }
       
-      for (var key in obj2){
-         obj1[key]=obj2[key];
+      for (var key2 in obj2){
+         obj1[key2]=obj2[key2];
       }
       return obj1;
    }
