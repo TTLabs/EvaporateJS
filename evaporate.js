@@ -229,7 +229,7 @@ var Evaporate = function(config){
             xhr.send(payload);
          };
          
-         requester.onFailedAuth = requester.onFailedAuth || function(xhr){};
+         requester.onFailedAuth = requester.onFailedAuth || function(xhr){}; 
       }
       
       
