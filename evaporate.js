@@ -166,7 +166,7 @@ var Evaporate = function(config){
    
    function FileUpload(file){
    
-      var __ = this, parts = [], progressTick;
+      var __ = this, parts = [], progressTick, countUploadAttempts = 0;
       extend(__,file);
       
       __.start = function(){
@@ -216,7 +216,7 @@ var Evaporate = function(config){
                if (xhr.status == 200){
                   requester.on200(xhr);
                }else{
-                  requester.onErr(xhr);
+                  requester.onErr(xhr); 
                }
             };
             xhr.onerror = function(){requester.onErr(xhr);};
@@ -263,18 +263,6 @@ var Evaporate = function(config){
             }
          };
             
-         
-         /*xhr.onload = function(){
-            if (xhr.status == 200){
-               l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
-               authRequester.auth = xhr.response;
-               authRequester.onGotAuth();
-            }else{
-               l.w('Error ' + xhr.status  + ' trying to get authorization for step: \'' + authRequester.step + '\'');
-               authRequester.onErr(xhr);
-            }
-         }*/
-         
          xhr.onerror = function(){
             l.w('xhr.onerror handled whilst attempting to get authorization for step: \'' + authRequester.step + '\'');
             authRequester.onFailedAuth(xhr);
@@ -334,9 +322,10 @@ var Evaporate = function(config){
       
       function processPartsList(){
       
-         var evaporatingCount = 0, finished = true;
+         var evaporatingCount = 0, finished = true, stati = [];
          parts.forEach(function(part,i){
          
+            stati.push(part.status);
             if (part){
                switch(part.status){
                
@@ -360,6 +349,11 @@ var Evaporate = function(config){
             }
          });
          
+         if (countUploadAttempts >= (parts.length-1)){ 
+            __.info('part stati: ' + stati.toString());
+         }
+         // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4. 
+         
          if (finished){
             completeUpload();
          }
@@ -368,8 +362,12 @@ var Evaporate = function(config){
       
       function uploadPart(partNumber){  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
          
+         var backOff;
+         
          parts[partNumber].status = EVAPORATING;
-         var backOff = parts[partNumber].attempts++ === 0 ? 0 : 1000 * Math.min(
+         countUploadAttempts++;
+         
+         backOff = parts[partNumber].attempts++ === 0 ? 0 : 1000 * Math.min(
             con.maxRetryBackoffSecs,
             Math.pow(con.retryBackoffPower,parts[partNumber].attempts-2)
          );
@@ -385,7 +383,9 @@ var Evaporate = function(config){
             // TODO: add md5
             
             upload.onErr = function (xhr){
-               l.d('err uploading part #' + partNumber + '    http status: ' + xhr.status);
+               var msg = 'err uploading part #' + partNumber + '    http status: ' + xhr.status;
+               l.d(msg);
+               __.info(msg);
                if (xhr.status == 404){
                    l.w('  404 error resulted in abortion of both this part and the entire file');
                    l.w('  server response: ' + xhr.response);
@@ -403,7 +403,7 @@ var Evaporate = function(config){
             
             upload.on200 = function (xhr){
                
-               var eTag = xhr.getResponseHeader('ETag');
+               var eTag = xhr.getResponseHeader('ETag'), msg;
                l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
                if (eTag != ETAG_OF_0_LENGTH_BLOB){
                   parts[partNumber].eTag = eTag;
@@ -411,7 +411,9 @@ var Evaporate = function(config){
                }else{
                   parts[partNumber].status = ERROR;
                   parts[partNumber].loadedBytes = 0;
-                  l.w('  *** WARN: eTag matches MD5 of 0 length blob. Retrying part.');
+                  msg = 'eTag matches MD5 of 0 length blob for part #' + partNumber  + '   Retrying part.';
+                  l.w(msg);
+                  __.info(msg);
                }
                processPartsList();
             };
@@ -434,7 +436,9 @@ var Evaporate = function(config){
             
             upload.onFailedAuth = function(xhr){
             
-               log.w('onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR');
+               var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
+               log.w(msg);
+               __.info(msg);
                parts[partNumber].status = ERROR;
                parts[partNumber].loadedBytes = 0;
                processPartsList();
@@ -553,39 +557,3 @@ var Evaporate = function(config){
    }
    
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
