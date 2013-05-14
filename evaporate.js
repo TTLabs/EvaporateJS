@@ -289,7 +289,7 @@ var Evaporate = function(config){
          
          initiate.on200 = function(xhr){
          
-            var match = xhr.response.match(/\<UploadId\>(.+)\<\/UploadId\>/);
+            var match = xhr.response.match(/<UploadId\>(.+)<\/UploadId\>/);
             if (match && match[1]){
                __.uploadId = match[1];
                l.d('requester success. got uploadId ' + __.uploadId);
