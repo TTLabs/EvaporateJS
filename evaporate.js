@@ -117,7 +117,11 @@ var Evaporate = function(config){
    function addFile(file){
    
       var id = files.length;
-      files.push(new FileUpload(extend(file,{
+      files.push(new FileUpload(extend({
+         info: function(){},
+         progress: function(){},
+         complete: function(){}
+      },file,{
          id: id,
          status: PENDING,
          priority: 0, 
