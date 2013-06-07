@@ -190,7 +190,7 @@ var Evaporate = function(config){
             
       function setupRequest(requester){
       
-         l.d('setupRequest()');
+         l.d('setupRequest()',requester);
          
          requester.dateString = new Date().toUTCString();
          requester.x_amz_headers = extend(requester.x_amz_headers,{
@@ -201,8 +201,14 @@ var Evaporate = function(config){
          
             var xhr = new XMLHttpRequest();
             var payload = requester.toSend ? requester.toSend() : null;
+            var url = AWS_URL + requester.path;
             
-            xhr.open(requester.method, AWS_URL + requester.path);
+            if (con.simulateErrors && requester.attempts == 1 &&requester.step == 'upload #3'){
+               log.d('simulating error by POST part #3 to invalid url');
+               url = 'https:///foo';
+            }
+            
+            xhr.open(requester.method, url);
             xhr.setRequestHeader('Authorization', 'AWS ' + con.aws_key + ':' + requester.auth);
             
             if (requester.contentType){
@@ -215,15 +221,30 @@ var Evaporate = function(config){
                }
             }
             
-            xhr.onload = function(){
+            
+            xhr.onreadystatechange = function(){
+               
+               if (xhr.readyState == 4){
+               
+                  if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
+                  if (xhr.status == 200){
+                     requester.on200(xhr);
+                  } else {
+                     requester.onErr(xhr); 
+                  }
+               }
+            };
+            
+            /*xhr.onload = function(){
                if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
                if (xhr.status == 200){
                   requester.on200(xhr);
                }else{
                   requester.onErr(xhr); 
                }
-            };
-            xhr.onerror = function(){requester.onErr(xhr);};
+            };*/
+            
+            xhr.onerror = function(){requester.onErr(xhr,true);};
             
             if (typeof requester.onProgress == 'function'){
                xhr.upload.onprogress = function(evt){
@@ -307,66 +328,11 @@ var Evaporate = function(config){
          setupRequest(initiate);
          authorizedSend(initiate);
       }
-      
-      function makeParts(){
-      
-         var numParts = Math.ceil(__.file.size / con.partSize); 
-         for (var part = 1; part <= numParts; part++){
-         
-            parts[part] = {
-               status: PENDING,
-               start: (part-1)*con.partSize,
-               end: (part*con.partSize),
-               attempts: 0,
-               loadedBytes: 0
-            };
-         }
-      }
-      
-      
-      function processPartsList(){
-      
-         var evaporatingCount = 0, finished = true, stati = [];
-         parts.forEach(function(part,i){
-         
-            stati.push(part.status);
-            if (part){
-               switch(part.status){
-               
-                  case EVAPORATING:
-                     finished = false;
-                     evaporatingCount++;
-                     break;
-                  
-                  case ERROR:
-                  case PENDING:
-                     finished = false;
-                     if (evaporatingCount < con.maxConcurrentParts){
-                        uploadPart(i);
-                        evaporatingCount++;
-                     }
-                     break;
-                     
-                  default:
-                     break;
-               }
-            }
-         });
-         
-         if (countUploadAttempts >= (parts.length-1)){ 
-            __.info('part stati: ' + stati.toString());
-         }
-         // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4. 
-         
-         if (finished){
-            completeUpload();
-         }
-      }
-      
-      
+   
+   
       function uploadPart(partNumber){  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
          
-         var backOff;
+         var backOff, hasErrored;
          
          parts[partNumber].status = EVAPORATING;
          countUploadAttempts++;
@@ -382,14 +348,24 @@ var Evaporate = function(config){
             var upload = {
                method: 'PUT',
                path: '/' + con.bucket + '/' + __.name + '?partNumber='+partNumber+'&uploadId='+__.uploadId,
-               step: 'upload #' + partNumber
+               step: 'upload #' + partNumber,
+               attempts: parts[partNumber].attempts
             };
             // TODO: add md5
             
-            upload.onErr = function (xhr){
-               var msg = 'err uploading part #' + partNumber + '    http status: ' + xhr.status;
-               l.d(msg);
+            upload.onErr = function (xhr, isOnError){
+            
+               var msg = 'err uploading part #' + partNumber + '  http status: ' + xhr.status + 
+               (isOnError ? ',  isOnError' : '') + ',   part status: ' + parts[partNumber].status;
+               
+               l.d(msg, hasErrored);
                __.info(msg);
+               
+               if (hasErrored){
+                  return;
+               }
+               hasErrored = true;
+               
                if (xhr.status == 404){
                    l.w('  404 error resulted in abortion of both this part and the entire file');
                    l.w('  server response: ' + xhr.response);
@@ -453,23 +429,8 @@ var Evaporate = function(config){
          
          },backOff);
       }
-      
-      
-      function monitorProgress(){
-      
-         progressTick = setInterval(function(){
-         
-            var totalBytesLoaded = 0;
-            parts.forEach(function(part,i){
-               totalBytesLoaded += part.loadedBytes;
-            });
-            
-            __.progress(totalBytesLoaded/__.sizeBytes);
-            
-            
-         },con.progressIntervalMS);
-      }
-      
+   
+   
       function completeUpload(){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
       
          l.d('completeUpload');
@@ -505,6 +466,79 @@ var Evaporate = function(config){
          
          setupRequest(complete);
          authorizedSend(complete);
+      }
+      
+   
+      function makeParts(){
+      
+         var numParts = Math.ceil(__.file.size / con.partSize); 
+         for (var part = 1; part <= numParts; part++){
+         
+            parts[part] = {
+               status: PENDING,
+               start: (part-1)*con.partSize,
+               end: (part*con.partSize),
+               attempts: 0,
+               loadedBytes: 0
+            };
+         }
+      }
+      
+      
+      function processPartsList(){
+      
+         var evaporatingCount = 0, finished = true, stati = [];
+         parts.forEach(function(part,i){
+         
+            stati.push(part.status);
+            if (part){
+               switch(part.status){
+               
+                  case EVAPORATING:
+                     finished = false;
+                     evaporatingCount++;
+                     break;
+                  
+                  case ERROR:
+                  case PENDING:
+                     finished = false;
+                     if (evaporatingCount < con.maxConcurrentParts){
+                        uploadPart(i);
+                        evaporatingCount++;
+                     }
+                     break;
+                     
+                  default:
+                     break;
+               }
+            }
+         });
+         log.d('processPartsList() ' + stati.toString());
+         
+         if (countUploadAttempts >= (parts.length-1)){ 
+            __.info('part stati: ' + stati.toString());
+         }
+         // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4. 
+         
+         if (finished){
+            completeUpload();
+         }
+      }
+         
+      
+      function monitorProgress(){
+      
+         progressTick = setInterval(function(){
+         
+            var totalBytesLoaded = 0;
+            parts.forEach(function(part,i){
+               totalBytesLoaded += part.loadedBytes;
+            });
+            
+            __.progress(totalBytesLoaded/__.sizeBytes);
+            
+            
+         },con.progressIntervalMS);
       }
       
            
