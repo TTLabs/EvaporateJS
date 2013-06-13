@@ -96,7 +96,7 @@ var Evaporate = function(config){
 
    var l = {d:function(){}, w: function(){}, e:function(){}};
 
-   if(console && console.log){
+   if(con.logging && console && console.log){
       l = console;
       l.d = l.log;
 
