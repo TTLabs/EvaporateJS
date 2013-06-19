@@ -487,7 +487,7 @@ var Evaporate = function(config){
 
       function processPartsList(){
 
-         var evaporatingCount = 0, finished = true, stati = [];
+         var evaporatingCount = 0, finished = true, stati = [], bytesLoaded = [], info;
          parts.forEach(function(part,i){
 
             stati.push(part.status);
@@ -497,6 +497,7 @@ var Evaporate = function(config){
                   case EVAPORATING:
                      finished = false;
                      evaporatingCount++;
+                     bytesLoaded.push(part.loadedBytes);
                      break;
 
                   case ERROR:
@@ -513,10 +514,12 @@ var Evaporate = function(config){
                }
             }
          });
-         l.d('processPartsList() ' + stati.toString());
+         
+         info = stati.toString() + '  ' + bytesLoaded.toString();
+         l.d('processPartsList() ' + info);
 
          if (countUploadAttempts >= (parts.length-1)){
-            __.info('part stati: ' + stati.toString());
+            __.info('part stati: ' + info);
          }
          // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
 
