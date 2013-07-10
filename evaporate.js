@@ -120,7 +120,8 @@ var Evaporate = function(config){
       files.push(new FileUpload(extend({
          info: function(){},
          progress: function(){},
-         complete: function(){}
+         complete: function(){},
+         error: function(){}
       },file,{
          id: id,
          status: PENDING,
@@ -235,15 +236,6 @@ var Evaporate = function(config){
                }
             };
 
-            /*xhr.onload = function(){
-               if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-               if (xhr.status == 200){
-                  requester.on200(xhr);
-               }else{
-                  requester.onErr(xhr);
-               }
-            };*/
-
             xhr.onerror = function(){requester.onErr(xhr,true);};
 
             if (typeof requester.onProgress == 'function'){
@@ -254,7 +246,10 @@ var Evaporate = function(config){
             xhr.send(payload);
          };
 
-         requester.onFailedAuth = requester.onFailedAuth || function(xhr){};
+         requester.onFailedAuth = requester.onFailedAuth || function(xhr){
+            __.error('Error getting auth for ' + requester.step);
+            requester.onErr(xhr);
+         };
       }
 
 
@@ -274,13 +269,13 @@ var Evaporate = function(config){
 
             if (xhr.readyState == 4){
 
-               if (xhr.status == 200){
+               if (xhr.status == 200 ){ //&& xhr.response.length == 28
 
                   l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
                   authRequester.auth = xhr.response;
                   authRequester.onGotAuth();
 
-               }else{
+               } else {
                   l.w('xhr.onreadystatechange got status: ' + xhr.status  + ' while trying to get authorization for step: \'' + authRequester.step + '\'');
                   authRequester.onFailedAuth(xhr);
                }
@@ -355,7 +350,7 @@ var Evaporate = function(config){
 
             upload.onErr = function (xhr, isOnError){
 
-               var msg = 'err uploading part #' + partNumber + '  http status: ' + xhr.status +
+               var msg = 'problem uploading part #' + partNumber + '  http status: ' + xhr.status +
                (isOnError ? ',  isOnError' : '') + ',   part status: ' + parts[partNumber].status;
 
                l.d(msg, hasErrored);
@@ -367,13 +362,13 @@ var Evaporate = function(config){
                hasErrored = true;
 
                if (xhr.status == 404){
-                   l.w('  404 error resulted in abortion of both this part and the entire file');
-                   l.w('  server response: ' + xhr.response);
+                   var errMsg = '404 error resulted in abortion of both this part and the entire file.';
+                   l.w(errMsg + ' Server response: ' + xhr.response);
+                   __.error(errMsg);
                    // TODO: kill off other uploading parts when file is aborted
                    parts[partNumber].status = ABORTED;
-
                    setStatus(ABORTED);
-               }else{
+               } else {
                   parts[partNumber].status = ERROR;
                   parts[partNumber].loadedBytes = 0;
                   processPartsList();
@@ -434,7 +429,8 @@ var Evaporate = function(config){
       function completeUpload(){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
 
          l.d('completeUpload');
-
+         __.info('will attempt to complete upload');
+         
          var completeDoc = '<CompleteMultipartUpload>';
          parts.forEach(function(part,partNumber){
             if (part){
@@ -451,7 +447,9 @@ var Evaporate = function(config){
          };
 
          complete.onErr = function (){
-            l.w('Error completing uploading  id: ' + __.id);
+            var msg = 'Error completing upload.  id: ' + __.id;
+            l.w(msg);
+            __.error(msg);
             setStatus(ERROR);
          };
 
