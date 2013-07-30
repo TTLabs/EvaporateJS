@@ -456,7 +456,7 @@ var Evaporate = function(config){
          };
          
          complete.on200 = function(xhr){
-            __.complete();
+            __.complete(xhr);
             setStatus(COMPLETE);
          };
          
