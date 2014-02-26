@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>EvaporateJS by TTLabs</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>EvaporateJS</h1>
+          <h2>Javascript library for browser to S3 multipart resumable uploads</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/TTLabs/EvaporateJS/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/TTLabs/EvaporateJS/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/TTLabs/EvaporateJS" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <h1>
+<a name="evaporatejs" class="anchor" href="#evaporatejs"><span class="octicon octicon-link"></span></a>EvaporateJS</h1>
+
+<p>EvaporateJS is a javascript library for directly uploading files from a web browser to AWS S3, using S3's multipart upload. </p>
+
+<h3>
+<a name="why" class="anchor" href="#why"><span class="octicon octicon-link"></span></a>Why?</h3>
+
+<p>EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say you're uploading a 1000MB file, you've uploaded the first 900MBs, and then there is a problem on the network. Normally at this point you'd have to restart the upload from the beginning. Not so with EvaporateJS - it will only redo a small ~5MB chunk of the file, and then carry on from where it left off, and upload the final 100MB.     </p>
+
+<p>This is an beta release. It still needs lots more work and testing, but we do use it in production on videopixie.com, and it does reliably upload 20GB+ files.</p>
+
+<h2>
+<a name="set-up-evaporatejs" class="anchor" href="#set-up-evaporatejs"><span class="octicon octicon-link"></span></a>Set up EvaporateJS</h2>
+
+<ol>
+<li><p>include evaporate.js in your page (see <code>example.html</code>)</p></li>
+<li><p>setup your S3 bucket (see <code>s3_cors_example.xml</code>)</p></li>
+<li><p>setup a signing handler on your application server (see <code>signer_example.py</code>)</p></li>
+</ol><h2>
+<a name="use-evaporatejs" class="anchor" href="#use-evaporatejs"><span class="octicon octicon-link"></span></a>Use EvaporateJS</h2>
+
+<p>So far the api contains just two methods, and one property</p>
+
+<h3>
+<a name="new-evaporate" class="anchor" href="#new-evaporate"><span class="octicon octicon-link"></span></a>new Evaporate()</h3>
+
+<p><code>var evap = new Evaporate(config)</code></p>
+
+<p><code>config</code> has 3 required properties</p>
+
+<ul>
+<li><p><strong>signerUrl</strong>:  a url on your application server which will sign a string with your aws secret key. for example '<a href="http://myserver.com/auth_upload">http://myserver.com/auth_upload</a>'</p></li>
+<li><p><strong>aws_key</strong>:  your aws key, for example 'AKIAIQC7JOOdsfsdf'</p></li>
+<li><p><strong>bucket</strong>:  the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'</p></li>
+</ul><p><code>config</code> has some optional parameters</p>
+
+<ul>
+<li>
+<strong>logging</strong>: default=true, whether EvaporateJS outputs to the console.log  - should be <code>true</code> or <code>false</code>
+</li>
+<li>
+<strong>maxConcurrentParts</strong>: default=5, how many concurrent file PUTs will be attempted</li>
+<li>
+<strong>partSize</strong>: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken</li>
+<li>
+<strong>retryBackoffPower</strong>: default=2, how aggresively to back-off on the delay between retries of a part PUT</li>
+<li>
+<strong>maxRetryBackoffSecs</strong>: default=20, the maximum number of seconds to wait between retries </li>
+<li>
+<strong>progressIntervalMS</strong>: default=1000, the frequency (in milliseconds) at which progress events are dispatched</li>
+</ul><h3>
+<a name="add" class="anchor" href="#add"><span class="octicon octicon-link"></span></a>.add()</h3>
+
+<p><code>evap.add(config)</code></p>
+
+<p><code>config</code> has 2 required parameters:</p>
+
+<ul>
+<li>
+<strong>name</strong>: <em>String</em>. the S3 ObjectName that the completed file will have</li>
+<li>
+<strong>file</strong>: <em>File</em>. a reference to the file object</li>
+</ul><p><code>config</code> has 4 optional parameter:</p>
+
+<ul>
+<li><p><strong>xAmzHeadersAtInitiate</strong>: <em>Object</em>. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be <code>{'x-amz-acl':'public-read'}</code></p></li>
+<li><p><strong>signParams</strong>: <em>Object</em>. an object of key/value pairs that will be passed to <em>all</em> calls to the signerUrl. </p></li>
+<li><p><strong>complete</strong>: <em>function()</em>. a function that will be called when the file upload is complete</p></li>
+<li><p><strong>progress</strong>: <em>function(p)</em>. a function that will be called at a frequency of <em>progressIntervalMS</em> as the file uploads, where <em>p</em> is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but in the case that one or more parts fails and need to be rePUT, it may go also decrease.</p></li>
+</ul><h3>
+<a name="cancel" class="anchor" href="#cancel"><span class="octicon octicon-link"></span></a>.cancel()</h3>
+
+<p><code>evap.cancel(id)</code></p>
+
+<p><code>id</code> is the id of the upload that you want to cancel</p>
+
+<h3>
+<a name="supported" class="anchor" href="#supported"><span class="octicon octicon-link"></span></a>.supported</h3>
+
+<p>The <code>supported</code> property is <em>Boolean</em>, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.      </p>
+        </section>
+
+        <footer>
+          EvaporateJS is maintained by <a href="https://github.com/TTLabs">TTLabs</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>
