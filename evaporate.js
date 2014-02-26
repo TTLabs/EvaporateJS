@@ -1,4 +1,4 @@
-/*Copyright (c) 2013, TT Labs, Inc.
+/*Copyright (c) 2014, TT Labs, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -506,9 +506,14 @@ var Evaporate = function(config){
          },con.progressIntervalMS);
       }
       
-      
-      function monitorPartsProgress(){
 
+      /*
+         Issue #6 identified that some parts would stall silently.
+         The issue was only noted on Safari on OSX. A bug was filed with Apple, #16136393
+         This function was addeded as a work-around. It check the progress of each part every 2 minutes.
+         If it finds a part that has made no progress in the last 2 minutes then it aborts it. It will then be detected as an error, and restarted in the same manner of any other errored part
+      */
+      function monitorPartsProgress(){
          
          progressPartsInterval = setInterval(function(){
 
@@ -541,7 +546,6 @@ var Evaporate = function(config){
                   setTimeout(function(){
                      me.info('part #' + i + ' stalled. will abort. ' + part.loadedBytesPrevious + ' ' + part.loadedBytes);
                      abortPart(i);
-                     //processPartsList();
                   },0);
                }
                
