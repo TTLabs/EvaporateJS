@@ -403,7 +403,7 @@ var Evaporate = function(config){
          };
 
          complete.on200 = function(xhr){
-            me.complete();
+            me.complete(xhr);
             setStatus(COMPLETE);
          };
 
