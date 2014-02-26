@@ -14,7 +14,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 /***************************************************************************************************
 *                                                                                                  *
-*  version 0.0.1                                                                                   *
+*  version 0.0.2                                                                                  *
 *                                                                                                  *
 *  TODO:                                                                                           *
 *       calculate MD5s and send with PUTs                                                          *
@@ -36,7 +36,7 @@ var Evaporate = function(config){
    }
 
 
-   var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4; REMOVED = 5, ERROR = 10, ABORTED = 20, AWS_URL = 'https://s3.amazonaws.com', ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
+   var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4; CANCELED = 5, ERROR = 10, ABORTED = 20, AWS_URL = 'https://s3.amazonaws.com', ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
 
    var _ = this;
    var files = [];
@@ -47,12 +47,13 @@ var Evaporate = function(config){
       maxConcurrentParts: 5,
       partSize: 6 * 1024 * 1024,
       retryBackoffPower: 2,
-      maxRetryBackoffSecs: 20,
-      progressIntervalMS: 1000
+      maxRetryBackoffSecs: 300,
+      progressIntervalMS: 500
+      
 
    }, config);
 
-
+   //con.simulateStalling =  true
 
    _.add = function(file){
 
@@ -74,9 +75,15 @@ var Evaporate = function(config){
       return newId;
    };
 
-   _.remove = function(id){
+   _.cancel = function(id){
 
-      l.d('remove');
+      l.d('cancel ', id);
+      if (files[id]){
+         files[id].stop();
+         return true;
+      } else {
+         return false;
+      }
    };
 
    _.pause = function(id){
@@ -118,9 +125,11 @@ var Evaporate = function(config){
 
       var id = files.length;
       files.push(new FileUpload(extend({
-         info: function(){},
          progress: function(){},
          complete: function(){},
+         cancelled: function(){},
+         info: function(){},
+         warn: function(){},
          error: function(){}
       },file,{
          id: id,
@@ -146,6 +155,7 @@ var Evaporate = function(config){
       setTimeout(processQueue,1);
    }
 
+   
    function processQueue(){
 
       l.d('processQueue   length: ' + files.length);
@@ -168,27 +178,379 @@ var Evaporate = function(config){
    }
 
 
-
    function FileUpload(file){
 
-      var __ = this, parts = [], progressTick, countUploadAttempts = 0;
-      extend(__,file);
+      var me = this, parts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0, xhrs = [];
+      extend(me,file);
 
-      __.start = function(){
+      me.start = function(){
 
-         l.d('starting FileUpload ' + __.id);
+         l.d('starting FileUpload ' + me.id);
 
          setStatus(EVAPORATING);
          initiateUpload();
-         monitorProgress();
+         monitorTotalProgress();
+         monitorPartsProgress();
       };
 
-      __.stop = function(){
+      me.stop = function(){
 
-
+         l.d('stopping FileUpload ', me.id);
+         me.cancelled();
+         me.info('upload canceled');
+         setStatus(CANCELED);
+         cancelAllRequests();
       };
+      
+      
+      function setStatus(s){
+         if (s == COMPLETE || s == ERROR){
+            clearInterval(progressTotalInterval);
+            clearInterval(progressPartsInterval);
+         }
+         me.status = s;
+         me.onStatusChange();
+      }
+      
+      
+      function cancelAllRequests(){
+         l.d('cancelAllRequests()');
+         
+         xhrs.forEach(function(xhr,i){
+            xhr.abort();
+         });
+      }
 
 
+      function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
+
+         var initiate = {
+            method: 'POST',
+            path: '/' + con.bucket + '/' + me.name + '?uploads',
+            step: 'initiate',
+            x_amz_headers: me.xAmzHeadersAtInitiate
+         };
+
+         initiate.onErr = function(xhr){
+            l.d('onInitiateError for FileUpload ' + me.id);
+            setStatus(ERROR);
+         };
+
+         initiate.on200 = function(xhr){
+
+            var match = xhr.response.match(/<UploadId\>(.+)<\/UploadId\>/);
+            if (match && match[1]){
+               me.uploadId = match[1];
+               l.d('requester success. got uploadId ' + me.uploadId);
+               makeParts();
+               processPartsList();
+            }else{
+               initiate.onErr();
+            }
+         };
+
+         setupRequest(initiate);
+         authorizedSend(initiate);
+      }
+
+
+      function uploadPart(partNumber){  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
+
+         var backOff, hasErrored, upload, part;
+
+         part = parts[partNumber];
+         
+         part.status = EVAPORATING;
+         countUploadAttempts++;
+         part.loadedBytesPrevious = null;
+         
+         backOff = part.attempts++ === 0 ? 0 : 1000 * Math.min(
+            con.maxRetryBackoffSecs,
+            Math.pow(con.retryBackoffPower,part.attempts-2)
+         );
+         l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
+
+         upload = {
+            method: 'PUT',
+            path: '/' + con.bucket + '/' + me.name + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
+            step: 'upload #' + partNumber,
+            attempts: part.attempts
+         };
+         // TODO: add md5
+
+         upload.onErr = function (xhr, isOnError){
+
+            var msg = 'problem uploading part #' + partNumber + ',   http status: ' + xhr.status + 
+            ',   hasErrored: ' + !!hasErrored + ',   part status: ' + part.status +
+            ',   readyState: ' + xhr.readyState + (isOnError ? ',   isOnError' : '');
+
+            l.w(msg);
+            me.warn(msg);
+
+            if (hasErrored){
+               return;
+            }
+            hasErrored = true;
+
+            if (xhr.status == 404){
+                var errMsg = '404 error resulted in abortion of both this part and the entire file.';
+                l.w(errMsg + ' Server response: ' + xhr.response);
+                me.error(errMsg);
+                // TODO: kill off other uploading parts when file is aborted
+                part.status = ABORTED;
+                setStatus(ABORTED);
+            } else {
+               part.status = ERROR;
+               part.loadedBytes = 0;
+               processPartsList();
+            }
+            xhr.abort();
+            // TODO: does AWS have other error codes that we can handle?
+         };
+
+         upload.on200 = function (xhr){
+
+            var eTag = xhr.getResponseHeader('ETag'), msg;
+            l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
+            if (eTag != ETAG_OF_0_LENGTH_BLOB){
+               part.eTag = eTag;
+               part.status = COMPLETE;
+            }else{
+               part.status = ERROR;
+               part.loadedBytes = 0;
+               msg = 'eTag matches MD5 of 0 length blob for part #' + partNumber  + '   Retrying part.';
+               l.w(msg);
+               me.warn(msg);
+            }
+            processPartsList();
+         };
+
+         upload.onProgress = function (evt){
+            part.loadedBytes = evt.loaded;
+         };
+         
+         var slicerFn = (me.file.slice ? 'slice' : (me.file.mozSlice ? 'mozSlice' : 'webkitSlice'));
+         // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
+
+         upload.toSend = function() {
+            var slice= me.file[slicerFn](part.start, part.end);
+            l.d('sending part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
+            if (slice.size === 0){
+               l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
+            }
+            return slice;
+         };
+
+         upload.onFailedAuth = function(xhr){
+
+            var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
+            l.w(msg);
+            me.warn(msg);
+            part.status = ERROR;
+            part.loadedBytes = 0;
+            processPartsList();
+         };
+
+         setupRequest(upload);            
+
+         setTimeout(function(){   
+            authorizedSend(upload);
+            log.d('upload #',partNumber,upload);
+         },backOff);
+         
+         part.uploader = upload;
+      }
+      
+      
+      function abortPart(partNumber){  
+
+         var part = parts[partNumber];
+         
+         if (part.uploader.awsXhr){
+            part.uploader.awsXhr.abort();
+         }         
+         if (part.uploader.authXhr){
+            part.uploader.authXhr.abort(); 
+         }
+      }
+
+
+      function completeUpload(){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
+
+         l.d('completeUpload');
+         me.info('will attempt to complete upload');
+         
+         var completeDoc = '<CompleteMultipartUpload>';
+         parts.forEach(function(part,partNumber){
+            if (part){
+               completeDoc += '<Part><PartNumber>' + partNumber + '</PartNumber><ETag>' + part.eTag + '</ETag></Part>';
+            }
+         });
+         completeDoc += '</CompleteMultipartUpload>';
+
+         var complete = {
+            method: 'POST',
+            contentType: 'application/xml; charset=UTF-8',
+            path: '/' + con.bucket + '/' + me.name + '?uploadId='+me.uploadId,
+            step: 'complete'
+         };
+
+         complete.onErr = function (){
+            var msg = 'Error completing upload.';
+            l.w(msg);
+            me.error(msg);
+            setStatus(ERROR);
+         };
+
+         complete.on200 = function(xhr){
+            me.complete();
+            setStatus(COMPLETE);
+         };
+
+         complete.toSend = function() {
+            return completeDoc;
+         };
+
+         setupRequest(complete);
+         authorizedSend(complete);
+      }
+
+
+      function makeParts(){
+
+         var numParts = Math.ceil(me.file.size / con.partSize);
+         for (var part = 1; part <= numParts; part++){
+
+            parts[part] = {
+               status: PENDING,
+               start: (part-1)*con.partSize,
+               end: (part*con.partSize),
+               attempts: 0,
+               loadedBytes: 0,
+               loadedBytesPrevious: null
+            };
+         }
+      }
+
+
+      function processPartsList(){
+
+         var evaporatingCount = 0, finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
+         
+         if (me.status != EVAPORATING){
+            me.info('will not process parts list, as not currently evaporating');
+            return;
+         }
+         
+         parts.forEach(function(part,i){
+   
+            var requiresUpload = false;
+            stati.push(part.status);
+            if (part){
+               switch(part.status){
+
+                  case EVAPORATING:
+                     finished = false;
+                     evaporatingCount++;
+                     bytesLoaded.push(part.loadedBytes);
+                     break;
+
+                  case ERROR:
+                     anyPartHasErrored = true;
+                     requiresUpload = true;
+                     break;
+                     
+                  case PENDING:
+                     requiresUpload = true;
+                     break;
+
+                  default:
+                     break;
+               }
+               
+               if (requiresUpload){
+                  finished = false;
+                  if (evaporatingCount < con.maxConcurrentParts){
+                     uploadPart(i);
+                     evaporatingCount++;
+                  }
+               }
+            }
+         });
+                  
+         
+         info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
+         l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored,info);
+
+         if (countUploadAttempts >= (parts.length-1) || anyPartHasErrored){ 
+            me.info('part stati: ' + info);
+         }
+         // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
+
+         if (finished){
+            completeUpload();
+         }
+      }
+
+
+      function monitorTotalProgress(){
+
+         progressTotalInterval = setInterval(function(){
+
+            var totalBytesLoaded = 0;
+            parts.forEach(function(part,i){
+               totalBytesLoaded += part.loadedBytes;
+            });
+
+            me.progress(totalBytesLoaded/me.sizeBytes);
+         },con.progressIntervalMS);
+      }
+      
+      
+      function monitorPartsProgress(){
+
+         
+         progressPartsInterval = setInterval(function(){
+
+            l.d('monitorPartsProgress() ' + Date());
+            parts.forEach(function(part,i){
+            
+               var healthy;
+               
+               if (part.status != EVAPORATING){
+                  l.d(i,  'not evaporating ');
+                  return;
+               }
+            
+               if (part.loadedBytesPrevious === null){
+                  l.d(i,'no previous ');
+                  part.loadedBytesPrevious = part.loadedBytes;
+                  return;
+               }
+               
+               healthy = part.loadedBytesPrevious < part.loadedBytes;
+               if (con.simulateStalling && i == 4){
+                  if (Math.random() < 0.25){
+                     healthy = false;
+                  }
+               }
+               
+               l.d(i, (healthy ? 'moving. ' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
+
+               if (!healthy){
+                  setTimeout(function(){
+                     me.info('part #' + i + ' stalled. will abort. ' + part.loadedBytesPrevious + ' ' + part.loadedBytes);
+                     abortPart(i);
+                     //processPartsList();
+                  },0);
+               }
+               
+               part.loadedBytesPrevious = part.loadedBytes;
+            });
+         },2 * 60 * 1000);
+      }
+
+      
       function setupRequest(requester){
 
          l.d('setupRequest()',requester);
@@ -201,6 +563,8 @@ var Evaporate = function(config){
          requester.onGotAuth = function (){
 
             var xhr = new XMLHttpRequest();
+            xhrs.push(xhr);
+            requester.awsXhr = xhr;
             var payload = requester.toSend ? requester.toSend() : null;
             var url = AWS_URL + requester.path;
 
@@ -221,7 +585,6 @@ var Evaporate = function(config){
                   xhr.setRequestHeader(key, requester.x_amz_headers[key]);
                }
             }
-
 
             xhr.onreadystatechange = function(){
 
@@ -247,7 +610,7 @@ var Evaporate = function(config){
          };
 
          requester.onFailedAuth = requester.onFailedAuth || function(xhr){
-            __.error('Error getting auth for ' + requester.step);
+            me.error('Error onFailedAuth for step: ' + requester.step);
             requester.onErr(xhr);
          };
       }
@@ -257,300 +620,46 @@ var Evaporate = function(config){
       function authorizedSend(authRequester){
 
          l.d('authorizedSend() ' + authRequester.step);
-         var xhr = new XMLHttpRequest(),
-         url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester);
+         var xhr = new XMLHttpRequest();
+         xhrs.push(xhr);
+         authRequester.authXhr = xhr;
+         var url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester);
+         var warnMsg;
 
-         for (var param in __.signParams) {
-            if (!__.signParams.hasOwnProperty(param)) {continue;}
-            url += ('&'+escape(param)+'='+escape(__.signParams[param]));
+         for (var param in me.signParams) {
+            if (!me.signParams.hasOwnProperty(param)) {continue;}
+            url += ('&'+escape(param)+'='+escape(me.signParams[param]));
          }
 
          xhr.onreadystatechange = function(){
-
+            
             if (xhr.readyState == 4){
 
-               if (xhr.status == 200 ){ //&& xhr.response.length == 28
+               if (xhr.status == 200 && xhr.response.length == 28){ 
 
                   l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
                   authRequester.auth = xhr.response;
                   authRequester.onGotAuth();
 
                } else {
-                  l.w('xhr.onreadystatechange got status: ' + xhr.status  + ' while trying to get authorization for step: \'' + authRequester.step + '\'');
+                  warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
+                  l.w(warnMsg);
+                  me.warn(warnMsg);
                   authRequester.onFailedAuth(xhr);
                }
-
             }
          };
 
          xhr.onerror = function(){
-            l.w('xhr.onerror handled whilst attempting to get authorization for step: \'' + authRequester.step + '\'');
+            warnMsg = 'failed to get authorization (onerror) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
+            l.w(warnMsg);
+            me.warn(warnMsg);
             authRequester.onFailedAuth(xhr);
          };
 
          xhr.open('GET', url);
          xhr.send();
       }
-
-
-      function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
-
-         var initiate = {
-            method: 'POST',
-            path: '/' + con.bucket + '/' + __.name + '?uploads',
-            step: 'initiate',
-            x_amz_headers: __.xAmzHeadersAtInitiate
-         };
-
-         initiate.onErr = function(xhr){
-            l.d('onInitiateError for FileUpload ' + __.id);
-            setStatus(ERROR);
-         };
-
-         initiate.on200 = function(xhr){
-
-            var match = xhr.response.match(/<UploadId\>(.+)<\/UploadId\>/);
-            if (match && match[1]){
-               __.uploadId = match[1];
-               l.d('requester success. got uploadId ' + __.uploadId);
-               makeParts();
-               processPartsList();
-            }else{
-               initiate.onErr();
-            }
-         };
-
-         setupRequest(initiate);
-         authorizedSend(initiate);
-      }
-
-
-      function uploadPart(partNumber){  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
-
-         var backOff, hasErrored;
-
-         parts[partNumber].status = EVAPORATING;
-         countUploadAttempts++;
-
-         backOff = parts[partNumber].attempts++ === 0 ? 0 : 1000 * Math.min(
-            con.maxRetryBackoffSecs,
-            Math.pow(con.retryBackoffPower,parts[partNumber].attempts-2)
-         );
-         l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
-
-         setTimeout(function(){
-
-            var upload = {
-               method: 'PUT',
-               path: '/' + con.bucket + '/' + __.name + '?partNumber='+partNumber+'&uploadId='+__.uploadId,
-               step: 'upload #' + partNumber,
-               attempts: parts[partNumber].attempts
-            };
-            // TODO: add md5
-
-            upload.onErr = function (xhr, isOnError){
-
-               var msg = 'problem uploading part #' + partNumber + '  http status: ' + xhr.status +
-               (isOnError ? ',  isOnError' : '') + ',   part status: ' + parts[partNumber].status;
-
-               l.d(msg, hasErrored);
-               __.info(msg);
-
-               if (hasErrored){
-                  return;
-               }
-               hasErrored = true;
-
-               if (xhr.status == 404){
-                   var errMsg = '404 error resulted in abortion of both this part and the entire file.';
-                   l.w(errMsg + ' Server response: ' + xhr.response);
-                   __.error(errMsg);
-                   // TODO: kill off other uploading parts when file is aborted
-                   parts[partNumber].status = ABORTED;
-                   setStatus(ABORTED);
-               } else {
-                  parts[partNumber].status = ERROR;
-                  parts[partNumber].loadedBytes = 0;
-                  processPartsList();
-               }
-               // TODO: does AWS have other error codes that we can handle?
-            };
-
-            upload.on200 = function (xhr){
-
-               var eTag = xhr.getResponseHeader('ETag'), msg;
-               l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
-               if (eTag != ETAG_OF_0_LENGTH_BLOB){
-                  parts[partNumber].eTag = eTag;
-                  parts[partNumber].status = COMPLETE;
-               }else{
-                  parts[partNumber].status = ERROR;
-                  parts[partNumber].loadedBytes = 0;
-                  msg = 'eTag matches MD5 of 0 length blob for part #' + partNumber  + '   Retrying part.';
-                  l.w(msg);
-                  __.info(msg);
-               }
-               processPartsList();
-            };
-
-            upload.onProgress = function (evt){
-
-               parts[partNumber].loadedBytes = evt.loaded;
-            };
-            var slicerFn = (__.file.slice ? 'slice' : (__.file.mozSlice ? 'mozSlice' : 'webkitSlice'));
-            // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
-
-            upload.toSend = function() {
-               var part = __.file[slicerFn](parts[partNumber].start, parts[partNumber].end);
-               l.d('sending part # ' + partNumber + ' (bytes ' + parts[partNumber].start + ' -> ' + parts[partNumber].end + ')  reported length: ' + part.size);
-               if (part.size === 0){
-                  l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
-               }
-               return part;
-            };
-
-            upload.onFailedAuth = function(xhr){
-
-               var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
-               l.w(msg);
-               __.info(msg);
-               parts[partNumber].status = ERROR;
-               parts[partNumber].loadedBytes = 0;
-               processPartsList();
-            };
-
-            setupRequest(upload);
-            authorizedSend(upload);
-
-         },backOff);
-      }
-
-
-      function completeUpload(){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
-
-         l.d('completeUpload');
-         __.info('will attempt to complete upload');
-         
-         var completeDoc = '<CompleteMultipartUpload>';
-         parts.forEach(function(part,partNumber){
-            if (part){
-               completeDoc += '<Part><PartNumber>' + partNumber + '</PartNumber><ETag>' + part.eTag + '</ETag></Part>';
-            }
-         });
-         completeDoc += '</CompleteMultipartUpload>';
-
-         var complete = {
-            method: 'POST',
-            contentType: 'application/xml; charset=UTF-8',
-            path: '/' + con.bucket + '/' + __.name + '?uploadId='+__.uploadId,
-            step: 'complete'
-         };
-
-         complete.onErr = function (){
-            var msg = 'Error completing upload.  id: ' + __.id;
-            l.w(msg);
-            __.error(msg);
-            setStatus(ERROR);
-         };
-
-         complete.on200 = function(xhr){
-            __.complete();
-            setStatus(COMPLETE);
-         };
-
-         complete.toSend = function() {
-            return completeDoc;
-         };
-
-         setupRequest(complete);
-         authorizedSend(complete);
-      }
-
-
-      function makeParts(){
-
-         var numParts = Math.ceil(__.file.size / con.partSize);
-         for (var part = 1; part <= numParts; part++){
-
-            parts[part] = {
-               status: PENDING,
-               start: (part-1)*con.partSize,
-               end: (part*con.partSize),
-               attempts: 0,
-               loadedBytes: 0
-            };
-         }
-      }
-
-
-      function processPartsList(){
-
-         var evaporatingCount = 0, finished = true, stati = [], bytesLoaded = [], info;
-         parts.forEach(function(part,i){
-
-            stati.push(part.status);
-            if (part){
-               switch(part.status){
-
-                  case EVAPORATING:
-                     finished = false;
-                     evaporatingCount++;
-                     bytesLoaded.push(part.loadedBytes);
-                     break;
-
-                  case ERROR:
-                  case PENDING:
-                     finished = false;
-                     if (evaporatingCount < con.maxConcurrentParts){
-                        uploadPart(i);
-                        evaporatingCount++;
-                     }
-                     break;
-
-                  default:
-                     break;
-               }
-            }
-         });
-         
-         info = stati.toString() + '  ' + bytesLoaded.toString();
-         l.d('processPartsList() ' + info);
-
-         if (countUploadAttempts >= (parts.length-1)){
-            __.info('part stati: ' + info);
-         }
-         // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
-
-         if (finished){
-            completeUpload();
-         }
-      }
-
-
-      function monitorProgress(){
-
-         progressTick = setInterval(function(){
-
-            var totalBytesLoaded = 0;
-            parts.forEach(function(part,i){
-               totalBytesLoaded += part.loadedBytes;
-            });
-
-            __.progress(totalBytesLoaded/__.sizeBytes);
-
-
-         },con.progressIntervalMS);
-      }
-
-
-      function setStatus(s){
-         if (s == COMPLETE || s == ERROR){
-            clearInterval(progressTick);
-         }
-         __.status = s;
-         __.onStatusChange();
-      }
-
 
       function makeStringToSign(request){
 
