@@ -12,13 +12,55 @@ This is an beta release. It still needs lots more work and testing, but we do us
 ##Set up EvaporateJS
 
 
-1. include evaporate.js in your page (see `example.html`)
+1. Include evaporate.js in your page
 
-2. setup your S3 bucket (see `s3_cors_example.xml`)
+     <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
 
-3. setup a signing handler on your application server (see `signer_example.py`)
+2. Setup your S3 bucket, make sure your CORS settings for your S3 bucket looks similar to what is provided below (The PUT allowed method and the ETag exposed header are critical).
+
+        <CORSConfiguration>
+            <CORSRule>
+                <AllowedOrigin>https://*.yourdomain.com</AllowedOrigin>
+                <AllowedOrigin>http://*.yourdomain.com</AllowedOrigin>
+                <AllowedMethod>PUT</AllowedMethod>
+                <AllowedMethod>POST</AllowedMethod>
+                <AllowedMethod>DELETE</AllowedMethod>
+                <ExposeHeader>ETag</ExposeHeader>
+                <AllowedHeader>*</AllowedHeader>
+            </CORSRule>
+        </CORSConfiguration>
+
+3. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can montior these request by running the sample app locally and using the Chrome Web inspector. 
 
 
+##Running the example application
+
+The example application is a simple and quick way to see evaporate.js work.  There are some basic steps needed to make it run locally:
+
+1. Install Google App Engine for Python found [here](https://developers.google.com/appengine/downloads#Google_App_Engine_SDK_for_Python) (The example app is GAE ready and it is run using the GAE dev server)
+
+2. Set your AWS Key and S3 bucket in example/evaporate_example.html
+
+
+        var _e_ = new Evaporate({
+           signerUrl: '/sign_auth', # Do not change this in the example app
+           aws_key: 'your aws_key here',
+           bucket: 'your s3 bucket name here',
+        });
+
+3. Set your AWS Secret Key in example/signing_example.py
+
+        def get(self):
+           to_sign = str(self.request.get('to_sign'))
+           signature = base64.b64encode(hmac.new('YOUR_AWS_SECRET_KEY', to_sign, sha).digest())
+           self.response.headers['Content-Type'] = "text/HTML"
+           self.response.out.write(signature)
+
+4. Run it! (From root of Evaporate directory). and visit 'http://localhost:8080/'
+
+        $ dev_appserver.py app.yaml
+
+5. Upload a file then visit the bucket you specified on the S3 Console page, it will appear there!
 
 ##Use EvaporateJS
 
@@ -77,4 +119,8 @@ So far the api contains just two methods, and one property
 
 ###.supported
 
-The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.      
+The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.  
+
+## Todo:
+* Implement MIME types for uploads, currently we do not provide MIME types on the multipart uploads so everything gets a binary octet stream.
+* Implement a callback for upload initialization.  In order to cancel uploads we need the upload id and an initialization callback can provide it in a repeatable manner.
