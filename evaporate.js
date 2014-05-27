@@ -355,7 +355,7 @@ var Evaporate = function(config){
 
          setTimeout(function(){   
             authorizedSend(upload);
-            log.d('upload #',partNumber,upload);
+            l.d('upload #',partNumber,upload);
          },backOff);
          
          part.uploader = upload;
