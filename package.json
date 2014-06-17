@@ -1,0 +1,31 @@
+{
+  "name": "evaporate",
+  "version": "0.0.2",
+  "description": "Javascript library for browser to S3 multipart resumable uploads",
+  "main": "evaporate.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/TTLabs/EvaporateJS.git"
+  },
+  "keywords": [
+    "aws",
+    "S3",
+    "uploads",
+    "browser"
+  ],
+  "bugs": {
+    "url": "https://github.com/TTLabs/EvaporateJS/issues"
+  },
+  "author": {
+    "name": "Tom Saffell",
+    "email": "tcs@videopixie.com"
+  },
+  "license": "BSD-2-Clause",
+  "homepage": "https://github.com/TTLabs/EvaporateJS"
+}
