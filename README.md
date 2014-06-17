@@ -3,13 +3,13 @@ EvaporateJS
 
 EvaporateJS is a javascript library for directly uploading files from a web browser to AWS S3, using S3's multipart upload. 
 
-###Why?
+### Why?
 EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say you're uploading a 1000MB file, you've uploaded the first 900MBs, and then there is a problem on the network. Normally at this point you'd have to restart the upload from the beginning. Not so with EvaporateJS - it will only redo a small ~5MB chunk of the file, and then carry on from where it left off, and upload the final 100MB.     
 
 This is an beta release. It still needs lots more work and testing, but we do use it in production on videopixie.com, and it does reliably upload 20GB+ files.
 
 
-##Set up EvaporateJS
+## Set up EvaporateJS
 
 
 1. Include evaporate.js in your page
@@ -33,7 +33,7 @@ This is an beta release. It still needs lots more work and testing, but we do us
 3. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can montior these request by running the sample app locally and using the Chrome Web inspector. 
 
 
-##Running the example application
+## Running the example application
 
 The example application is a simple and quick way to see evaporate.js work.  There are some basic steps needed to make it run locally:
 
@@ -62,12 +62,12 @@ The example application is a simple and quick way to see evaporate.js work.  The
 
 5. Upload a file then visit the bucket you specified on the S3 Console page, it will appear there!
 
-##Use EvaporateJS
+## Use EvaporateJS
 
 
 So far the api contains just two methods, and one property
 
-###new Evaporate()
+### new Evaporate()
 
 `var evap = new Evaporate(config)`
 
@@ -91,7 +91,7 @@ So far the api contains just two methods, and one property
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 
 
-###.add()
+### .add()
 
 `evap.add(config)`
 
@@ -112,12 +112,12 @@ So far the api contains just two methods, and one property
 * **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but in the case that one or more parts fails and need to be rePUT, it may go also decrease.
 
 
-###.cancel()
+### .cancel()
 `evap.cancel(id)`
 
 `id` is the id of the upload that you want to cancel
 
-###.supported
+### .supported
 
 The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.  
 
