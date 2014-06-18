@@ -1,0 +1,23 @@
+{
+  "name": "EvaporateJS",
+  "version": "0.0.2",
+  "description": "Javascript library for browser to S3 multipart resumable uploads",
+  "main": "evaporate.js",
+  "keywords": [
+    "s3",
+    "aws",
+    "uploads"
+  ],
+  "authors": [
+    "Tom Saffell"
+  ],
+  "license": "BSD-2-Clause",
+  "homepage": "https://github.com/TTLabs/EvaporateJS",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
