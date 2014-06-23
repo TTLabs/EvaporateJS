@@ -30,7 +30,7 @@ This is an beta release. It still needs lots more work and testing, but we do us
             </CORSRule>
         </CORSConfiguration>
 
-3. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can montior these request by running the sample app locally and using the Chrome Web inspector. 
+3. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can monitor these requests by running the sample app locally and using the Chrome Web inspector.
 
 
 ## Running the example application
