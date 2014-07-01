@@ -231,6 +231,10 @@ var Evaporate = function(config){
             x_amz_headers: me.xAmzHeadersAtInitiate
          };
 
+         if (me.contentType){
+            initiate.contentType = me.contentType;
+         }
+         
          initiate.onErr = function(xhr){
             l.d('onInitiateError for FileUpload ' + me.id);
             setStatus(ERROR);
