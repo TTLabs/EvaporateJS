@@ -109,7 +109,7 @@ So far the api contains just two methods, and one property
 
 * **complete**: _function()_. a function that will be called when the file upload is complete
 
-* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but in the case that one or more parts fails and need to be rePUT, it may go also decrease.
+* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 
@@ -122,6 +122,4 @@ So far the api contains just two methods, and one property
 
 The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.  
 
-## Todo:
-* Implement MIME types for uploads, currently we do not provide MIME types on the multipart uploads so everything gets a binary octet stream.
-* Implement a callback for upload initialization.  In order to cancel uploads we need the upload id and an initialization callback can provide it in a repeatable manner.
+
