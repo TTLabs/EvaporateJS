@@ -89,7 +89,7 @@ So far the api contains just two methods, and one property
 * **retryBackoffPower**: default=2, how aggresively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
-
+* **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
 
 ### .add()
 
