@@ -6,7 +6,7 @@ EvaporateJS is a javascript library for directly uploading files from a web brow
 ### Why?
 EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say you're uploading a 1000MB file, you've uploaded the first 900MBs, and then there is a problem on the network. Normally at this point you'd have to restart the upload from the beginning. Not so with EvaporateJS - it will only redo a small ~5MB chunk of the file, and then carry on from where it left off, and upload the final 100MB.     
 
-This is an beta release. It still needs lots more work and testing, but we do use it in production on videopixie.com, and it does reliably upload 20GB+ files.
+This is an beta release. It still needs lots more work and testing, but we do use it in production on videopixie.com, and it we've seen it upload 100GB+ files.
 
 
 ## Set up EvaporateJS
