@@ -204,7 +204,7 @@ var Evaporate = function(config){
       
       
       function setStatus(s){
-         if (s == COMPLETE || s == ERROR){
+         if (s == COMPLETE || s == ERROR || s == CANCELED){
             clearInterval(progressTotalInterval);
             clearInterval(progressPartsInterval);
          }
