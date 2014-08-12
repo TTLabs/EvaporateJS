@@ -691,7 +691,7 @@ var Evaporate = function(config){
             '\n'+
             x_amz_headers +
             request.path;
-         return escape(to_sign);
+         return encodeURIComponent(to_sign);
       }
    }
 
