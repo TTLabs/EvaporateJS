@@ -24,7 +24,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ***************************************************************************************************/
 
 
-var Evaporate = function(config){
+window.Evaporate = function(config){
 
    this.supported = !((typeof(File)=='undefined') ||
       (typeof(Blob)=='undefined') ||
