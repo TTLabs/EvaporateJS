@@ -60,7 +60,7 @@ The example application is a simple and quick way to see evaporate.js work.  The
 
         $ dev_appserver.py app.yaml
 
-5. Upload a file then visit the bucket you specified on the S3 Console page, it will appear there!
+5. Upload a file then visit the bucket you specified on the S3 Console page, it will appear there! You can also open your Javascript console to see logs.
 
 ## Use EvaporateJS
 
@@ -105,7 +105,9 @@ So far the api contains just two methods, and one property
 
 * **xAmzHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'x-amz-acl':'public-read'}`
 
-* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
+* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl.
+
+* **initiated**: _function(uploadID)_. a function that will be called when a file upload begins. You can use this ID to cancel the file upload.
 
 * **complete**: _function()_. a function that will be called when the file upload is complete
 
