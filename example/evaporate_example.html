@@ -1,33 +1,21 @@
 <!DOCTYPE html>
 <html>
    <head>
-    
-      <title>Evaporate Example</title>
-    
-      <style>
-         
-      </style>
-    
-   
+      <title>Evaporate Example</title>   
       <script language="javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
-      <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
-   
+      <script language="javascript" type="text/javascript" src="javascripts/evaporate.js"></script>
    </head>
    <body>
-      
       <div>
          <input type="file" id="files"  multiple />
       <div>
-            
-      
       <script language="javascript">
-      
          var files;
          
          var _e_ = new Evaporate({
             signerUrl: '/sign_auth',
             aws_key: 'your aws_key here',
-            bucket: 'your s3 bucket name here',
+            bucket: 'your s3 bucket name here'
          });
       
          $('#files').change(function(evt){
@@ -49,50 +37,14 @@
                   },
                   progress: function(progress){
                      console.log('making progress: ' + progress);
+                  },
+                  initiated: function(uploadId) {
+                     console.log('initiated upload with id: ' + uploadId);
                   }
                });
             }
-            
             $(evt.target).val('');
-            
          });
-      
       </script>
-
    </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

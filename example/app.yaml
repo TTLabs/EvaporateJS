@@ -1,0 +1,14 @@
+application: evaporate-example
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /javascripts
+  static_dir: javascripts
+- url: /
+  static_files: evaporate_example.html
+  upload: evaporate_example.html
+- url: /.*
+  script: signing_example.app

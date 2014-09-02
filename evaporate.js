@@ -53,8 +53,6 @@ var Evaporate = function(config){
 
    }, config);
 
-   //con.simulateStalling =  true
-
    _.add = function(file){
 
       l.d('add');
@@ -121,26 +119,29 @@ var Evaporate = function(config){
    }
 
 
-   function addFile(file){
+  function addFile(file){
 
-      var id = files.length;
-      files.push(new FileUpload(extend({
-         progress: function(){},
-         complete: function(){},
-         cancelled: function(){},
-         info: function(){},
-         warn: function(){},
-         error: function(){}
+    var id = files.length
+      , fileUpload = new FileUpload(extend({
+        progress: function(){},
+        complete: function(){},
+        cancelled: function(){},
+        info: function(){},
+        warn: function(){},
+        error: function(){},
+        initiated: function(){}
       },file,{
-         id: id,
-         status: PENDING,
-         priority: 0,
-         onStatusChange: onFileUploadStatusChange,
-         loadedBytes: 0,
-         sizeBytes: file.file.size
-      })));
-      return id;
-   }
+        id: id,
+        status: PENDING,
+        priority: 0,
+        onStatusChange: onFileUploadStatusChange,
+        loadedBytes: 0,
+        sizeBytes: file.file.size
+      }));
+    files.push(fileUpload);
+    fileUpload.initiated(id);
+    return id;
+  }
 
    function onFileUploadStatusChange(){
 

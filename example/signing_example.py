@@ -21,3 +21,6 @@ class SignAuth(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
   ('/sign_auth',SignAuth)
 ],debug = True)
+
+if __name__ == '__main__':
+  run_wsgi_app(app)
