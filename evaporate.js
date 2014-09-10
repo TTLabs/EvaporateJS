@@ -576,7 +576,9 @@ var Evaporate = function(config){
             requester.awsXhr = xhr;
             var payload = requester.toSend ? requester.toSend() : null;
             var url = AWS_URL + requester.path;
-            var all_headers = merge(requester.not_signed_headers, requester.x_amz_headers);
+            var all_headers = {};
+            extend(all_headers, requester.not_signed_headers);
+            extend(all_headers, requester.x_amz_headers);
 
             if (con.simulateErrors && requester.attempts == 1 &&requester.step == 'upload #3'){
                l.d('simulating error by POST part #3 to invalid url');
@@ -712,29 +714,6 @@ var Evaporate = function(config){
          obj1[key2]=obj2[key2];
       }
       return obj1;
-   }
-
-   function merge(){
-      
-      var i = arguments.length,
-          result = {};
-
-      function copyFromTo(src, dest){
-         var key;
-         if (src && typeof src === 'object') {
-            for (key in src) {
-               if (Object.prototype.hasOwnProperty.call(src, key)) {
-                  dest[key] = src[key];
-               }
-            }
-         }
-      }
-
-      while (--i >= 0) {
-         copyFromTo(arguments[i], result);
-      }
-
-      return result;
    }
 
 };
