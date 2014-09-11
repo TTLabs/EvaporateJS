@@ -229,7 +229,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               method: 'POST',
               path: '/' + con.bucket + '/' + me.name + '?uploads',
               step: 'initiate',
-              x_amz_headers: me.xAmzHeadersAtInitiate
+              x_amz_headers: me.xAmzHeadersAtInitiate,
+              not_signed_headers: me.notSignedHeadersAtInitiate
            };
 
            if (me.contentType){
@@ -576,6 +577,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               requester.awsXhr = xhr;
               var payload = requester.toSend ? requester.toSend() : null;
               var url = AWS_URL + requester.path;
+              var all_headers = {};
+              extend(all_headers, requester.not_signed_headers);
+              extend(all_headers, requester.x_amz_headers);
 
               if (con.simulateErrors && requester.attempts == 1 &&requester.step == 'upload #3'){
                  l.d('simulating error by POST part #3 to invalid url');
@@ -585,14 +589,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               xhr.open(requester.method, url);
               xhr.setRequestHeader('Authorization', 'AWS ' + con.aws_key + ':' + requester.auth);
 
-              if (requester.contentType){
-                 xhr.setRequestHeader('Content-Type', requester.contentType);
+              for (var key in all_headers) {
+                 if (all_headers.hasOwnProperty(key)) {
+                    xhr.setRequestHeader(key, all_headers[key]);
+                 }
               }
 
-              for (var key in requester.x_amz_headers) {
-                 if (requester.x_amz_headers.hasOwnProperty(key)) {
-                    xhr.setRequestHeader(key, requester.x_amz_headers[key]);
-                 }
+              if (requester.contentType){
+                 xhr.setRequestHeader('Content-Type', requester.contentType);
               }
 
               xhr.onreadystatechange = function(){

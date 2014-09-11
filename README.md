@@ -103,7 +103,9 @@ So far the api contains just two methods, and one property
 `config` has 4 optional parameter:
 
 
-* **xAmzHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'x-amz-acl':'public-read'}`
+* **xAmzHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST) and should be signed by the aws secret key. An example would be `{'x-amz-acl':'public-read'}`
+
+* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
 
 * **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
 
