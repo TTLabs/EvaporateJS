@@ -125,3 +125,6 @@ So far the api contains just two methods, and one property
 The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.  
 
 
+## Integration
+
+* [angular-evaporate](https://github.com/uqee/angular-evaporate) &mdash; AngularJS module.
