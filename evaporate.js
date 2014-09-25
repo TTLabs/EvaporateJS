@@ -695,7 +695,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               (request.contentType || '')+'\n'+
               '\n'+
               x_amz_headers +
-              getPath();
+              request.path;
            return encodeURIComponent(to_sign);
         }
 
