@@ -90,6 +90,7 @@ So far the api contains just two methods, and one property
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
+* **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
 
 ### .add()
 

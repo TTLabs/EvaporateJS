@@ -49,8 +49,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         partSize: 6 * 1024 * 1024,
         retryBackoffPower: 2,
         maxRetryBackoffSecs: 300,
-        progressIntervalMS: 500
-
+        progressIntervalMS: 500,
+        cloudfront: false
 
      }, config);
 
@@ -227,7 +227,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            var initiate = {
               method: 'POST',
-              path: '/' + con.bucket + '/' + me.name + '?uploads',
+              path: getPath() + '?uploads',
               step: 'initiate',
               x_amz_headers: me.xAmzHeadersAtInitiate,
               not_signed_headers: me.notSignedHeadersAtInitiate
@@ -278,7 +278,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            upload = {
               method: 'PUT',
-              path: '/' + con.bucket + '/' + me.name + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
+              path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
               step: 'upload #' + partNumber,
               attempts: part.attempts
            };
@@ -397,7 +397,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            var complete = {
               method: 'POST',
               contentType: 'application/xml; charset=UTF-8',
-              path: '/' + con.bucket + '/' + me.name + '?uploadId='+me.uploadId,
+              path: getPath() + '?uploadId='+me.uploadId,
               step: 'complete'
            };
 
@@ -698,6 +698,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               request.path;
            return encodeURIComponent(to_sign);
         }
+
+       function getPath() {
+         var path = '/' + con.bucket + '/' + me.name;
+         if (con.cloudfront || AWS_URL.indexOf('cloudfront') > -1) {
+           path = '/' + me.name;
+         }
+         return path;
+       }
+
      }
 
 
