@@ -280,6 +280,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               method: 'PUT',
               path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
               step: 'upload #' + partNumber,
+              x_amz_headers: me.xAmzHeadersAtUpload,
               attempts: part.attempts
            };
            // TODO: add md5
@@ -398,6 +399,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               method: 'POST',
               contentType: 'application/xml; charset=UTF-8',
               path: getPath() + '?uploadId='+me.uploadId,
+              x_amz_headers: me.xAmzHeadersAtComplete,
               step: 'complete'
            };
 
