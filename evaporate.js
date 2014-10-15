@@ -697,6 +697,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               (request.contentType || '')+'\n'+
               '\n'+
               x_amz_headers +
+              (con.cloudfront ? '/' + con.bucket : '')+
               request.path;
            return encodeURIComponent(to_sign);
         }
