@@ -108,7 +108,9 @@ So far the api contains just two methods, and one property
 
 * **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
 
-* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
+* **signParams**: _Object_. an object of key/value pairs that will be passed as `params` to _all_ calls to the signerUrl.
+
+* **signingHeaders**: _Object_. an object of key/value pairs that will be passed as `headers` to _all_ calls to the signerUrl.
 
 * **complete**: _function()_. a function that will be called when the file upload is complete
 
