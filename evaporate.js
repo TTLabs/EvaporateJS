@@ -673,6 +673,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            };
 
            xhr.open('GET', url);
+
+           for (var header in me.signingHeaders) {
+              if (!me.signingHeaders.hasOwnProperty(header)) {continue;}
+              xhr.setRequestHeader(header, me.signingHeaders[header]);
+           }
+
            xhr.send();
         }
 
