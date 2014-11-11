@@ -567,7 +567,18 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            l.d('setupRequest()',requester);
 
-           requester.dateString = new Date().toUTCString();
+           if(!con.timeUrl)
+           {
+         	  requester.dateString = new Date().toUTCString();
+           }
+           else
+           {
+         	   var xmlHttpRequest = new XMLHttpRequest();         	   
+         	   xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
+         	   xmlHttpRequest.send();
+         	   requester.dateString = xmlHttpRequest.responseText;         	   
+           }
+           
            requester.x_amz_headers = extend(requester.x_amz_headers,{
               'x-amz-date': requester.dateString
            });
