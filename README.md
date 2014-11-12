@@ -111,6 +111,14 @@ So far the api contains just two methods, and one property
 * **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
 
 * **complete**: _function()_. a function that will be called when the file upload is complete
+ 
+* **cancelled()** gets called when a successful cancel is called for an upload id.
+
+* **info(msg)** gets called with a debug/info message, usually logged as well.
+
+* **warn(msg)** gets called on a potentially recoverable error, and will be retried (e.g. part upload).
+
+* **error(msg)** gets called on an irrecoverable error.
 
 * **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
 
