@@ -323,7 +323,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
               var eTag = xhr.getResponseHeader('ETag'), msg;
               l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
-              if (eTag != ETAG_OF_0_LENGTH_BLOB){
+              if(part.isEmpty || (eTag != ETAG_OF_0_LENGTH_BLOB)) // issue #58
                  part.eTag = eTag;
                  part.status = COMPLETE;
               }else{
@@ -346,7 +346,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            upload.toSend = function() {
               var slice= me.file[slicerFn](part.start, part.end);
               l.d('sending part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
-              if (slice.size === 0){
+              if(!part.isEmpty && slice.size === 0) { // issue #58
                  l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
               }
               return slice;
@@ -430,7 +430,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
         function makeParts(){
 
-           var numParts = Math.ceil(me.file.size / con.partSize);
+           var numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
            for (var part = 1; part <= numParts; part++){
 
               parts[part] = {
@@ -439,7 +439,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  end: (part*con.partSize),
                  attempts: 0,
                  loadedBytes: 0,
-                 loadedBytesPrevious: null
+                 loadedBytesPrevious: null,
+                 isEmpty: (me.file.size == 0) // issue #58
               };
            }
         }
