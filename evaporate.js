@@ -324,9 +324,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('ETag'), msg;
               l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
               if(part.isEmpty || (eTag != ETAG_OF_0_LENGTH_BLOB)) // issue #58
+              { 
                  part.eTag = eTag;
                  part.status = COMPLETE;
-              }else{
+              }
+              else
+              {
                  part.status = ERROR;
                  part.loadedBytes = 0;
                  msg = 'eTag matches MD5 of 0 length blob for part #' + partNumber  + '   Retrying part.';
@@ -346,7 +349,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            upload.toSend = function() {
               var slice= me.file[slicerFn](part.start, part.end);
               l.d('sending part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
-              if(!part.isEmpty && slice.size === 0) { // issue #58
+              if(!part.isEmpty && slice.size === 0) // issue #58
+              {
                  l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
               }
               return slice;
@@ -440,7 +444,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  attempts: 0,
                  loadedBytes: 0,
                  loadedBytesPrevious: null,
-                 isEmpty: (me.file.size == 0) // issue #58
+                 isEmpty: (me.file.size === 0) // issue #58
               };
            }
         }
