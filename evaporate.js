@@ -66,9 +66,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         if (typeof file.name == 'undefined'){
            err = 'Missing attribute: name  ';
         }
-        else{
-      	  file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
-        }        
         
         /*if (!(file.file instanceof File)){
            err += '.file attribute must be instanceof File';
