@@ -50,7 +50,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         retryBackoffPower: 2,
         maxRetryBackoffSecs: 300,
         progressIntervalMS: 500,
-        cloudfront: false
+        cloudfront: false,
+        encodeFilename: true
 
      }, config);
 
@@ -66,9 +67,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         if (typeof file.name == 'undefined'){
            err = 'Missing attribute: name  ';
         }
-        else{
-      	  file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
-        }        
+        // Removed because we already fix this and encoding twice is bad
+        else if(con.encodeFilename) {
+           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
+        }       
         
         /*if (!(file.file instanceof File)){
            err += '.file attribute must be instanceof File';
@@ -578,14 +580,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            if(!con.timeUrl)
            {
-         	  requester.dateString = new Date().toUTCString();
+               requester.dateString = new Date().toUTCString();
            }
            else
            {
-         	   var xmlHttpRequest = new XMLHttpRequest();         	   
-         	   xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
-         	   xmlHttpRequest.send();
-         	   requester.dateString = xmlHttpRequest.responseText;         	   
+               var xmlHttpRequest = new XMLHttpRequest(); 
+
+               xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
+               xmlHttpRequest.send();
+               requester.dateString = xmlHttpRequest.responseText;               
            }
            
            requester.x_amz_headers = extend(requester.x_amz_headers,{
@@ -663,7 +666,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            for (var param in me.signParams) {
               if (!me.signParams.hasOwnProperty(param)) {continue;}
-              url += ('&'+escape(param)+'='+escape(me.signParams[param]));
+              url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]));
            }
 
            xhr.onreadystatechange = function(){
