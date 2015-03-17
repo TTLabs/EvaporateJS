@@ -45,7 +45,16 @@
                      'x-amz-acl': 'public-read'
                   },
                   signParams: {
-                     foo: 'bar'
+                     foo: 'bar',
+                     fooFunction: function() {
+                       return 'bar';
+                     }
+                  },
+                  signHeaders: {
+                    fooHeaderFunction: function() {
+                      return 'bar'
+                    },
+                    fooHeader: 'bar'
                   },
                   complete: function(){
                      console.log('complete................yay!');

@@ -665,8 +665,21 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            for (var param in me.signParams) {
               if (!me.signParams.hasOwnProperty(param)) {continue;}
-              url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]));
+             if( me.signParams[param] instanceof Function ) {
+               url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]()));
+             } else {
+               url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]));
+             }
            }
+
+          for ( var header in me.signHeaders ) {
+            if (!me.signHeader.hasOwnProperty(header)) {continue;}
+            if( me.signHeaders[header] instanceof Function ) {
+              xhr.setRequestHeader(header, me.signHeaders[header]())
+            } else {
+              xhr.setRequestHeader(header, me.signHeaders[header])
+            }
+          }
 
            xhr.onreadystatechange = function(){
 
