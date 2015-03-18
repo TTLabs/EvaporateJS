@@ -708,6 +708,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            };
 
            xhr.open('GET', url);
+           if( me.beforeSigner instanceof Function ) {
+             me.beforeSigner(xhr);
+           }
            xhr.send();
         }
 

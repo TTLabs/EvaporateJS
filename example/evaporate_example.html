@@ -56,6 +56,10 @@
                     },
                     fooHeader: 'bar'
                   },
+                  beforeSigner: function(xhr) {
+                    var requestDate = (new Date()).toISOString();
+                    xhr.setRequestHeader('Request-Header', requestDate);
+                  },
                   complete: function(){
                      console.log('complete................yay!');
                   },
