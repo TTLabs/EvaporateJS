@@ -1175,7 +1175,7 @@
                 }
 
                 if (typeof me.beforeSigner  === 'function') {
-                    me.beforeSigner(xhr);
+                    me.beforeSigner(xhr, url);
                 }
                 xhr.send();
             }
