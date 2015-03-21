@@ -45,7 +45,20 @@
                      'x-amz-acl': 'public-read'
                   },
                   signParams: {
-                     foo: 'bar'
+                     foo: 'bar',
+                     fooFunction: function() {
+                       return 'bar';
+                     }
+                  },
+                  signHeaders: {
+                    fooHeaderFunction: function() {
+                      return 'bar'
+                    },
+                    fooHeader: 'bar'
+                  },
+                  beforeSigner: function(xhr) {
+                    var requestDate = (new Date()).toISOString();
+                    xhr.setRequestHeader('Request-Header', requestDate);
                   },
                   complete: function(){
                      console.log('complete................yay!');
