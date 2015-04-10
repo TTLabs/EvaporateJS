@@ -673,7 +673,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            }
 
           for ( var header in me.signHeaders ) {
-            if (!me.signHeader.hasOwnProperty(header)) {continue;}
+            if (!me.signHeaders.hasOwnProperty(header)) {continue;}
             if( me.signHeaders[header] instanceof Function ) {
               xhr.setRequestHeader(header, me.signHeaders[header]())
             } else {
