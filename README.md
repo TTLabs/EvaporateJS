@@ -181,7 +181,9 @@ So far the api contains just two methods, and one property
     believes it is attempting to upload a file that already exists, it will perform a HEAD action on the object to verify its eTag. If this option
     is not set or if the cached eTag does not match the object's eTag, the file will be uploaded again. This option is only
     enabled if `computeContentMd5` is enabled.
-
+* **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
+    section "Using AWS Lambda to Sign Requests" below.
+* **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
 ### .add()
 
 `evap.add(config)`
@@ -193,7 +195,7 @@ So far the api contains just two methods, and one property
 
 The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel an upload.
 
-`config` has 8 optional parameter:
+`config` has a number of optional parameters:
 
 
 * **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
@@ -201,6 +203,8 @@ The `.add()` method returns the internal EvaporateJS id of the upload to process
 * **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
 
 * **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
+
+* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
 
 * **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete. Version 1.0.0 introduced the `awsObjectKey` parameter to notifiy the client of the S3 object key that was used if the object already exists on S3.
  
@@ -261,17 +265,59 @@ heuristic.
 
 Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.  
 
+## Working with temporary credentials in Amazon EC2 instances
+
+* [Security and S3 Multipart Upload](http://www.thoughtworks.com/mingle/infrastructure/2015/06/15/security-and-s3-multipart-upload.html)
+
+## Using AWS Lambda to Sign Requests
+
+You need to do a couple of things
+
+* Include the AWS SDK for Javascript, either directly, bower, or browserify
+
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.2.43.min.js"></script>
+
+* Create a lambda function see: [`signing_example_lambda.js`](example/signing_example_lambda.js)
+
+  The Lambda function will receive three parameters to the event; `to_sign`, `sign_params` and `sign_headers`. 
+
+* Setup an IAM user with permissions to call your lambda function. This user should be separate from the one that can
+upload to S3. Here is a sample policy
+
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "Stmt1431709794000",
+                "Effect": "Allow",
+                "Action": [
+                    "lambda:InvokeFunction"
+                ],
+                "Resource": [
+                    "arn:aws:lambda:...:function:cw-signer"
+                ]
+            }
+        ]
+    }
+
+* Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaMethod`, instead of `signerUrl`
+
+    var _e_ = new Evaporate({
+        aws_key: 'your aws_key here',
+        bucket: 'your s3 bucket name here',
+        awsLambda:  new AWS.Lambda({
+            'region': 'lambda region',
+            'accessKeyId': 'a key that can invoke the lambda function',
+            'secretAccessKey': 'the secret'
+        }),
+        awsLambdaMethod: 'arn:aws:lambda:...:function:cw-signer' // arn of your lambda function
+     });
 
 ## Integration
 
 * [angular-evaporate](https://github.com/uqee/angular-evaporate) &mdash; AngularJS module.
-* 
 
 ## License
 
 EvaporateJS is licensed under the BSD 3-Caluse License
 http://opensource.org/licenses/BSD-3-Clause
-
-## Working with temporary credentials in Amazon EC2 instances
-
-* [Security and S3 Multipart Upload](http://www.thoughtworks.com/mingle/infrastructure/2015/06/15/security-and-s3-multipart-upload.html)

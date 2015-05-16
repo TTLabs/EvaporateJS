@@ -46,6 +46,8 @@
             timeUrl: null,
             cryptoMd5Method: null,
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
+            awsLambda: null,
+            awsLambdaMethod: null,
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
@@ -1125,17 +1127,18 @@
                     return;
                 }
 
+                if (con.awsLambda) {
+                    return authorizedSignWithLambda(authRequester);
+                }
+
                 var xhr = assignCurrentXhr(authRequester),
-                    url = con.signerUrl + '?to_sign=' + makeStringToSign(authRequester),
+                    url = con.signerUrl + '?to_sign=' + encodeURIComponent(makeStringToSign(authRequester)),
                     warnMsg;
 
-                for (var param in me.signParams) {
-                    if (!me.signParams.hasOwnProperty(param)) { continue; }
-                    if(typeof me.signParams[param] === 'function') {
-                        url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(me.signParams[param]()));
-                    } else {
-                        url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(me.signParams[param]));
-                    }
+                var signParams = makeSignParamsObject(me.signParams);
+                for (var param in signParams) {
+                    if (!signParams.hasOwnProperty(param)) { continue; }
+                    url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
                 }
 
                 xhr.onreadystatechange = function () {
@@ -1165,19 +1168,51 @@
                 };
 
                 xhr.open('GET', url);
-                for (var header in me.signHeaders) {
-                    if (!me.signHeaders.hasOwnProperty(header)) { continue; }
-                    if (typeof me.signHeaders[header] === 'function') {
-                        xhr.setRequestHeader(header, me.signHeaders[header]())
-                    } else {
-                        xhr.setRequestHeader(header, me.signHeaders[header])
-                    }
+                var signHeaders = makeSignParamsObject(me.signHeaders);
+                for (var header in signHeaders) {
+                    if (!signHeaders.hasOwnProperty(header)) { continue; }
+                    xhr.setRequestHeader(header, signHeaders[header])
                 }
 
                 if (typeof me.beforeSigner  === 'function') {
                     me.beforeSigner(xhr, url);
                 }
                 xhr.send();
+            }
+
+            function authorizedSignWithLambda(authRequester) {
+                con.awsLambda.invoke({
+                    FunctionName: con.awsLambdaFunction,
+                    InvocationType: 'RequestResponse',
+                    Payload: JSON.stringify({
+                        to_sign: makeStringToSign(authRequester),
+                        sign_params: makeSignParamsObject(me.signParams),
+                        sign_headers: makeSignParamsObject(me.signHeaders)
+                    })
+                }, function (err, data) {
+                    if (err) {
+                        warnMsg = 'failed to get authorization with lambda ' + err;
+                        l.w(warnMsg);
+                        me.warn(warnMsg);
+                        authRequester.onFailedAuth(err);
+                        return;
+                    }
+                    authRequester.auth = JSON.parse(data.Payload);
+                    authRequester.onGotAuth();
+                });
+            }
+
+            function makeSignParamsObject(params) {
+                var out;
+                for (var param in params) {
+                    if (!params.hasOwnProperty(param)) { continue; }
+                    if(typeof params[param] === 'function') {
+                        out[param] = params[param]();
+                    } else {
+                        out[param] = params[param];
+                    }
+                }
+                return out;
             }
 
             function makeStringToSign(request) {
@@ -1202,7 +1237,7 @@
                     x_amz_headers +
                     (con.cloudfront ? '/' + con.bucket : '') +
                     request.path;
-                return encodeURIComponent(to_sign);
+                return to_sign;
             }
 
             function getPath() {
