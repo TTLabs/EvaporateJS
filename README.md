@@ -137,3 +137,7 @@ The `supported` property is _Boolean_, and indicates whether the browser has the
 ## Integration
 
 * [angular-evaporate](https://github.com/uqee/angular-evaporate) &mdash; AngularJS module.
+
+## Working with temporary credentials in Amazon EC2 instances
+
+* [Security and S3 Multipart Upload](http://www.thoughtworks.com/mingle/infrastructure/2015/06/15/security-and-s3-multipart-upload.html)
