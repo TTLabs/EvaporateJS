@@ -672,15 +672,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
              }
            }
 
-          for ( var header in me.signHeaders ) {
-            if (!me.signHeaders.hasOwnProperty(header)) {continue;}
-            if( me.signHeaders[header] instanceof Function ) {
-              xhr.setRequestHeader(header, me.signHeaders[header]())
-            } else {
-              xhr.setRequestHeader(header, me.signHeaders[header])
-            }
-          }
-
            xhr.onreadystatechange = function(){
 
               if (xhr.readyState == 4){
@@ -708,6 +699,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            };
 
            xhr.open('GET', url);
+           for ( var header in me.signHeaders ) {
+             if (!me.signHeaders.hasOwnProperty(header)) {continue;}
+             if( me.signHeaders[header] instanceof Function ) {
+               xhr.setRequestHeader(header, me.signHeaders[header]())
+             } else {
+               xhr.setRequestHeader(header, me.signHeaders[header])
+             }
+           }
+          
            if( me.beforeSigner instanceof Function ) {
              me.beforeSigner(xhr);
            }
