@@ -137,6 +137,12 @@ The `supported` property is _Boolean_, and indicates whether the browser has the
 ## Integration
 
 * [angular-evaporate](https://github.com/uqee/angular-evaporate) &mdash; AngularJS module.
+* 
+
+## License
+
+EvaporateJS is licensed under the BSD 3-Caluse License
+http://opensource.org/licenses/BSD-3-Clause
 
 ## Working with temporary credentials in Amazon EC2 instances
 
