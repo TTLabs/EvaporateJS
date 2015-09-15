@@ -124,6 +124,17 @@ So far the api contains just two methods, and one property
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 
+### .pause()
+`evap.pause(id)`
+
+`id` is the id of the upload that you want to pause
+
+### .resume()
+`evap.resume(id)`
+
+`id` is the id of the upload that you want to resume
+
+
 ### .cancel()
 `evap.cancel(id)`
 

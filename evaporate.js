@@ -69,8 +69,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         }
         else if(con.encodeFilename) {
            file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
-        }       
-        
+        }
+
         /*if (!(file.file instanceof File)){
            err += '.file attribute must be instanceof File';
         }*/
@@ -93,13 +93,23 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      };
 
      _.pause = function(id){
-
-
+        l.d('pause ', id);
+        if (files[id]){
+           files[id].pause();
+           return true;
+        } else {
+           return false;
+        }
      };
 
      _.resume = function(id){
-
-
+        l.d('resume ', id);
+        if (files[id]){
+           files[id].resume();
+           return true;
+        } else {
+           return false;
+        }
      };
 
      _.forceRetry = function(){
@@ -208,9 +218,22 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            cancelAllRequests();
         };
 
+        me.pause = function (){
+          l.d('Paused FileUpload ', me.id);
+          setStatus(PAUSED);
+          cancelAllRequests();
+        };
+
+        me.resume = function  () {
+          l.d('Resuming FileUpload ', me.id);
+          setStatus(EVAPORATING);
+          processPartsList();
+          monitorTotalProgress();
+          monitorPartsProgress();
+        };
 
         function setStatus(s){
-           if (s == COMPLETE || s == ERROR || s == CANCELED){
+           if (s == COMPLETE || s == ERROR || s == CANCELED || s == PAUSED){
               clearInterval(progressTotalInterval);
               clearInterval(progressPartsInterval);
            }
@@ -707,7 +730,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                xhr.setRequestHeader(header, me.signHeaders[header])
              }
            }
-          
+
            if( me.beforeSigner instanceof Function ) {
              me.beforeSigner(xhr);
            }
