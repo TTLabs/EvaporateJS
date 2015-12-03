@@ -7,8 +7,8 @@ import webapp2
 import base64
 import hmac, sha
 
-# get your AWS_SECRET_KEY from somewhere...
-# from foo import AWS_SECRET_KEY
+# get YOUR_AWS_SECRET_KEY from somewhere...
+# from foo import YOUR_AWS_SECRET_KEY
 
 class SignAuth(webapp2.RequestHandler):
 
