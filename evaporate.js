@@ -237,6 +237,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
         function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
 
+           function processFileParts() {
+              if (con.computeContentMd5 && me.file.size > 0) {
+                 processPartsListWithMd5Digests();
+              } else {
+                 processPartsList();
+              }
+           }
+
            var initiate = {
               method: 'POST',
               path: getPath() + '?uploads',
@@ -261,7 +269,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  me.uploadId = match[1];
                  l.d('requester success. got uploadId ' + me.uploadId);
                  makeParts();
-                 processPartsList();
+                 processFileParts();
               }else{
                  initiate.onErr();
               }
@@ -293,9 +301,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
               step: 'upload #' + partNumber,
               x_amz_headers: me.xAmzHeadersAtUpload,
+              md5_digest: part.md5_digest,
               attempts: part.attempts
            };
-           // TODO: add md5
 
            upload.onErr = function (xhr, isOnError){
 
@@ -493,6 +501,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  attempts: 0,
                  loadedBytes: 0,
                  loadedBytesPrevious: null,
+                 md5_digest: null,
+                 part: part,
                  isEmpty: (me.file.size === 0) // issue #58
               };
            }
