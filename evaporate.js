@@ -436,10 +436,54 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            authorizedSend(complete);
         }
 
+        var numProcessed = 0,
+            numParts = -1;
+
+        function computePartMd5Digest(part) {
+           return function () {
+              var s = me.file.status;
+              if (s == ERROR || s == CANCELED) {
+                 return;
+              }
+
+              var md5_digest = con.cryptoMd5Method.call(this, this.result);
+
+              l.d(['part #', part.part, ' MD5 digest is ', md5_digest].join(''));
+              part.md5_digest = md5_digest;
+
+              delete part.reader; // release potentially large memory allocation
+
+              numProcessed += 1;
+
+              processPartsList();
+
+              if (numProcessed === numParts) {
+                 l.d('All parts have MD5 digests');
+              }
+
+              setTimeout(processPartsListWithMd5Digests, 1500);
+           }
+        }
+
+        function processPartsListWithMd5Digests() {
+           // We need the request body to compute the MD5 checksum but the body is only available
+           // as a FileReader object whose value is fetched asynchronously.
+
+           // This method delays submitting the part for upload until its MD5 digest is ready
+           for (var i = 1; i <= numParts; i++) {
+              var part = parts[i];
+              if (part.md5_digest === null) {
+                 part.reader = new FileReader();
+                 part.reader.onloadend = computePartMd5Digest(part);
+                 part.reader.readAsBinaryString(getFilePart(me.file, part.start, part.end));
+                 break;
+              }
+           }
+        }
 
         function makeParts(){
 
-           var numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
+           numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
            for (var part = 1; part <= numParts; part++){
 
               parts[part] = {
