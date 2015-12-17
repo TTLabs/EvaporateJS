@@ -295,6 +295,17 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            );
            l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
 
+           function getAwsResponse(xhr) {
+              var oParser = new DOMParser(),
+                  oDOM = oParser.parseFromString(xhr.responseText, "text/xml"),
+                  code = oDOM.getElementsByTagName("Code"),
+                  msg = oDOM.getElementsByTagName("Message");
+              code = code.length ? code[0].innerHTML : '';
+              msg = msg.length ? msg[0].innerHTML : '';
+
+              return code.length ? {code: code, msg: msg} : {};
+           }
+
            upload = {
               method: 'PUT',
               path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
@@ -328,10 +339,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               } else {
                  part.status = ERROR;
                  part.loadedBytes = 0;
+
+                 awsResponse = getAwsResponse(xhr);
+                 if (awsResponse.code) {
+                    l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
+                 }
                  processPartsList();
               }
               xhr.abort();
-              // TODO: does AWS have other error codes that we can handle?
            };
 
            upload.on200 = function (xhr){
