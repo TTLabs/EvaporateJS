@@ -92,7 +92,7 @@ So far the api contains just two methods, and one property
 * **logging**: default=true, whether EvaporateJS outputs to the console.log  - should be `true` or `false`
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
-* **retryBackoffPower**: default=2, how aggresively to back-off on the delay between retries of a part PUT
+* **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
