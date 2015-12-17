@@ -681,6 +681,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  xhr.setRequestHeader('Content-Type', requester.contentType);
               }
 
+              if (requester.md5_digest) {
+                 xhr.setRequestHeader('Content-MD5', requester.md5_digest);
+              }
               xhr.onreadystatechange = function(){
 
                  if (xhr.readyState == 4){
@@ -789,7 +792,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
            to_sign = request.method+'\n'+
-              '\n'+
+              (request.md5_digest || '')+'\n'+
               (request.contentType || '')+'\n'+
               '\n'+
               x_amz_headers +
