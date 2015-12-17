@@ -17,7 +17,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 *  version 0.0.2                                                                                  *
 *                                                                                                  *
 *  TODO:                                                                                           *
-*       calculate MD5s and send with PUTs                                                          *
 *       post eTags to application server to allow resumability after client-side crash/restart      *
 *                                                                                                  *
 *                                                                                                  *
@@ -518,11 +517,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               return;
            }
 
-           parts.forEach(function(part,i){
-
-              var requiresUpload = false;
-              stati.push(part.status);
-              if (part){
+           for (var i = 0; i < parts.length; i++) {
+              var part = parts[i];
+              if (part) {
+                 if (con.computeContentMd5 && part.md5_digest === null) {
+                    return; // MD5 Digest isn't ready yet
+                 }
+                 stati.push(part.status);
                  switch(part.status){
 
                     case EVAPORATING:
@@ -552,7 +553,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                     }
                  }
               }
-           });
+           }
 
 
            info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
