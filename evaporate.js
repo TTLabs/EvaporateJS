@@ -51,9 +51,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         maxRetryBackoffSecs: 300,
         progressIntervalMS: 500,
         cloudfront: false,
-        encodeFilename: true
+        encodeFilename: true,
+        computeContentMd5: false
 
      }, config);
+     if (con.computeContentMd5) {
+        if (typeof con.cryptoMd5Method !== 'function') {
+           alert('Option computeContentMd5 has been set but cryptoMd5Method is not defined.');
+           return;
+        }
+     }
 
      //con.simulateStalling =  true
 
