@@ -463,7 +463,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
         function computePartMd5Digest(part) {
            return function () {
-              var s = me.file.status;
+              var s = me.status;
               if (s == ERROR || s == CANCELED) {
                  return;
               }
