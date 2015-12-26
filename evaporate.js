@@ -845,6 +845,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return obj1;
      }
 
+     function parseXml(body) {
+        var parser = new DOMParser();
+        return parser.parseFromString(body, "text/xml");
+     }
+
   };
 
    function getFilePart(file, start, end) {
