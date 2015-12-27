@@ -319,6 +319,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            upload.onErr = function (xhr, isOnError){
 
+              if (me.status === CANCELED) {
+                 return;
+              }
+
               var msg = 'problem uploading part #' + partNumber + ',   http status: ' + xhr.status +
               ',   hasErrored: ' + !!hasErrored + ',   part status: ' + part.status +
               ',   readyState: ' + xhr.readyState + (isOnError ? ',   isOnError' : '');
@@ -396,10 +400,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            setupRequest(upload);
 
-           setTimeout(function(){
-              authorizedSend(upload);
-              l.d('upload #',partNumber,upload);
-           },backOff);
+           setTimeout(function () {
+              if (me.status !== ABORTED && me.status !== CANCELED) {
+                 authorizedSend(upload);
+                 l.d('upload #', partNumber, upload);
+              }
+           }, backOff);
 
            part.uploader = upload;
         }
