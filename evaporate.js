@@ -503,6 +503,67 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            }
         }
 
+        function abortUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
+
+           l.d('abortUpload');
+           me.info('will attempt to abort the upload');
+
+           var abort = {
+              method: 'DELETE',
+              path: getPath() + '?uploadId=' + me.uploadId,
+              step: 'abort'
+           };
+
+           abort.onErr = function () {
+              var msg = 'Error aborting upload.';
+              l.w(msg);
+              me.error(msg);
+           };
+
+           abort.on200 = function () {
+              setStatus(ABORTED);
+              checkForParts();
+           };
+
+           setupRequest(abort);
+           authorizedSend(abort);
+        }
+
+        function checkForParts() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
+
+           l.d('listParts');
+           me.info('list parts');
+
+           var list = {
+              method: 'GET',
+              path: getPath() + '?uploadId=' + me.uploadId,
+              step: 'list'
+           };
+
+           list.onErr = function (xhr) {
+              if (xhr.status == 404) {
+                 // Success! Parts are not found because the uploadid has been cleared
+                 l.d('checkForParts found no parts.')
+              } else {
+                 var msg = 'Error listing parts.';
+                 l.w(msg);
+                 me.error(msg);
+              }
+           };
+
+           list.on200 = function (xhr) {
+              var oDOM = parseXml(xhr.responseText);
+              var parts = oDOM.getElementsByTagName("Part");
+              if (parts.length) { // Some parts are still uploading
+                 l.d('Parts still found after abort...waiting.')
+                 setTimeout(function () { abortUpload(); }, 1000);
+              }
+           };
+
+           setupRequest(list);
+           authorizedSend(list);
+        }
+
         function makeParts(){
 
            numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
