@@ -602,7 +602,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         /*
            Issue #6 identified that some parts would stall silently.
            The issue was only noted on Safari on OSX. A bug was filed with Apple, #16136393
-           This function was addeded as a work-around. It check the progress of each part every 2 minutes.
+           This function was added as a work-around. It checks the progress of each part every 2 minutes.
            If it finds a part that has made no progress in the last 2 minutes then it aborts it. It will then be detected as an error, and restarted in the same manner of any other errored part
         */
         function monitorPartsProgress(){
