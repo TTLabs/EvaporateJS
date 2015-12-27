@@ -538,6 +538,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (con.computeContentMd5 && part.md5_digest === null) {
                     return; // MD5 Digest isn't ready yet
                  }
+                 var requiresUpload = false;
                  stati.push(part.status);
                  switch(part.status){
 
