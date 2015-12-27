@@ -335,9 +335,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                   var errMsg = '404 error resulted in abortion of both this part and the entire file.';
                   l.w(errMsg + ' Server response: ' + xhr.response);
                   me.error(errMsg);
-                  // TODO: kill off other uploading parts when file is aborted
                   part.status = ABORTED;
-                  setStatus(ABORTED);
+                  abortUpload();
               } else {
                  part.status = ERROR;
                  part.loadedBytes = 0;
