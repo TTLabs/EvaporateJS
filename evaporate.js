@@ -706,7 +706,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (xhr.readyState == 4){
 
                     if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-                    if (xhr.status == 200){
+                    if (xhr.status == 200  || xhr.status == 204){
                        requester.on200(xhr);
                     } else {
                        requester.onErr(xhr);
