@@ -209,8 +209,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            l.d('stopping FileUpload ', me.id);
            me.cancelled();
-           me.info('upload canceled');
            setStatus(CANCELED);
+           me.info('Canceling uploads...');
            cancelAllRequests();
         };
 
@@ -544,7 +544,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            list.onErr = function (xhr) {
               if (xhr.status == 404) {
                  // Success! Parts are not found because the uploadid has been cleared
-                 l.d('checkForParts found no parts.')
+                 me.info('upload canceled');
               } else {
                  var msg = 'Error listing parts.';
                  l.w(msg);
@@ -558,6 +558,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               if (parts.length) { // Some parts are still uploading
                  l.d('Parts still found after abort...waiting.')
                  setTimeout(function () { abortUpload(); }, 1000);
+              } else {
+                 me.info('upload canceled');
               }
            };
 
