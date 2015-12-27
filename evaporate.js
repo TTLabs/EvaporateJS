@@ -441,7 +441,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            var abort = {
               method: 'DELETE',
               path: getPath() + '?uploadId=' + me.uploadId,
-              step: 'abort'
+              step: 'abort',
+              successStatus: 204
            };
 
            abort.onErr = function () {
@@ -665,6 +666,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var payload = requester.toSend ? requester.toSend() : null;
               var url = AWS_URL + requester.path;
               var all_headers = {};
+              var status_success = requester.successStatus || 200;
               extend(all_headers, requester.not_signed_headers);
               extend(all_headers, requester.x_amz_headers);
 
@@ -691,7 +693,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (xhr.readyState == 4){
 
                     if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-                    if (xhr.status == 200  || xhr.status == 204){
+                    if (xhr.status == status_success) {
                        requester.on200(xhr);
                     } else {
                        requester.onErr(xhr);
