@@ -209,8 +209,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            l.d('stopping FileUpload ', me.id);
            me.cancelled();
-           me.info('upload canceled');
            setStatus(CANCELED);
+           me.info('Canceling uploads...');
            cancelAllRequests();
         };
 
@@ -228,9 +228,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         function cancelAllRequests(){
            l.d('cancelAllRequests()');
 
-           xhrs.forEach(function(xhr,i){
-              xhr.abort();
-           });
+           for (var i = 1; i < parts.length; i++) {
+              abortPart(i);
+           }
+
+           abortUpload();
         }
 
 
@@ -317,6 +319,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            upload.onErr = function (xhr, isOnError){
 
+              if (me.status === CANCELED) {
+                 return;
+              }
+
               var msg = 'problem uploading part #' + partNumber + ',   http status: ' + xhr.status +
               ',   hasErrored: ' + !!hasErrored + ',   part status: ' + part.status +
               ',   readyState: ' + xhr.readyState + (isOnError ? ',   isOnError' : '');
@@ -333,9 +339,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                   var errMsg = '404 error resulted in abortion of both this part and the entire file.';
                   l.w(errMsg + ' Server response: ' + xhr.response);
                   me.error(errMsg);
-                  // TODO: kill off other uploading parts when file is aborted
                   part.status = ABORTED;
-                  setStatus(ABORTED);
+                  abortUpload();
               } else {
                  part.status = ERROR;
                  part.loadedBytes = 0;
@@ -395,10 +400,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            setupRequest(upload);
 
-           setTimeout(function(){
-              authorizedSend(upload);
-              l.d('upload #',partNumber,upload);
-           },backOff);
+           setTimeout(function () {
+              if (me.status !== ABORTED && me.status !== CANCELED) {
+                 authorizedSend(upload);
+                 l.d('upload #', partNumber, upload);
+              }
+           }, backOff);
 
            part.uploader = upload;
         }
@@ -409,9 +416,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            var part = parts[partNumber];
 
            if (part.uploader.awsXhr){
+              part.uploader.awsXhr.onreadystatechange = function () {};
               part.uploader.awsXhr.abort();
            }
            if (part.uploader.authXhr){
+              part.uploader.authXhr.onreadystatechange = function () {};
               part.uploader.authXhr.abort();
            }
         }
@@ -501,6 +510,70 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  break;
               }
            }
+        }
+
+        function abortUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
+
+           l.d('abortUpload');
+           me.info('will attempt to abort the upload');
+
+           var abort = {
+              method: 'DELETE',
+              path: getPath() + '?uploadId=' + me.uploadId,
+              step: 'abort',
+              successStatus: 204
+           };
+
+           abort.onErr = function () {
+              var msg = 'Error aborting upload.';
+              l.w(msg);
+              me.error(msg);
+           };
+
+           abort.on200 = function () {
+              setStatus(ABORTED);
+              checkForParts();
+           };
+
+           setupRequest(abort);
+           authorizedSend(abort);
+        }
+
+        function checkForParts() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
+
+           l.d('listParts');
+           me.info('list parts');
+
+           var list = {
+              method: 'GET',
+              path: getPath() + '?uploadId=' + me.uploadId,
+              step: 'list'
+           };
+
+           list.onErr = function (xhr) {
+              if (xhr.status == 404) {
+                 // Success! Parts are not found because the uploadid has been cleared
+                 me.info('upload canceled');
+              } else {
+                 var msg = 'Error listing parts.';
+                 l.w(msg);
+                 me.error(msg);
+              }
+           };
+
+           list.on200 = function (xhr) {
+              var oDOM = parseXml(xhr.responseText);
+              var parts = oDOM.getElementsByTagName("Part");
+              if (parts.length) { // Some parts are still uploading
+                 l.d('Parts still found after abort...waiting.')
+                 setTimeout(function () { abortUpload(); }, 1000);
+              } else {
+                 me.info('upload canceled');
+              }
+           };
+
+           setupRequest(list);
+           authorizedSend(list);
         }
 
         function makeParts(){
@@ -677,6 +750,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var payload = requester.toSend ? requester.toSend() : null;
               var url = AWS_URL + requester.path;
               var all_headers = {};
+              var status_success = requester.successStatus || 200;
               extend(all_headers, requester.not_signed_headers);
               extend(all_headers, requester.x_amz_headers);
 
@@ -706,7 +780,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (xhr.readyState == 4){
 
                     if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-                    if (xhr.status == 200){
+                    if (xhr.status == status_success) {
                        requester.on200(xhr);
                     } else {
                        requester.onErr(xhr);
@@ -843,6 +917,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            obj1[key2]=obj2[key2];
         }
         return obj1;
+     }
+
+     function parseXml(body) {
+        var parser = new DOMParser();
+        return parser.parseFromString(body, "text/xml");
      }
 
   };
