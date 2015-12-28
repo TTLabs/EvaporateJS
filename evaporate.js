@@ -416,9 +416,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            var part = parts[partNumber];
 
            if (part.uploader.awsXhr){
+              part.uploader.awsXhr.onreadystatechange = function () {};
               part.uploader.awsXhr.abort();
            }
            if (part.uploader.authXhr){
+              part.uploader.authXhr.onreadystatechange = function () {};
               part.uploader.authXhr.abort();
            }
         }
