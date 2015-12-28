@@ -222,9 +222,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         function cancelAllRequests(){
            l.d('cancelAllRequests()');
 
-           xhrs.forEach(function(xhr,i){
-              xhr.abort();
-           });
+           for (var i = 1; i < parts.length; i++) {
+              abortPart(i);
+           }
 
            abortUpload();
         }
