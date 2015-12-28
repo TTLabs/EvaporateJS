@@ -186,7 +186,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
      function FileUpload(file){
 
-        var me = this, parts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0, xhrs = [];
+        var me = this, parts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0;
         extend(me,file);
 
         me.start = function(){
@@ -222,9 +222,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         function cancelAllRequests(){
            l.d('cancelAllRequests()');
 
-           xhrs.forEach(function(xhr,i){
-              xhr.abort();
-           });
+           for (var i = 1; i < parts.length; i++) {
+              abortPart(i);
+           }
         }
 
 
@@ -286,7 +286,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
               step: 'upload #' + partNumber,
               x_amz_headers: me.xAmzHeadersAtUpload,
-              attempts: part.attempts
+              attempts: part.attempts,
+              part: part
            };
            // TODO: add md5
 
@@ -377,18 +378,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            part.uploader = upload;
         }
 
-
         function abortPart(partNumber){
 
            var part = parts[partNumber];
-
-           if (part.uploader.awsXhr){
-              part.uploader.awsXhr.abort();
-           }
-           if (part.uploader.authXhr){
-              part.uploader.authXhr.abort();
+           if (part.currentXhr) {
+              part.currentXhr.abort();
            }
         }
+
 
 
         function completeUpload(){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -596,9 +593,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            requester.onGotAuth = function (){
 
-              var xhr = new XMLHttpRequest();
-              xhrs.push(xhr);
-              requester.awsXhr = xhr;
+              if (hasCurrentXhr(requester)) {
+                 l.w('onGotAuth() step', requester.step, 'is already in progress. Returning.');
+                 return;
+              }
+
+              var xhr = assignCurrentXhr(requester);
+
               var payload = requester.toSend ? requester.toSend() : null;
               var url = AWS_URL + requester.path;
               var all_headers = {};
@@ -628,6 +629,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (xhr.readyState == 4){
 
                     if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
+                    clearCurrentXhr(requester);
                     if (xhr.status == 200){
                        requester.on200(xhr);
                     } else {
@@ -636,7 +638,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  }
               };
 
-              xhr.onerror = function(){requester.onErr(xhr,true);};
+              xhr.onerror = function(){
+                 clearCurrentXhr(requester);
+                 requester.onErr(xhr, true);
+              };
 
               if (typeof requester.onProgress == 'function'){
                  xhr.upload.onprogress = function(evt){
@@ -657,9 +662,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         function authorizedSend(authRequester){
 
            l.d('authorizedSend() ' + authRequester.step);
-           var xhr = new XMLHttpRequest();
-           xhrs.push(xhr);
-           authRequester.authXhr = xhr;
+           if (hasCurrentXhr(authRequester)) {
+              l.w('authorizedSend() step', authRequester.step, 'is already in progress. Returning.');
+              return;
+           }
+
+           var xhr = assignCurrentXhr(authRequester);
            var url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester);
            var warnMsg;
 
@@ -680,12 +688,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
                     l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
                     authRequester.auth = xhr.response;
+                    clearCurrentXhr(authRequester);
                     authRequester.onGotAuth();
 
                  } else {
+
                     warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                     l.w(warnMsg);
                     me.warn(warnMsg);
+                    clearCurrentXhr(authRequester);
                     authRequester.onFailedAuth(xhr);
                  }
               }
@@ -748,6 +759,23 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
          return path;
        }
 
+        function getBaseXhrObject(requester) {
+           // The Xhr is either on the upload or on a part...
+           return (typeof requester.part === 'undefined') ? requester : requester.part;
+        }
+
+        function hasCurrentXhr(requester) {
+           return !!getBaseXhrObject(requester).currentXhr;
+        }
+
+        function assignCurrentXhr(requester) {
+           var xhr = getBaseXhrObject(requester).currentXhr =  new XMLHttpRequest();
+           return xhr;
+        }
+
+        function clearCurrentXhr(requester) {
+           delete getBaseXhrObject(requester).currentXhr;
+        }
      }
 
 
