@@ -223,7 +223,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            l.d('cancelAllRequests()');
 
            for (var i = 1; i < parts.length; i++) {
-              abortPart(i);
+              abortPart(i, true);
            }
 
            abortUpload();
@@ -384,17 +384,20 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            part.uploader = upload;
         }
 
-
-        function abortPart(partNumber){
+        function abortPart(partNumber, clearReadyStateCallback){
 
            var part = parts[partNumber];
 
            if (part.uploader.awsXhr){
-              part.uploader.awsXhr.onreadystatechange = function () {};
+              if (!!clearReadyStateCallback) {
+                 part.uploader.awsXhr.onreadystatechange = function () {};
+              }
               part.uploader.awsXhr.abort();
            }
            if (part.uploader.authXhr){
-              part.uploader.authXhr.onreadystatechange = function () {};
+              if (!!clearReadyStateCallback) {
+                 part.uploader.authXhr.onreadystatechange = function () {};
+              }
               part.uploader.authXhr.abort();
            }
         }
