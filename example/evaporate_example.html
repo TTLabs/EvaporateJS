@@ -56,9 +56,10 @@
                     },
                     fooHeader: 'bar'
                   },
-                  beforeSigner: function(xhr) {
+                  beforeSigner: function(xhr, url) {
                     var requestDate = (new Date()).toISOString();
                     xhr.setRequestHeader('Request-Header', requestDate);
+                    console.log('the xhr url is:' + url);
                   },
                   complete: function(){
                      console.log('complete................yay!');
