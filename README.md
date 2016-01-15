@@ -31,6 +31,8 @@ specified [here](https://www.ietf.org/rfc/rfc1864.txt). The following library pr
                 <AllowedMethod>PUT</AllowedMethod>
                 <AllowedMethod>POST</AllowedMethod>
                 <AllowedMethod>DELETE</AllowedMethod>
+                <AllowedMethod>GET</AllowedMethod>
+                <AllowedMethod>HEAD</AllowedMethod>
                 <ExposeHeader>ETag</ExposeHeader>
                 <AllowedHeader>*</AllowedHeader>
             </CORSRule>
@@ -102,6 +104,9 @@ So far the api contains just two methods, and one property
 * **cryptoMd5Method',**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript binary string representation of the body payload to encode. If you are using:
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.hashBinary(data, true)); }`.
+* **s3FileCacheHoursAgo',**: default=no cache, whether to use the S3 uploaded cache of parts and files for ease of recovering after
+    client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
+    and files. The uploaded parts and and file status are retrieved from S3.
 
 ### .add()
 
@@ -144,6 +149,21 @@ So far the api contains just two methods, and one property
 
 The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.  
 
+### s3FileCacheHoursAgo
+
+When `s3FileCacheHoursAgo` is enabled, the uploader will create a small footprint of the uploaded file in `localStorage`. Before a
+file is uploaded, this cache is queried by file name (the path is not available to browsers). It then verifies that the `partSize` used
+when uploading matches the current partSize; the file size is the same; the file lastModifiedDate is unchanged and the file mime type is the
+same.
+
+If the uploaded file has an unfinished multipart upload ID associated with it, then S3 is queried for the parts that have been uploaded and
+only uploads the parts that are outstanding.
+
+If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to the Etag of
+what is currently uploaded. If the the two ETags match, the file is not uploaded again.
+
+The timestamp of the last time the part was uploaded is compared against the value of a `Date()` calculated as `s3FileCacheHoursAgo` ago
+as a way to gauge 'freshness'. If the last upload was earlier than the number of hours specified, then the file is uploaded again.
 
 ## Integration
 

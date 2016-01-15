@@ -16,13 +16,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 *                                                                                                  *
 *  version 0.0.2                                                                                  *
 *                                                                                                  *
-*  TODO:                                                                                           *
-*       post eTags to application server to allow resumability after client-side crash/restart      *
-*                                                                                                  *
-*                                                                                                  *
 ***************************************************************************************************/
 
 (function() {
+   var FAR_FUTURE = new Date('2060-10-22');
 
   var Evaporate = function (config) {
 
@@ -57,7 +54,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         progressIntervalMS: 500,
         cloudfront: false,
         encodeFilename: true,
-        computeContentMd5: false
+        computeContentMd5: false,
+        s3FileCacheHoursAgo: null // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
 
      }, config);
      if (con.computeContentMd5) {
@@ -66,6 +64,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            return;
         }
      }
+
+     var _d = new Date(),
+         HOURS_AGO = new Date(_d.setHours(_d.getHours() - (con.s3FileCacheHoursAgo || -100)));
 
      //con.simulateStalling =  true
 
@@ -78,8 +79,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         }
         if (typeof file.name == 'undefined'){
            err = 'Missing attribute: name  ';
-        }
-        else if(con.encodeFilename) {
+        } else if(con.encodeFilename) {
            file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
         }       
         
@@ -155,7 +155,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            priority: 0,
            onStatusChange: onFileUploadStatusChange,
            loadedBytes: 0,
-           sizeBytes: file.file.size
+           sizeBytes: file.file.size,
+           eTag: ''
         })));
         return id;
      }
@@ -198,7 +199,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
      function FileUpload(file){
 
-        var me = this, parts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
+        var me = this, parts = [], completedParts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
             countInitiateAttempts = 0, countCompleteAttempts = 0;
         extend(me,file);
 
@@ -207,9 +208,21 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            l.d('starting FileUpload ' + me.id);
 
            setStatus(EVAPORATING);
-           initiateUpload();
-           monitorTotalProgress();
-           monitorPartsProgress();
+
+           var awsKey = me.name;
+
+           getUnfinishedFileUpload();
+
+           if (typeof me.uploadId === 'undefined') {
+              initiateUpload();
+              monitorProgress();
+           } else {
+              if (typeof me.eTag === 'undefined') {
+                 getUploadParts(0);
+              } else {
+                 headObject(awsKey);
+              }
+           }
         };
 
         me.stop = function(){
@@ -223,7 +236,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
         function setStatus(s){
-           if (s == COMPLETE || s == ERROR || s == CANCELED){
+           if (s === COMPLETE || s === ERROR || s === CANCELED) {
               clearInterval(progressTotalInterval);
               clearInterval(progressPartsInterval);
            }
@@ -243,15 +256,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         }
 
 
-        function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
-
-           function processFileParts() {
-              if (con.computeContentMd5 && me.file.size > 0) {
-                 processPartsListWithMd5Digests();
-              } else {
-                 processPartsList();
-              }
+        function processFileParts() {
+           if (con.computeContentMd5 && me.file.size > 0) {
+              processPartsListWithMd5Digests();
+           } else {
+              processPartsList();
            }
+        }
+
+        function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
 
            var initiate = {
               method: 'POST',
@@ -295,6 +308,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               if (match && match[1]){
                  me.uploadId = match[1];
                  l.d('requester success. got uploadId ' + me.uploadId);
+                 createUploadFile();
                  makeParts();
                  processFileParts();
               }else{
@@ -494,8 +508,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            };
 
            complete.on200 = function(xhr){
+              var oDOM = parseXml(xhr.responseText),
+                  result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
+              me.eTag = nodeValue(result, "ETag");
               me.complete(xhr);
-              setStatus(COMPLETE);
+              completeUploadFile();
            };
 
            complete.toSend = function() {
@@ -504,6 +521,45 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            setupRequest(complete);
            authorizedSend(complete);
+        }
+
+        function headObject(awsKey){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
+
+           l.d('headObject');
+           me.info('will attempt to verify existence of the file');
+
+           var head_object = {
+              method: 'HEAD',
+              path: getPath(),
+              step: 'head_object'
+           };
+
+           head_object.onErr = function (){
+              var msg = 'Error completing head object. Will re-upload file.';
+              l.w(msg);
+              me.awsKey = awsKey;
+              createUploadFile();
+              initiateUpload();
+              monitorProgress();
+           };
+
+           head_object.on200 = function(xhr){
+              var eTag = xhr.getResponseHeader('Etag');
+              if (eTag === me.eTag) {
+                 l.d('headObject found matching object on S3.');
+                 setStatus(COMPLETE);
+                 me.progress(1.0);
+              } else {
+                 l.d('headObject not found on S3.');
+                 me.name = awsKey;
+                 createUploadFile();
+                 initiateUpload();
+                 monitorProgress();
+              }
+           };
+
+           setupRequest(head_object);
+           authorizedSend(head_object);
         }
 
         var numProcessed = 0,
@@ -542,8 +598,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            // This method delays submitting the part for upload until its MD5 digest is ready
            for (var i = 1; i <= numParts; i++) {
               var part = parts[i];
-              if (part.md5_digest === null) {
-                 part.reader = new FileReader();
+              if (part.status !== COMPLETE && part.md5_digest === null) {
+                  part.reader = new FileReader();
                  part.reader.onloadend = computePartMd5Digest(part);
                  part.reader.readAsBinaryString(getFilePart(me.file, part.start, part.end));
                  break;
@@ -592,6 +648,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            list.onErr = function (xhr) {
               if (xhr.status == 404) {
                  // Success! Parts are not found because the uploadid has been cleared
+                 removeUploadFile();
                  me.info('upload canceled');
               } else {
                  var msg = 'Error listing parts.';
@@ -615,25 +672,159 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            authorizedSend(list);
         }
 
+
+        function getUploadParts(partNumberMarker) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
+
+           l.d('getUploadParts() for uploadId starting at part # ' + partNumberMarker);
+           me.info('getUploadParts() for uploadId starting at part # ' + partNumberMarker);
+
+           var list = {
+              method: 'GET',
+              path: getPath() + '?uploadId=' + me.uploadId,
+              query_string: "&part-number-marker=" + partNumberMarker,
+              step: 'get upload parts'
+           };
+
+           list.onErr = function (xhr) {
+              if (xhr.status === 404) {
+                 // Success! Upload is no longer recognized, so there is nothing to fetch
+                 me.info(['uploadId ', me.uploadId, ' does not exist.'].join(''));
+                 removeUploadFile();
+                 monitorProgress();
+                 makeParts();
+                 processPartsList();
+              } else {
+                 var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
+                 l.w(msg);
+                 me.error(msg);
+              }
+           };
+
+           list.on200 = function (xhr) {
+              me.info(['uploadId ', me.uploadId, ' is not complete. Fetching parts from part marker=', partNumberMarker].join(''));
+              var oDOM = parseXml(xhr.responseText),
+                  listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
+                  isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
+                  uploadedParts = oDOM.getElementsByTagName("Part"),
+                  uploadedPart,
+                  parts_len = uploadedParts.length,
+                  cp;
+
+              for (var i = 0; i < parts_len; i++) {
+                 cp = uploadedParts[i];
+                 completedParts.push({
+                    eTag: nodeValue(cp, "ETag"),
+                    partNumber: parseInt(nodeValue(cp, "PartNumber")),
+                    size: parseInt(nodeValue(cp, "Size")),
+                    LastModified: nodeValue(cp, "LastModified")
+                 })
+              }
+
+              oDOM = uploadedParts = null; // We don't need these potentially large object any longer
+
+              if (isTruncated) {
+                 var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
+                 getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
+              } else {
+                 makeParts();
+                 completedParts.forEach(function (cp) {
+                    uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
+                    uploadedPart.eTag = cp.eTag;
+                    uploadedPart.attempts = 1;
+                    uploadedPart.loadedBytes = cp.size;
+                    uploadedPart.loadedBytesPrevious = cp.size;
+                    uploadedPart.finishedUploadingAt = cp.LastModified;
+                    uploadedPart.md5_digest = 'n/a';
+                    parts[cp.partNumber] = uploadedPart;
+                 });
+                 monitorProgress();
+                 processFileParts();
+              }
+              listPartsResult = null;  // We don't need these potentially large object any longer
+           };
+
+           setupRequest(list);
+           authorizedSend(list);
+        }
+
         function makeParts(){
 
            numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
            for (var part = 1; part <= numParts; part++){
+              var status = (typeof parts[part] === 'undefined') ? PENDING : parts[part].status;
 
-              parts[part] = {
-                 status: PENDING,
-                 start: (part-1)*con.partSize,
-                 end: (part*con.partSize),
-                 attempts: 0,
-                 loadedBytes: 0,
-                 loadedBytesPrevious: null,
-                 md5_digest: null,
-                 part: part,
-                 isEmpty: (me.file.size === 0) // issue #58
-              };
+              if (status !== COMPLETE) {
+                 parts[part] = makePart(part, PENDING, me.file.size);
+              }
            }
         }
 
+        function makePart(partNumber, status, size) {
+           return {
+              status: status,
+              start: (partNumber - 1) * con.partSize,
+              end: partNumber * con.partSize,
+              attempts: 0,
+              loadedBytes: 0,
+              loadedBytesPrevious: null,
+              isEmpty: (size === 0), // issue #58
+              md5_digest: null,
+              part: partNumber
+           };
+        }
+
+        function createUploadFile() {
+           var fileKey = uploadKey(me),
+               newUpload = {
+                 awsKey: me.name,
+                 uploadId: me.uploadId,
+                 fileSize: me.file.size,
+                 fileType: me.file.type,
+                 lastModifiedDate: me.file.lastModifiedDate.toISOString(),
+                 partSize: con.partSize,
+                 createdAt: new Date().toISOString()
+              };
+           saveUpload(fileKey, newUpload);
+        }
+
+        function completeUploadFile() {
+           var uploads = getSavedUploads(),
+               upload = uploads[uploadKey(me)];
+           upload.completedAt = new Date().toISOString();
+           upload.eTag = me.eTag;
+           localStorage.setItem('awsUploads', JSON.stringify(uploads));
+
+           setStatus(COMPLETE);
+           me.progress(1.0);
+
+        }
+
+        function removeUploadFile() {
+           if (typeof me.file !== 'undefined') {
+              removeUpload(uploadKey(me));
+           }
+        }
+
+        function getUnfinishedFileUpload() {
+           var savedUploads = getSavedUploads(true),
+               u = savedUploads[uploadKey(me)];
+
+           if (canRetryUpload(u)) {
+              me.uploadId = u.uploadId;
+              me.name = u.awsKey;
+              me.eTag = u.eTag;
+           }
+        }
+
+        function canRetryUpload(u) {
+           // Must be the same file name, file size, last_modified, file type and the part sizes must match
+           if (typeof u === 'undefined') {
+              return false;
+           }
+           var completedAt = new Date(u.completedAt || FAR_FUTURE);
+
+           return con.partSize === u.partSize && completedAt > HOURS_AGO;
+        }
 
         function backOffWait(attempts) {
            return (attempts === 1) ? 0 : 1000 * Math.min(
@@ -766,6 +957,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            },2 * 60 * 1000);
         }
 
+        function monitorProgress() {
+           monitorTotalProgress();
+           monitorPartsProgress();
+        }
 
         function setupRequest(requester){
 
@@ -777,7 +972,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            }
            else
            {
-               var xmlHttpRequest = new XMLHttpRequest(); 
+               var xmlHttpRequest = new XMLHttpRequest();
 
                xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
                xmlHttpRequest.send();
@@ -799,6 +994,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
               var payload = requester.toSend ? requester.toSend() : null;
               var url = AWS_URL + requester.path;
+              if (requester.query_string) {
+                 url += requester.query_string;
+              }
               var all_headers = {};
               var status_success = requester.successStatus || 200;
               extend(all_headers, requester.not_signed_headers);
@@ -941,7 +1139,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               x_amz_headers += (header_key + ':'+ request.x_amz_headers[header_key] + '\n');
            });
 
-
            to_sign = request.method+'\n'+
               (request.md5_digest || '')+'\n'+
               (request.contentType || '')+'\n'+
@@ -1000,6 +1197,52 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return parser.parseFromString(body, "text/xml");
      }
 
+     function getSavedUploads(purge) {
+        var result = JSON.parse(localStorage.getItem('awsUploads') || '{}'),
+            new_result = {};
+
+        if (purge) {
+           for (var key in result) {
+              if (result.hasOwnProperty(key)) {
+                 var upload = result[key],
+                     completedAt = new Date(upload.completedAt || FAR_FUTURE);
+
+                 if (completedAt < HOURS_AGO) {
+                    // The upload is recent, let's keep it
+                    delete result[key];
+                 }
+              }
+           }
+        }
+        return result;
+     }
+
+     function uploadKey(fileUpload) {
+        // The key tries to give a signature to a file in the absence of its path.
+        // "<filename>-<mimetype>-<modifieddate>-<filesize>"
+        return [
+           fileUpload.file.name,
+           fileUpload.file.type,
+           fileUpload.file.lastModifiedDate.toISOString(),
+           fileUpload.file.size
+        ].join("-");
+     }
+
+     function saveUpload(uploadKey, upload) {
+        var uploads = getSavedUploads();
+        uploads[uploadKey] = upload;
+        localStorage.setItem('awsUploads', JSON.stringify(uploads));
+     }
+
+     function removeUpload(uploadKey) {
+        var uploads = getSavedUploads();
+        delete uploads[uploadKey];
+        localStorage.setItem('awsUploads', JSON.stringify(uploads));
+     }
+
+     function nodeValue(parent, nodeName) {
+        return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue
+     }
   };
 
    function getFilePart(file, start, end) {
