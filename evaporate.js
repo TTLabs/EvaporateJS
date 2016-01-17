@@ -541,6 +541,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               uploadId: me.uploadId,
               fileSize: me.file.size,
               fileType: me.file.type,
+              lastModifiedDate: me.file.lastModifiedDate.toISOString(),
               partSize: con.partSize,
               createdAt: new Date().toISOString()
            };
@@ -565,9 +566,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         }
 
         function canRetryUpload(u) {
-           // Must be the same file name, file size, file type and the part sizes must match
+           // Must be the same file name, file size, last_modified, file type and the part sizes must match
            return typeof u !== 'undefined' &&
                u.fileSize === me.file.size &&
+               u.lastModifiedDate === m.lastModifiedDate.toISOString() &&
                u.fileType === me.file.type &&
                con.partSize === u.partSize;
         }
