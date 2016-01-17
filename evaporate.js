@@ -14,10 +14,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 /***************************************************************************************************
 *                                                                                                  *
-*  version 0.0.2                                                                                  *
+*  version 0.0.2                                                                                   *
 *                                                                                                  *
 *  TODO:                                                                                           *
-*       calculate MD5s and send with PUTs                                                          *
+*       calculate MD5s and send with PUTs
+*       find a better way to pass query parameters to get_parts
 *                                                                                                  *
 *                                                                                                  *
 ***************************************************************************************************/
@@ -446,6 +447,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            var list = {
               method: 'GET',
               path: getPath() + '?uploadId=' + me.uploadId,
+              // TODO: Improve this or make it more generic
               query_string: "&part-number-marker=" + partNumberMarker,
               step: 'get upload parts'
            };
