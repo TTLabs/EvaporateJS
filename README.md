@@ -16,6 +16,12 @@ This is an beta release. It still needs lots more work and testing, but we do us
 
      <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
 
+2. If you want to compute an MD5 digest for AWS, then make sure to include your preferred javascript
+cryptography library that supports creating an MD5 digest for the Content-MD5 request header as
+specified [here](https://www.ietf.org/rfc/rfc1864.txt). The following library provides support:
+
+     - [Spark MD5](https://github.com/satazor/SparkMD5)
+
 2. Setup your S3 bucket, make sure your CORS settings for your S3 bucket looks similar to what is provided below (The PUT allowed method and the ETag exposed header are critical).
 
         <CORSConfiguration>
@@ -86,12 +92,16 @@ So far the api contains just two methods, and one property
 * **logging**: default=true, whether EvaporateJS outputs to the console.log  - should be `true` or `false`
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
-* **retryBackoffPower**: default=2, how aggresively to back-off on the delay between retries of a part PUT
+* **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
 * **timeUrl',**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74
+* **computeContentMd5',**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
+* **cryptoMd5Method',**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
+    Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript binary string representation of the body payload to encode. If you are using:
+    - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.hashBinary(data, true)); }`.
 
 ### .add()
 

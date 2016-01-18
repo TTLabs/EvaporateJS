@@ -17,7 +17,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 *  version 0.0.2                                                                                  *
 *                                                                                                  *
 *  TODO:                                                                                           *
-*       calculate MD5s and send with PUTs                                                          *
 *       post eTags to application server to allow resumability after client-side crash/restart      *
 *                                                                                                  *
 *                                                                                                  *
@@ -51,9 +50,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         maxRetryBackoffSecs: 300,
         progressIntervalMS: 500,
         cloudfront: false,
-        encodeFilename: true
+        encodeFilename: true,
+        computeContentMd5: false
 
      }, config);
+     if (con.computeContentMd5) {
+        if (typeof con.cryptoMd5Method !== 'function') {
+           alert('Option computeContentMd5 has been set but cryptoMd5Method is not defined.');
+           return;
+        }
+     }
 
      //con.simulateStalling =  true
 
@@ -230,6 +236,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
         function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
 
+           function processFileParts() {
+              if (con.computeContentMd5 && me.file.size > 0) {
+                 processPartsListWithMd5Digests();
+              } else {
+                 processPartsList();
+              }
+           }
+
            var initiate = {
               method: 'POST',
               path: getPath() + '?uploads',
@@ -254,7 +268,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  me.uploadId = match[1];
                  l.d('requester success. got uploadId ' + me.uploadId);
                  makeParts();
-                 processPartsList();
+                 processFileParts();
               }else{
                  initiate.onErr();
               }
@@ -281,14 +295,25 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            );
            l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
 
+           function getAwsResponse(xhr) {
+              var oParser = new DOMParser(),
+                  oDOM = oParser.parseFromString(xhr.responseText, "text/xml"),
+                  code = oDOM.getElementsByTagName("Code"),
+                  msg = oDOM.getElementsByTagName("Message");
+              code = code.length ? code[0].innerHTML : '';
+              msg = msg.length ? msg[0].innerHTML : '';
+
+              return code.length ? {code: code, msg: msg} : {};
+           }
+
            upload = {
               method: 'PUT',
               path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
               step: 'upload #' + partNumber,
               x_amz_headers: me.xAmzHeadersAtUpload,
+              md5_digest: part.md5_digest,
               attempts: part.attempts
            };
-           // TODO: add md5
 
            upload.onErr = function (xhr, isOnError){
 
@@ -314,10 +339,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               } else {
                  part.status = ERROR;
                  part.loadedBytes = 0;
+
+                 awsResponse = getAwsResponse(xhr);
+                 if (awsResponse.code) {
+                    l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
+                 }
                  processPartsList();
               }
               xhr.abort();
-              // TODO: does AWS have other error codes that we can handle?
            };
 
            upload.on200 = function (xhr){
@@ -344,12 +373,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               part.loadedBytes = evt.loaded;
            };
 
-           var slicerFn = (me.file.slice ? 'slice' : (me.file.mozSlice ? 'mozSlice' : 'webkitSlice'));
-           // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
-
            upload.toSend = function() {
-              var slice= me.file[slicerFn](part.start, part.end);
-              l.d('sending part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
+              var slice = getFilePart(me.file, part.start, part.end);
+              l.d('part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
               if(!part.isEmpty && slice.size === 0) // issue #58
               {
                  l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
@@ -432,10 +458,54 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            authorizedSend(complete);
         }
 
+        var numProcessed = 0,
+            numParts = -1;
+
+        function computePartMd5Digest(part) {
+           return function () {
+              var s = me.status;
+              if (s == ERROR || s == CANCELED) {
+                 return;
+              }
+
+              var md5_digest = con.cryptoMd5Method.call(this, this.result);
+
+              l.d(['part #', part.part, ' MD5 digest is ', md5_digest].join(''));
+              part.md5_digest = md5_digest;
+
+              delete part.reader; // release potentially large memory allocation
+
+              numProcessed += 1;
+
+              processPartsList();
+
+              if (numProcessed === numParts) {
+                 l.d('All parts have MD5 digests');
+              }
+
+              setTimeout(processPartsListWithMd5Digests, 1500);
+           }
+        }
+
+        function processPartsListWithMd5Digests() {
+           // We need the request body to compute the MD5 checksum but the body is only available
+           // as a FileReader object whose value is fetched asynchronously.
+
+           // This method delays submitting the part for upload until its MD5 digest is ready
+           for (var i = 1; i <= numParts; i++) {
+              var part = parts[i];
+              if (part.md5_digest === null) {
+                 part.reader = new FileReader();
+                 part.reader.onloadend = computePartMd5Digest(part);
+                 part.reader.readAsBinaryString(getFilePart(me.file, part.start, part.end));
+                 break;
+              }
+           }
+        }
 
         function makeParts(){
 
-           var numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
+           numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
            for (var part = 1; part <= numParts; part++){
 
               parts[part] = {
@@ -445,6 +515,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  attempts: 0,
                  loadedBytes: 0,
                  loadedBytesPrevious: null,
+                 md5_digest: null,
+                 part: part,
                  isEmpty: (me.file.size === 0) // issue #58
               };
            }
@@ -460,11 +532,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               return;
            }
 
-           parts.forEach(function(part,i){
-
-              var requiresUpload = false;
-              stati.push(part.status);
-              if (part){
+           for (var i = 0; i < parts.length; i++) {
+              var part = parts[i];
+              if (part) {
+                 if (con.computeContentMd5 && part.md5_digest === null) {
+                    return; // MD5 Digest isn't ready yet
+                 }
+                 var requiresUpload = false;
+                 stati.push(part.status);
                  switch(part.status){
 
                     case EVAPORATING:
@@ -494,7 +569,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                     }
                  }
               }
-           });
+           }
 
 
            info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
@@ -528,7 +603,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         /*
            Issue #6 identified that some parts would stall silently.
            The issue was only noted on Safari on OSX. A bug was filed with Apple, #16136393
-           This function was addeded as a work-around. It check the progress of each part every 2 minutes.
+           This function was added as a work-around. It checks the progress of each part every 2 minutes.
            If it finds a part that has made no progress in the last 2 minutes then it aborts it. It will then be detected as an error, and restarted in the same manner of any other errored part
         */
         function monitorPartsProgress(){
@@ -623,6 +698,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  xhr.setRequestHeader('Content-Type', requester.contentType);
               }
 
+              if (requester.md5_digest) {
+                 xhr.setRequestHeader('Content-MD5', requester.md5_digest);
+              }
               xhr.onreadystatechange = function(){
 
                  if (xhr.readyState == 4){
@@ -731,7 +809,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
            to_sign = request.method+'\n'+
-              '\n'+
+              (request.md5_digest || '')+'\n'+
               (request.contentType || '')+'\n'+
               '\n'+
               x_amz_headers +
@@ -768,6 +846,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
   };
+
+   function getFilePart(file, start, end) {
+      var slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice'));
+      // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
+      return file[slicerFn](start, end);
+   }
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = Evaporate;
