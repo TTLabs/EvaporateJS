@@ -547,18 +547,18 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               partSize: con.partSize,
               createdAt: new Date().toISOString()
            };
-           saveUpload(me.file.name, newUpload);
+           saveUpload(uploadKey(me), newUpload);
         }
 
         function removeUploadFile() {
            if (typeof me.file !== 'undefined') {
-              removeUpload(me.file.name);
+              removeUpload(uploadKey(me));
            }
         }
 
         function getUnfinishedFileUpload() {
            var savedUploads = getSavedUploads(),
-               u = savedUploads[me.file.name];
+               u = savedUploads[uploadKey(me)];
 
            if (canRetryUpload(u)) {
               me.uploadId = u.uploadId;
@@ -569,11 +569,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
         function canRetryUpload(u) {
            // Must be the same file name, file size, last_modified, file type and the part sizes must match
-           return typeof u !== 'undefined' &&
-               u.fileSize === me.file.size &&
-               u.lastModifiedDate === m.lastModifiedDate.toISOString() &&
-               u.fileType === me.file.type &&
-               con.partSize === u.partSize;
+           return typeof u !== 'undefined' && con.partSize === u.partSize;
         }
 
         function processPartsList(){
@@ -907,15 +903,26 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return JSON.parse(localStorage.getItem('awsUploads') || '{}');
      }
 
-     function saveUpload(filename, upload) {
+     function uploadKey(fileUpload) {
+        // The key tries to give a signature to a file in the absence of its path.
+        // "<filename>-<mimetype>-<modifieddate>-<filesize>"
+        return [
+           fileUpload.file.name,
+           fileUpload.file.type,
+           fileUpload.file.lastModifiedDate.toISOString(),
+           fileUpload.file.size
+        ].join("-");
+     }
+
+     function saveUpload(uploadKey, upload) {
         var uploads = getSavedUploads();
-        uploads[filename] = upload;
+        uploads[uploadKey] = upload;
         localStorage.setItem('awsUploads', JSON.stringify(uploads));
      }
 
-     function removeUpload(filename) {
+     function removeUpload(uploadKey) {
         var uploads = getSavedUploads();
-        delete uploads[filename];
+        delete uploads[uploadKey];
         localStorage.setItem('awsUploads', JSON.stringify(uploads));
      }
 
