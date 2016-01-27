@@ -511,7 +511,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var oDOM = parseXml(xhr.responseText),
                   result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
               me.eTag = nodeValue(result, "ETag");
-              me.complete(xhr);
+              me.complete(xhr, me.name);
               completeUploadFile();
            };
 
@@ -547,6 +547,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('Etag');
               if (eTag === me.eTag) {
                  l.d('headObject found matching object on S3.');
+                 me.complete(xhr, me.name);
                  setStatus(COMPLETE);
                  me.progress(1.0);
               } else {

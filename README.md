@@ -126,7 +126,7 @@ So far the api contains just two methods, and one property
 
 * **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
 
-* **complete**: _function()_. a function that will be called when the file upload is complete.
+* **complete**: _function(xhr, awsKey)_. a function that will be called when the file upload is complete.
  
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
