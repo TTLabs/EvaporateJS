@@ -238,19 +238,25 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               x_amz_headers: me.xAmzHeadersAtInitiate,
               not_signed_headers: me.notSignedHeadersAtInitiate
               },
-              originalStatus = me.status;
+              originalStatus = me.status,
+              hasErrored;
 
            if (me.contentType){
               initiate.contentType = me.contentType;
            }
 
-           initiate.onErr = function(xhr){
-              if (me.status === ABORTED && me.status == CANCELED) {
+           initiate.onErr = function (xhr) {
+              if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
                  return;
               }
+
+              hasErrored = true;
+
               l.d('onInitiateError for FileUpload ' + me.id);
               me.warn('Error initiating upload');
               setStatus(ERROR);
+
+              xhr.abort();
 
               setTimeout(function () {
                  if (me.status !== ABORTED && me.status !== CANCELED) {
@@ -407,7 +413,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            me.info('will attempt to complete upload');
 
            var completeDoc = '<CompleteMultipartUpload>',
-               originalStatus = me.status;
+               originalStatus = me.status,
+               hasErrored = true;
            parts.forEach(function(part,partNumber){
               if (part){
                  completeDoc += '<Part><PartNumber>' + partNumber + '</PartNumber><ETag>' + part.eTag + '</ETag></Part>';
@@ -423,11 +430,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               step: 'complete'
            };
 
-           complete.onErr = function (){
+           complete.onErr = function () {
+              if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
+                  return;
+              }
+
+              hasErrored = true;
+
               var msg = 'Error completing upload.';
               l.w(msg);
               me.error(msg);
               setStatus(ERROR);
+
+              xhr.abort();
 
               setTimeout(function () {
                  if (me.status !== ABORTED && me.status !== CANCELED) {
