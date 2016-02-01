@@ -186,7 +186,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
      function FileUpload(file){
 
-        var me = this, parts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0, xhrs = [];
+        var me = this, parts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0, xhrs = [],
+            countInitiateAttempts = 0, countCompleteAttempts = 0;
         extend(me,file);
 
         me.start = function(){
@@ -236,15 +237,34 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               step: 'initiate',
               x_amz_headers: me.xAmzHeadersAtInitiate,
               not_signed_headers: me.notSignedHeadersAtInitiate
-           };
+              },
+              originalStatus = me.status,
+              hasErrored;
 
            if (me.contentType){
               initiate.contentType = me.contentType;
            }
 
-           initiate.onErr = function(xhr){
+           initiate.onErr = function (xhr) {
+              if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
+                 return;
+              }
+
+              hasErrored = true;
+
               l.d('onInitiateError for FileUpload ' + me.id);
+              me.warn('Error initiating upload');
               setStatus(ERROR);
+
+              xhr.abort();
+
+              setTimeout(function () {
+                 if (me.status !== ABORTED && me.status !== CANCELED) {
+                    me.status = originalStatus;
+                    initiateUpload();
+                    monitorProgress();
+                 }
+              }, backOffWait(countInitiateAttempts++));
            };
 
            initiate.on200 = function(xhr){
@@ -275,10 +295,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            countUploadAttempts++;
            part.loadedBytesPrevious = null;
 
-           backOff = part.attempts++ === 0 ? 0 : 1000 * Math.min(
-              con.maxRetryBackoffSecs,
-              Math.pow(con.retryBackoffPower,part.attempts-2)
-           );
+           backOff = backOffWait(part.attempts++);
            l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
 
            upload = {
@@ -396,7 +413,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            l.d('completeUpload');
            me.info('will attempt to complete upload');
 
-           var completeDoc = '<CompleteMultipartUpload>';
+           var completeDoc = '<CompleteMultipartUpload>',
+               originalStatus = me.status,
+               hasErrored = true;
            parts.forEach(function(part,partNumber){
               if (part){
                  completeDoc += '<Part><PartNumber>' + partNumber + '</PartNumber><ETag>' + part.eTag + '</ETag></Part>';
@@ -412,11 +431,27 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               step: 'complete'
            };
 
-           complete.onErr = function (){
+           complete.onErr = function () {
+              if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
+                  return;
+              }
+
+              hasErrored = true;
+
               var msg = 'Error completing upload.';
               l.w(msg);
               me.error(msg);
               setStatus(ERROR);
+
+              xhr.abort();
+
+              setTimeout(function () {
+                 if (me.status !== ABORTED && me.status !== CANCELED) {
+                    me.status = originalStatus;
+                    completeUpload();
+                    monitorProgress();
+                 }
+              }, backOffWait(countCompleteAttempts++));
            };
 
            complete.on200 = function(xhr){
@@ -450,6 +485,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            }
         }
 
+
+        function backOffWait(attempts) {
+           return (attempts === 1) ? 0 : 1000 * Math.min(
+               con.maxRetryBackoffSecs,
+               Math.pow(con.retryBackoffPower, attempts - 2)
+           );
+        }
 
         function processPartsList(){
 
