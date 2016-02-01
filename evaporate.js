@@ -278,6 +278,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (me.status !== ABORTED && me.status !== CANCELED) {
                     me.status = originalStatus;
                     initiateUpload();
+                    monitorProgress();
                  }
               }, backOffWait(countInitiateAttempts++));
            };
@@ -481,6 +482,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (me.status !== ABORTED && me.status !== CANCELED) {
                     me.status = originalStatus;
                     completeUpload();
+                    monitorProgress();
                  }
               }, backOffWait(countCompleteAttempts++));
            };
