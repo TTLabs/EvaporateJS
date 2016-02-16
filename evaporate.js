@@ -260,6 +260,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            if (con.computeContentMd5 && me.file.size > 0) {
               processPartsListWithMd5Digests();
            } else {
+              createUploadFile();
               processPartsList();
            }
         }
@@ -308,7 +309,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               if (match && match[1]){
                  me.uploadId = match[1];
                  l.d('requester success. got uploadId ' + me.uploadId);
-                 createUploadFile();
                  makeParts();
                  processFileParts();
               }else{
@@ -538,7 +538,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var msg = 'Error completing head object. Will re-upload file.';
               l.w(msg);
               me.awsKey = awsKey;
-              createUploadFile();
               initiateUpload();
               monitorProgress();
            };
@@ -553,7 +552,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               } else {
                  l.d('headObject not found on S3.');
                  me.name = awsKey;
-                 createUploadFile();
                  initiateUpload();
                  monitorProgress();
               }
@@ -577,6 +575,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
               l.d(['part #', part.part, ' MD5 digest is ', md5_digest].join(''));
               part.md5_digest = md5_digest;
+
+              if (part.part === 1) {
+                 createUploadFile();
+              }
 
               delete part.reader; // release potentially large memory allocation
 
