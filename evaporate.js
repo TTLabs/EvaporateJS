@@ -225,7 +225,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                     if (me.firstMd5Digest === md5_digest) {
                        headObject(awsKey);
                     } else {
-                       getUploadParts(0);
+                       me.firstMd5Digest = md5_digest; // let's store the digest to avoid having to calculate it again
+                       initiateUpload(awsKey);
                     }
                  };
                  reader.readAsBinaryString(getFilePart(me.file, 0, con.partSize));
@@ -568,7 +569,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            authorizedSend(head_object);
         }
 
-        var numProcessed = 0,
+        var numDigestsProcessed = 0,
             numParts = -1;
 
         function computePartMd5Digest(part) {
@@ -589,11 +590,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
               delete part.reader; // release potentially large memory allocation
 
-              numProcessed += 1;
+              numDigestsProcessed += 1;
 
               processPartsList();
 
-              if (numProcessed === numParts) {
+              if (numDigestsProcessed === numParts) {
                  l.d('All parts have MD5 digests');
               }
 
@@ -609,10 +610,16 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            for (var i = 1; i <= numParts; i++) {
               var part = parts[i];
               if (part.status !== COMPLETE && part.md5_digest === null) {
-                  part.reader = new FileReader();
-                 part.reader.onloadend = computePartMd5Digest(part);
-                 part.reader.readAsBinaryString(getFilePart(me.file, part.start, part.end));
-                 break;
+                 if (i > 1 || typeof me.firstMd5Digest === 'undefined') {
+                    part.reader = new FileReader();
+                    part.reader.onloadend = computePartMd5Digest(part);
+                    part.reader.readAsBinaryString(getFilePart(me.file, part.start, part.end));
+                    break;
+                 } else { // We already calculated the first part's md5_digest
+                    part.md5_digest = me.firstMd5Digest;
+                    createUploadFile();
+                    processPartsList();
+                 }
               }
            }
         }
