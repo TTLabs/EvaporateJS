@@ -216,10 +216,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            if (typeof me.uploadId === 'undefined') {
               initiateUpload(awsKey);
            } else {
-              if (typeof me.eTag === 'undefined') {
+              if (typeof me.eTag === 'undefined' || !me.firstMd5Digest) {
                  getUploadParts(0);
               } else {
-                 headObject(awsKey);
+                 var reader = new FileReader();
+                 reader.onloadend = function () {
+                    var md5_digest = con.cryptoMd5Method.call(this, this.result);
+                    if (me.firstMd5Digest === md5_digest) {
+                       headObject(awsKey);
+                    } else {
+                       getUploadParts(0);
+                    }
+                 };
+                 reader.readAsBinaryString(getFilePart(me.file, 0, con.partSize));
               }
            }
         };
@@ -785,6 +794,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  partSize: con.partSize,
                  createdAt: new Date().toISOString()
               };
+           if (con.computeContentMd5 && parts.length && typeof parts[1].md5_digest !== 'undefined') {
+              newUpload.firstMd5Digest = parts[1].md5_digest;
+           }
            saveUpload(fileKey, newUpload);
         }
 
@@ -814,6 +826,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               me.uploadId = u.uploadId;
               me.name = u.awsKey;
               me.eTag = u.eTag;
+              me.firstMd5Digest = u.firstMd5Digest;
            }
         }
 
