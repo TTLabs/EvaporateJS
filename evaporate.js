@@ -214,8 +214,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            getUnfinishedFileUpload();
 
            if (typeof me.uploadId === 'undefined') {
-              initiateUpload();
-              monitorProgress();
+              initiateUpload(awsKey);
            } else {
               if (typeof me.eTag === 'undefined') {
                  getUploadParts(0);
@@ -265,7 +264,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            }
         }
 
-        function initiateUpload(){ // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
+        function initiateUpload(awsKey) { // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
 
            var initiate = {
               method: 'POST',
@@ -297,8 +296,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               setTimeout(function () {
                  if (me.status !== ABORTED && me.status !== CANCELED) {
                     me.status = originalStatus;
-                    initiateUpload();
-                    monitorProgress();
+                    initiateUpload(awsKey);
                  }
               }, backOffWait(countInitiateAttempts++));
            };
@@ -308,6 +306,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var match = xhr.response.match(/<UploadId\>(.+)<\/UploadId\>/);
               if (match && match[1]){
                  me.uploadId = match[1];
+                 me.awsKey = awsKey;
                  l.d('requester success. got uploadId ' + me.uploadId);
                  makeParts();
                  processFileParts();
@@ -318,6 +317,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
            setupRequest(initiate);
            authorizedSend(initiate);
+
+           monitorProgress();
         }
 
 
@@ -537,9 +538,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            head_object.onErr = function (){
               var msg = 'Error completing head object. Will re-upload file.';
               l.w(msg);
-              me.awsKey = awsKey;
-              initiateUpload();
-              monitorProgress();
+              initiateUpload(awsKey);
            };
 
            head_object.on200 = function(xhr){
@@ -552,8 +551,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               } else {
                  l.d('headObject not found on S3.');
                  me.name = awsKey;
-                 initiateUpload();
-                 monitorProgress();
+                 initiateUpload(awsKey);
               }
            };
 
