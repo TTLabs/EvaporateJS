@@ -24,14 +24,20 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 (function() {
 
-  var Evaporate = function(config){
+  var Evaporate = function (config) {
 
-     this.supported = !((typeof(File)=='undefined') ||
-        (typeof(Blob)=='undefined') ||
-        !(!!Blob.prototype.webkitSlice || !!Blob.prototype.mozSlice || Blob.prototype.slice) ||
+     this.supported = !(
+        typeof File === 'undefined' ||
+        typeof Blob === 'undefined' ||
+        typeof (
+           Blob.prototype.webkitSlice ||
+           Blob.prototype.mozSlice ||
+           Blob.prototype.slice ||
+           (config.computeContentMd5 && Blob.prototype.readAsBinaryString) === 'undefined') ||
         config.testUnsupported);
 
-     if(!this.supported){
+     if (!this.supported) {
+        l.e('The broswer does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice || readAsBinaryString]')
         return;
      }
 
