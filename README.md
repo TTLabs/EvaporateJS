@@ -4,10 +4,15 @@ EvaporateJS
 EvaporateJS is a javascript library for directly uploading files from a web browser to AWS S3, using S3's multipart upload. 
 
 ### Why?
-EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say you're uploading a 1000MB file, you've uploaded the first 900MBs, and then there is a problem on the network. Normally at this point you'd have to restart the upload from the beginning. Not so with EvaporateJS - it will only redo a small ~5MB chunk of the file, and then carry on from where it left off, and upload the final 100MB.     
+EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say
+you're uploading a 1000MB file, you've uploaded the first 900MBs, and then there is a problem on the network. Normally
+at this point you'd have to restart the upload from the beginning. Not so with EvaporateJS - it will only redo part
+that failed, and then carry on from where it left off, and upload the final 100MB.
 
-This is an beta release. It still needs lots more work and testing, but we do use it in production on videopixie.com, and we've seen it upload 100GB+ files.
-
+In addition, EvaporateJS can resume uploads of entire files and parts when the upload failed due to a user or client
+error. For example, if the user refreshes the browser during an upload. To reciver, upload the same files. Those
+files (or the successfully uploaded file parts) that are available on AWS S3 through an incomplete multipart upload
+or an existing S3 object will not be reuploaded.
 
 ## Set up EvaporateJS
 
@@ -22,7 +27,11 @@ specified [here](https://www.ietf.org/rfc/rfc1864.txt). The following library pr
 
      - [Spark MD5](https://github.com/satazor/SparkMD5)
 
-2. Setup your S3 bucket, make sure your CORS settings for your S3 bucket looks similar to what is provided below (The PUT allowed method and the ETag exposed header are critical).
+2. Setup your S3 bucket, make sure your CORS settings for your S3 bucket looks similar to what is provided
+below (The PUT allowed method and the ETag exposed header are critical).
+
+    The `HEAD` method is required to support resuming failed uploads mid-stream. The `DELETE` method is required to support
+    aborting multipart uploads.
 
         <CORSConfiguration>
             <CORSRule>
@@ -38,7 +47,46 @@ specified [here](https://www.ietf.org/rfc/rfc1864.txt). The following library pr
             </CORSRule>
         </CORSConfiguration>
 
-3. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can monitor these requests by running the sample app locally and using the Chrome Web inspector.
+3. Setup your S3 bucket Policy to support Aborting and Listings multi-part uploads. To support resumable uploads the AWS account used for uploads
+must have the ability to get S3 objects and list multipart uploads and parts. The following AWS S3 policy can be used as a template. Note that the
+statement consists of two parts: the first handles the bucket policy; the second handles the objects and multipart uploads within the S3 bucket.
+
+    Replace the AWS ARNs with values that apply to your account and S3 bucket organization.
+
+        {
+            "Version": "2012-10-17",
+            "Id": "Policy145337ddwd",
+            "Statement": [
+                {
+                    "Sid": "",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "arn:aws:iam::6681765859115:user/me"
+                    },
+                    "Action": [
+                        "s3:ListBucket",
+                        "s3:ListBucketMultipartUploads"
+                    ],
+                    "Resource": "arn:aws:s3:::mybucket"
+                },
+                {
+                    "Sid": "",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "arn:aws:iam::6681765859115:user/me"
+                    },
+                    "Action": [
+                        "s3:AbortMultipartUpload",
+                        "s3:GetObject",
+                        "s3:ListMultipartUploadParts",
+                        "s3:PutObject"
+                    ],
+                    "Resource": "arn:aws:s3:::mybucket/*"
+                }
+            ]
+        }
+
+4. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can monitor these requests by running the sample app locally and using the Chrome Web inspector.
 
 
 ## Running the example application
@@ -47,8 +95,7 @@ The example application is a simple and quick way to see evaporate.js work.  The
 
 1. Install Google App Engine for Python found [here](https://developers.google.com/appengine/downloads#Google_App_Engine_SDK_for_Python) (The example app is GAE ready and it is run using the GAE dev server)
 
-2. Set your AWS Key and S3 bucket in example/evaporate_example.html
-
+2. Set your AWS Key and S3 bucket in example/evaporate_example.html. This configuration does not use Md5 Digest verfication.
 
         var _e_ = new Evaporate({
            signerUrl: '/sign_auth', # Do not change this in the example app
@@ -106,7 +153,8 @@ So far the api contains just two methods, and one property
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.hashBinary(data, true)); }`.
 * **s3FileCacheHoursAgo',**: default=no cache, whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
-    and files. The uploaded parts and and file status are retrieved from S3.
+    and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
+    client or user errors. Refer to the section below for more information on this configuration option.
 
 ### .add()
 
@@ -147,7 +195,7 @@ So far the api contains just two methods, and one property
 
 ### .supported
 
-The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work. Needs more testing.  
+The `supported` property is _Boolean_, and indicates whether the browser has the capabilities required for Evaporate to work.
 
 ### s3FileCacheHoursAgo
 
@@ -164,6 +212,23 @@ what is currently uploaded. If the the two ETags match, the file is not uploaded
 
 The timestamp of the last time the part was uploaded is compared against the value of a `Date()` calculated as `s3FileCacheHoursAgo` ago
 as a way to gauge 'freshness'. If the last upload was earlier than the number of hours specified, then the file is uploaded again.
+
+It is still possible to have different files with the same name, size and timestamp. In this case, EvaporateJS calculates the checksum for the first
+part and compares that to the checksum of the first part of the file to be uploaded. If they differ, the file is uploaded anew.
+
+### AWS S3 Cleanup and Housekeeping
+
+After you initiate multipart upload and upload one or more parts, you must either complete or abort multipart upload in order to stop 
+getting charged for storage of the uploaded parts. Only after you either complete or abort multipart upload, Amazon S3 frees up the parts 
+storage and stops charging you for the parts storage. Refer to the 
+[AWS Multipart Upload Overview]http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html for more information.
+
+The sample S3 bucket policy shown above should configure your S3 bucket to allow cleanup of orphaned multipart uploads but the cleanup task is
+not part of EvaporateJS. A separate tool or task will need to be created to query orphaned multipart uploads and abort them using some appropriate 
+heuristic.
+
+Refer to this functioning [Ruby on Rails rake task]https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake for ideas.  
+
 
 ## Integration
 
