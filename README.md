@@ -165,6 +165,8 @@ So far the api contains just two methods, and one property
 * **name**: _String_. the S3 ObjectName that the completed file will have
 * **file**: _File_. a reference to the file object
 
+The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel an upload.
+
 `config` has 8 optional parameter:
 
 
