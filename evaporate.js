@@ -77,9 +77,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
      if (con.computeContentMd5) {
-        this.supported = typeof FileReader.prototype.readAsBinaryString !== 'undefined';
+        this.supported = typeof FileReader.prototype.readAsArrayBuffer !== 'undefined';
         if (!this.supported) {
-           l.e('The browser\'s FileReader object does not support readAsBinaryString');
+           l.e('The browser\'s FileReader object does not support readAsArrayBuffer');
            return;
         }
 
@@ -234,7 +234,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                        initiateUpload(awsKey);
                     }
                  };
-                 reader.readAsBinaryString(getFilePart(me.file, 0, con.partSize));
+                 reader.readAsArrayBuffer(getFilePart(me.file, 0, con.partSize));
               }
            }
         };
@@ -618,7 +618,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  if (i > 1 || typeof me.firstMd5Digest === 'undefined') {
                     part.reader = new FileReader();
                     part.reader.onloadend = computePartMd5Digest(part);
-                    part.reader.readAsBinaryString(getFilePart(me.file, part.start, part.end));
+                    part.reader.readAsArrayBuffer(getFilePart(me.file, part.start, part.end));
                     break;
                  } else { // We already calculated the first part's md5_digest
                     part.md5_digest = me.firstMd5Digest;

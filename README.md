@@ -150,7 +150,7 @@ So far the api contains just two methods, and one property
 * **computeContentMd5',**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
 * **cryptoMd5Method',**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript binary string representation of the body payload to encode. If you are using:
-    - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.hashBinary(data, true)); }`.
+    - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`. The `data parameter is an `ArrayBuffer`.
 * **s3FileCacheHoursAgo',**: default=no cache, whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
