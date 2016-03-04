@@ -233,20 +233,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                 initiate.onErr = function(xhr) {
                     l.d('onInitiateError for FileUpload ' + me.id);
                     setStatus(ERROR);
-
-                    // Parse error code to pass to callback
-                    try {
-                        var parser  = new DOMParser(),
-                            xml = parser.parseFromString(xhr.response, 'text/xml'),
-                            code = xml
-                                .getElementsByTagName('Error')[0]
-                                .getElementsByTagName('Code')[0].textContent;
-
-                        me.error(code);
-                    }
-                    catch(error) {
-                        me.error();
-                    }
                 };
 
                 initiate.on200 = function(xhr) {
