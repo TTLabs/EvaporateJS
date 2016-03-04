@@ -23,26 +23,29 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
   var Evaporate = function (config) {
 
-     this.supported = !(
-        typeof File === 'undefined' ||
-        typeof Blob === 'undefined' ||
-        typeof (
-           Blob.prototype.webkitSlice ||
-           Blob.prototype.mozSlice ||
-           Blob.prototype.slice ||
-           (config.computeContentMd5 && Blob.prototype.readAsBinaryString) === 'undefined') ||
-        config.testUnsupported);
-
-     if (!this.supported) {
-        l.e('The broswer does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice || readAsBinaryString]')
-        return;
-     }
-
-
      var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, AWS_URL = config.aws_url || 'https://s3.amazonaws.com', ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
 
      var _ = this;
      var files = [];
+
+     var l = {d: function () {}, w: function () {}, e: function () {}};
+
+     if (console && console.log) {
+        l = console;
+        l.d = l.log;
+
+        if (console.warn){
+           l.w = l.warn;
+        }else{
+           l.w = l.log;
+        }
+
+        if (console.error){
+           l.e = l.error;
+        }else{
+           l.e = l.log;
+        }
+     }
 
      var con = extend({
 
@@ -58,11 +61,33 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         s3FileCacheHoursAgo: null // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
 
      }, config);
+
+     this.supported = !(
+        typeof File === 'undefined' ||
+        typeof Blob === 'undefined' ||
+        typeof (
+           Blob.prototype.webkitSlice ||
+           Blob.prototype.mozSlice ||
+           Blob.prototype.slice) === 'undefined' ||
+        !!config.testUnsupported);
+
+     if (!this.supported) {
+        l.e('The browser does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice]');
+        return;
+     }
+
      if (con.computeContentMd5) {
-        if (typeof con.cryptoMd5Method !== 'function') {
-           alert('Option computeContentMd5 has been set but cryptoMd5Method is not defined.');
+        this.supported = typeof FileReader.prototype.readAsBinaryString !== 'undefined';
+        if (!this.supported) {
+           l.e('The browser\'s FileReader object does not support readAsBinaryString');
            return;
         }
+
+        if (typeof con.cryptoMd5Method !== 'function') {
+           l.e('Option computeContentMd5 has been set but cryptoMd5Method is not defined.');
+           return;
+        }
+
      }
 
      var _d = new Date(),
@@ -118,26 +143,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
      };
-
-     var l = {d:function(){}, w: function(){}, e:function(){}};
-
-     if(con.logging && console && console.log){
-        l = console;
-        l.d = l.log;
-
-        if (console.warn){
-           l.w = l.warn;
-        }else{
-           l.w = l.log;
-        }
-
-        if (console.error){
-           l.e = l.error;
-        }else{
-           l.e = l.log;
-        }
-     }
-
 
      function addFile(file){
 
