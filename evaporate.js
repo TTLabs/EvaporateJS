@@ -28,7 +28,24 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      var _ = this;
      var files = [];
 
-     var l = {d: function () {}, w: function () {}, e: function () {}};
+     function noOpLogger() { return {d: function () {}, w: function () {}, e: function () {}}; }
+
+     var l = noOpLogger();
+
+     var con = extend({
+
+        logging: true,
+        maxConcurrentParts: 5,
+        partSize: 6 * 1024 * 1024,
+        retryBackoffPower: 2,
+        maxRetryBackoffSecs: 300,
+        progressIntervalMS: 500,
+        cloudfront: false,
+        encodeFilename: true,
+        computeContentMd5: false,
+        s3FileCacheHoursAgo: null // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
+
+     }, config);
 
      if (console && console.log) {
         l = console;
@@ -46,21 +63,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            l.e = l.log;
         }
      }
-
-     var con = extend({
-
-        logging: true,
-        maxConcurrentParts: 5,
-        partSize: 6 * 1024 * 1024,
-        retryBackoffPower: 2,
-        maxRetryBackoffSecs: 300,
-        progressIntervalMS: 500,
-        cloudfront: false,
-        encodeFilename: true,
-        computeContentMd5: false,
-        s3FileCacheHoursAgo: null // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
-
-     }, config);
 
      this.supported = !(
         typeof File === 'undefined' ||
@@ -88,6 +90,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            return;
         }
 
+     }
+
+     if (!con.logging) {
+        // Reset the logger to be a no_op
+        l = noOpLogger();
      }
 
      var _d = new Date(),
