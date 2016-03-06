@@ -201,22 +201,26 @@ The `supported` property is _Boolean_, and indicates whether the browser has the
 
 ### s3FileCacheHoursAgo
 
-When `s3FileCacheHoursAgo` is enabled, the uploader will create a small footprint of the uploaded file in `localStorage`. Before a
-file is uploaded, this cache is queried by file name (the path is not available to browsers). It then verifies that the `partSize` used
-when uploading matches the current partSize; the file size is the same; the file lastModifiedDate is unchanged and the file mime type is the
-same.
+When `s3FileCacheHoursAgo` is enabled, the uploader will create a small footprint of the uploaded file in `localStorage.awsUploads`. Before a
+file is uploaded, this cache is queried by a key consisting of the file's name, size, mimetype and date timestamp.
+It then verifies that the `partSize` used when uploading matches the partSize currenlty in use. To prevent fase positives, the
+upload then calcuates the MD5 digest of the first part for final verification.
 
-If the uploaded file has an unfinished multipart upload ID associated with it, then S3 is queried for the parts that have been uploaded and
-only uploads the parts that are outstanding.
+If the uploaded file has an unfinished multipart upload ID associated with it, then the uploader queries S3 for the parts that 
+have been uploaded. It hen uploads only the unfinished parts.
 
-If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to the Etag of
-what is currently uploaded. If the the two ETags match, the file is not uploaded again.
+If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to 
+the Etag of what is currently uploaded. If the the two ETags match, the file is not uploaded again.
 
 The timestamp of the last time the part was uploaded is compared against the value of a `Date()` calculated as `s3FileCacheHoursAgo` ago
 as a way to gauge 'freshness'. If the last upload was earlier than the number of hours specified, then the file is uploaded again.
 
 It is still possible to have different files with the same name, size and timestamp. In this case, EvaporateJS calculates the checksum for the first
 part and compares that to the checksum of the first part of the file to be uploaded. If they differ, the file is uploaded anew.
+
+Note that in order to determine if the uploaded file is the same as a local file, the uploader invokes a HEAD request to S3.
+The AWS S3 permissions to allow HEAD also allow GET (get object). This means that your signing url algorithm might want to not sign
+GET requests. It goes without saying that your AWS IAM credentials and secrets should be protected and never shared.
 
 ### AWS S3 Cleanup and Housekeeping
 
