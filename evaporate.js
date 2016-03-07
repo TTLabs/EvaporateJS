@@ -43,6 +43,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         cloudfront: false,
         encodeFilename: true,
         computeContentMd5: false,
+        allowS3ExistenceOptimization: false,
         s3FileCacheHoursAgo: null // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
 
      }, config);
@@ -234,7 +235,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  var reader = new FileReader();
                  reader.onloadend = function () {
                     var md5_digest = con.cryptoMd5Method.call(this, this.result);
-                    if (me.firstMd5Digest === md5_digest) {
+                    if (con.allowS3ExistenceOptimization && me.firstMd5Digest === md5_digest) {
                        headObject(awsKey);
                     } else {
                        me.firstMd5Digest = md5_digest; // let's store the digest to avoid having to calculate it again

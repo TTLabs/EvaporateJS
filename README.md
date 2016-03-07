@@ -76,7 +76,6 @@ statement consists of two parts: the first handles the bucket policy; the second
                     },
                     "Action": [
                         "s3:AbortMultipartUpload",
-                        "s3:GetObject",
                         "s3:ListMultipartUploadParts",
                         "s3:PutObject"
                     ],
@@ -84,6 +83,27 @@ statement consists of two parts: the first handles the bucket policy; the second
                 }
             ]
         }
+
+    If you configure the uploader to enable the S3 existence check optimization (configuration option `allowS3ExistenceOptimization`), then the bucket object 
+    policy statement (the second statement in the above example) should add the `s3:GetObject` action. Your security policies can help guide you in whether you
+    want to enable this optimization or not.
+
+    Here is an example of the bucket object policy statement that includes the required action:
+
+         {
+                "Sid": "",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::6681765859115:user/me"
+                },
+                "Action": [
+                    "s3:AbortMultipartUpload",
+                    "s3:ListMultipartUploadParts",
+                    "s3:GetObject",
+                    "s3:PutObject"
+                ],
+                "Resource": "arn:aws:s3:::mybucket/*"
+            }
 
 4. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can monitor these requests by running the sample app locally and using the Chrome Web inspector.
 
@@ -145,16 +165,21 @@ So far the api contains just two methods, and one property
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
-* **timeUrl',**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
+* **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
     RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74.
-* **computeContentMd5',**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
-* **cryptoMd5Method',**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
-    Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript binary string representation of the body payload to encode. If you are using:
-    - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`. The `data parameter is an `ArrayBuffer`.
-* **s3FileCacheHoursAgo',**: default=no cache, whether to use the S3 uploaded cache of parts and files for ease of recovering after
+* **computeContentMd5**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
+* **cryptoMd5Method**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
+    Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part 
+    payload to encode. If you are using:
+    - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`.
+* **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
     client or user errors. Refer to the section below for more information on this configuration option.
+* **allowS3ExistenceOptimization**: default=false, whether to verify file existence against S3 storage. Enabling this option requires
+    that the target S3 bucket object permissions include the `s3:GetObject` action for the authorized user performing the upload. If enabled, if the uploader
+    believes it is attempting to upload a file that already exists, it will perform a HEAD action on the object to verify its eTag. If this option
+    is not set or if the cached eTag does not match the object's eTag, the file will be uploaded again.
 
 ### .add()
 
