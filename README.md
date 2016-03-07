@@ -64,7 +64,6 @@ statement consists of two parts: the first handles the bucket policy; the second
                         "AWS": "arn:aws:iam::6681765859115:user/me"
                     },
                     "Action": [
-                        "s3:ListBucket",
                         "s3:ListBucketMultipartUploads"
                     ],
                     "Resource": "arn:aws:s3:::mybucket"
@@ -146,7 +145,8 @@ So far the api contains just two methods, and one property
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
-* **timeUrl',**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74
+* **timeUrl',**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
+    RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74.
 * **computeContentMd5',**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
 * **cryptoMd5Method',**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript binary string representation of the body payload to encode. If you are using:
