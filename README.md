@@ -30,8 +30,7 @@ specified [here](https://www.ietf.org/rfc/rfc1864.txt). The following library pr
 2. Setup your S3 bucket, make sure your CORS settings for your S3 bucket looks similar to what is provided
 below (The PUT allowed method and the ETag exposed header are critical).
 
-    The `HEAD` method is required to support resuming failed uploads mid-stream. The `DELETE` method is required to support
-    aborting multipart uploads.
+    The `DELETE` method is required to support aborting multipart uploads.
 
         <CORSConfiguration>
             <CORSRule>
@@ -41,7 +40,6 @@ below (The PUT allowed method and the ETag exposed header are critical).
                 <AllowedMethod>POST</AllowedMethod>
                 <AllowedMethod>DELETE</AllowedMethod>
                 <AllowedMethod>GET</AllowedMethod>
-                <AllowedMethod>HEAD</AllowedMethod>
                 <ExposeHeader>ETag</ExposeHeader>
                 <AllowedHeader>*</AllowedHeader>
             </CORSRule>
@@ -85,8 +83,8 @@ statement consists of two parts: the first handles the bucket policy; the second
         }
 
     If you configure the uploader to enable the S3 existence check optimization (configuration option `allowS3ExistenceOptimization`), then the bucket object 
-    policy statement (the second statement in the above example) should add the `s3:GetObject` action. Your security policies can help guide you in whether you
-    want to enable this optimization or not.
+    policy statement (the second statement in the above example) should add the `s3:GetObject` action and your S3 CORS settings must include the
+    `HEAD` method if your application requires CORS. Your security policies can help guide you in whether you want to enable this optimization or not.
 
     Here is an example of the bucket object policy statement that includes the required action:
 
