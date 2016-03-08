@@ -45,9 +45,7 @@ below (The PUT allowed method and the ETag exposed header are critical).
             </CORSRule>
         </CORSConfiguration>
 
-3. Setup your S3 bucket Policy to support Aborting and Listings multi-part uploads. To support resumable uploads the AWS account used for uploads
-must have the ability to get S3 objects and list multipart uploads and parts. The following AWS S3 policy can be used as a template. Note that the
-statement consists of two parts: the first handles the bucket policy; the second handles the objects and multipart uploads within the S3 bucket.
+3. Setup your S3 bucket Policy to support creating, resuming and aborting multi-part uploads. The following AWS S3 policy can be used as a template.
 
     Replace the AWS ARNs with values that apply to your account and S3 bucket organization.
 
@@ -55,17 +53,6 @@ statement consists of two parts: the first handles the bucket policy; the second
             "Version": "2012-10-17",
             "Id": "Policy145337ddwd",
             "Statement": [
-                {
-                    "Sid": "",
-                    "Effect": "Allow",
-                    "Principal": {
-                        "AWS": "arn:aws:iam::6681765859115:user/me"
-                    },
-                    "Action": [
-                        "s3:ListBucketMultipartUploads"
-                    ],
-                    "Resource": "arn:aws:s3:::mybucket"
-                },
                 {
                     "Sid": "",
                     "Effect": "Allow",
@@ -82,26 +69,34 @@ statement consists of two parts: the first handles the bucket policy; the second
             ]
         }
 
-    If you configure the uploader to enable the S3 existence check optimization (configuration option `allowS3ExistenceOptimization`), then the bucket object 
-    policy statement (the second statement in the above example) should add the `s3:GetObject` action and your S3 CORS settings must include the
-    `HEAD` method if your application requires CORS. Your security policies can help guide you in whether you want to enable this optimization or not.
+    If you configure the uploader to enable the S3 existence check optimization (configuration option `allowS3ExistenceOptimization`), then you should
+    add the `s3:GetObject` action to your bucket object statement and your S3 CORS settings must include `HEAD` method if you want to check for object 
+    existence on S3.
+    Your security policies can help guide you in whether you want to enable this optimization or not.
 
-    Here is an example of the bucket object policy statement that includes the required action:
+    Here is an example of the bucket object policy statement that includes the required actions:
 
-         {
-                "Sid": "",
-                "Effect": "Allow",
-                "Principal": {
-                    "AWS": "arn:aws:iam::6681765859115:user/me"
-                },
-                "Action": [
-                    "s3:AbortMultipartUpload",
-                    "s3:ListMultipartUploadParts",
-                    "s3:GetObject",
-                    "s3:PutObject"
-                ],
-                "Resource": "arn:aws:s3:::mybucket/*"
-            }
+        {
+            "Version": "2012-10-17",
+            "Id": "Policy145337ddwd",
+            "Statement": [
+                {
+                    "Sid": "",
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "arn:aws:iam::6681765859115:user/me"
+                    },
+                    "Action": [
+                        "s3:AbortMultipartUpload",
+                        "s3:ListMultipartUploadParts",
+                        "s3:GetObject",
+                        "s3:PutObject"
+                    ],
+                    "Resource": "arn:aws:s3:::mybucket/*"
+                }
+            ]
+        }
+
 
 4. Setup a signing handler on your application server (see `signer_example.py`).  This handler will create a signature for your multipart request that is sent to S3.  This handler will be contacted via AJAX on your site by evaporate.js. You can monitor these requests by running the sample app locally and using the Chrome Web inspector.
 
