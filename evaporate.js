@@ -581,9 +581,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('Etag');
               if (eTag === me.eTag) {
                  l.d('headObject found matching object on S3.');
+                 me.progress(1.0);
                  me.complete(xhr, me.name);
                  setStatus(COMPLETE);
-                 me.progress(1.0);
               } else {
                  l.d('headObject not found on S3.');
                  me.name = awsKey;
