@@ -113,9 +113,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         if (typeof file.name == 'undefined'){
            err = 'Missing attribute: name  ';
         } else if(con.encodeFilename) {
-           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
-        }       
-        
+           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
+        }
+
         /*if (!(file.file instanceof File)){
            err += '.file attribute must be instanceof File';
         }*/
@@ -311,7 +311,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               hasErrored = true;
 
               l.d('onInitiateError for FileUpload ' + me.id);
-              me.warn('Error initiating upload');
+
+              // Parse error code to pass to callback
+              try {
+                  var parser  = new DOMParser(),
+                  xml = parser.parseFromString(xhr.response, 'text/xml'),
+                  code = xml.getElementsByTagName('Error')[0].getElementsByTagName('Code')[0].textContent;
+
+                  me.warn(code);
+              }
+              catch(error) {
+                  me.warn('Error initiating upload');
+              }
+
               setStatus(ERROR);
 
               xhr.abort();
@@ -407,10 +419,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  part.status = ERROR;
                  part.loadedBytes = 0;
 
-                 awsResponse = getAwsResponse(xhr);
+                 var awsResponse = getAwsResponse(xhr);
+
                  if (awsResponse.code) {
                     l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
                  }
+
                  processPartsList();
               }
               xhr.abort();
@@ -421,7 +435,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('ETag'), msg;
               l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
               if(part.isEmpty || (eTag != ETAG_OF_0_LENGTH_BLOB)) // issue #58
-              { 
+              {
                  part.eTag = eTag;
                  part.status = COMPLETE;
               }
@@ -450,8 +464,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               return slice;
            };
 
-           upload.onFailedAuth = function(xhr){
-
+           upload.onFailedAuth = function(xhr) {
               var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
               l.w(msg);
               me.warn(msg);
@@ -612,7 +625,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               }
 
               setTimeout(processPartsListWithMd5Digests, 1500);
-           }
+          };
         }
 
         function processPartsListWithMd5Digests() {
@@ -691,7 +704,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var oDOM = parseXml(xhr.responseText);
               var parts = oDOM.getElementsByTagName("Part");
               if (parts.length) { // Some parts are still uploading
-                 l.d('Parts still found after abort...waiting.')
+                 l.d('Parts still found after abort...waiting.');
                  setTimeout(function () { abortUpload(); }, 1000);
               } else {
                  me.info('upload canceled');
@@ -747,7 +760,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                     partNumber: parseInt(nodeValue(cp, "PartNumber")),
                     size: parseInt(nodeValue(cp, "Size")),
                     LastModified: nodeValue(cp, "LastModified")
-                 })
+                });
               }
 
               oDOM = uploadedParts = null; // We don't need these potentially large object any longer
@@ -1010,9 +1023,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
                xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
                xmlHttpRequest.send();
-               requester.dateString = xmlHttpRequest.responseText;               
+               requester.dateString = xmlHttpRequest.responseText;
            }
-           
+
            requester.x_amz_headers = extend(requester.x_amz_headers,{
               'x-amz-date': requester.dateString
            });
@@ -1146,12 +1159,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            for ( var header in me.signHeaders ) {
              if (!me.signHeaders.hasOwnProperty(header)) {continue;}
              if( me.signHeaders[header] instanceof Function ) {
-               xhr.setRequestHeader(header, me.signHeaders[header]())
+               xhr.setRequestHeader(header, me.signHeaders[header]());
              } else {
-               xhr.setRequestHeader(header, me.signHeaders[header])
+               xhr.setRequestHeader(header, me.signHeaders[header]);
              }
            }
-          
+
            if( me.beforeSigner instanceof Function ) {
              me.beforeSigner(xhr);
            }
@@ -1201,7 +1214,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         }
 
         function assignCurrentXhr(requester) {
-           return getBaseXhrObject(requester).currentXhr =  new XMLHttpRequest();
+           return getBaseXhrObject(requester).currentXhr = new XMLHttpRequest();
         }
 
         function clearCurrentXhr(requester) {
@@ -1232,8 +1245,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
      function getSavedUploads(purge) {
-        var result = JSON.parse(localStorage.getItem('awsUploads') || '{}'),
-            new_result = {};
+        var result = JSON.parse(localStorage.getItem('awsUploads') || '{}');
 
         if (purge) {
            for (var key in result) {
@@ -1248,6 +1260,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               }
            }
         }
+
         return result;
      }
 
@@ -1275,7 +1288,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
      function nodeValue(parent, nodeName) {
-        return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue
+        return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue;
      }
   };
 
