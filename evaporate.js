@@ -823,7 +823,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  uploadId: me.uploadId,
                  fileSize: me.file.size,
                  fileType: me.file.type,
-                 lastModifiedDate: me.file.lastModifiedDate.toISOString(),
+                 lastModifiedDate: getLastModifiedDate(me.file),
                  partSize: con.partSize,
                  createdAt: new Date().toISOString()
               };
@@ -1264,13 +1264,23 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return result;
      }
 
+     function getLastModifiedDate(file) {
+        // Try to get the modified date from a blob
+        try {
+          return file.lastModifiedDate.toISOString();
+        }
+        catch (err) {
+          return null;
+        }
+     }
+
      function uploadKey(fileUpload) {
         // The key tries to give a signature to a file in the absence of its path.
         // "<filename>-<mimetype>-<modifieddate>-<filesize>"
         return [
            fileUpload.file.name,
            fileUpload.file.type,
-           fileUpload.file.lastModifiedDate.toISOString(),
+           getLastModifiedDate(fileUpload.file),
            fileUpload.file.size
         ].join("-");
      }
