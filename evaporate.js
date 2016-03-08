@@ -812,6 +812,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  fileType: me.file.type,
                  lastModifiedDate: me.file.lastModifiedDate.toISOString(),
                  partSize: con.partSize,
+                 signParams: me.signParams,
                  createdAt: new Date().toISOString()
               };
            if (con.computeContentMd5 && parts.length && typeof parts[1].md5_digest !== 'undefined') {
@@ -847,6 +848,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               me.name = u.awsKey;
               me.eTag = u.eTag;
               me.firstMd5Digest = u.firstMd5Digest;
+              me.signParams = u.signParams;
            }
         }
 
