@@ -19,7 +19,55 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ***************************************************************************************************/
 
 (function() {
-   var FAR_FUTURE = new Date('2060-10-22');
+  var FAR_FUTURE = new Date('2060-10-22');
+
+  var localStorage = {
+    supported: (function() {
+      if(!('localStorage' in window)) {
+        return false;
+      }
+
+      // Try to use storage (it might be disabled, e.g. user is in private mode)
+      try {
+        // Add test item
+        window.localStorage.setItem('___test', 'OK');
+
+        // Get the test item
+        var result = window.localStorage.getItem('___test');
+
+        // Clean up
+        window.localStorage.removeItem('___test');
+
+        // Check if value matches
+        return (result === 'OK');
+      }
+      catch (e) {
+        return false;
+      }
+
+      return false;
+    })(),
+    getItem: function(key) {
+      if(!this.supported) { return null; }
+      return window.localStorage.getItem(key);
+    },
+    setItem: function(key, value) {
+      if(!this.supported) { return; }
+      return window.localStorage.setItem(key, value);
+    },
+    clear: function() {
+      if(!this.supported) { return; }
+      return window.localStorage.clear();
+    },
+    key: function(key) {
+      if(!this.supported) { return null; }
+      return window.localStorage.key(key);
+    },
+    removeItem: function(key) {
+      if(!this.supported) { return; }
+      return window.localStorage.removeItem(key);
+    }
+  };
 
   var Evaporate = function (config) {
 
@@ -113,9 +161,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         if (typeof file.name == 'undefined'){
            err = 'Missing attribute: name  ';
         } else if(con.encodeFilename) {
-           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
-        }       
-        
+           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
+        }
+
         /*if (!(file.file instanceof File)){
            err += '.file attribute must be instanceof File';
         }*/
@@ -311,7 +359,19 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               hasErrored = true;
 
               l.d('onInitiateError for FileUpload ' + me.id);
-              me.warn('Error initiating upload');
+
+              // Parse error code to pass to callback
+              try {
+                  var parser  = new DOMParser(),
+                  xml = parser.parseFromString(xhr.response, 'text/xml'),
+                  code = xml.getElementsByTagName('Error')[0].getElementsByTagName('Code')[0].textContent;
+
+                  me.warn(code);
+              }
+              catch(error) {
+                  me.warn('Error initiating upload');
+              }
+
               setStatus(ERROR);
 
               xhr.abort();
@@ -407,10 +467,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  part.status = ERROR;
                  part.loadedBytes = 0;
 
-                 awsResponse = getAwsResponse(xhr);
+                 var awsResponse = getAwsResponse(xhr);
+
                  if (awsResponse.code) {
                     l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
                  }
+
                  processPartsList();
               }
               xhr.abort();
@@ -421,7 +483,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('ETag'), msg;
               l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
               if(part.isEmpty || (eTag != ETAG_OF_0_LENGTH_BLOB)) // issue #58
-              { 
+              {
                  part.eTag = eTag;
                  part.status = COMPLETE;
               }
@@ -450,8 +512,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               return slice;
            };
 
-           upload.onFailedAuth = function(xhr){
-
+           upload.onFailedAuth = function(xhr) {
               var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
               l.w(msg);
               me.warn(msg);
@@ -568,9 +629,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('Etag');
               if (eTag === me.eTag) {
                  l.d('headObject found matching object on S3.');
+                 me.progress(1.0);
                  me.complete(xhr, me.name);
                  setStatus(COMPLETE);
-                 me.progress(1.0);
               } else {
                  l.d('headObject not found on S3.');
                  me.name = awsKey;
@@ -612,7 +673,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               }
 
               setTimeout(processPartsListWithMd5Digests, 1500);
-           }
+          };
         }
 
         function processPartsListWithMd5Digests() {
@@ -691,7 +752,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var oDOM = parseXml(xhr.responseText);
               var parts = oDOM.getElementsByTagName("Part");
               if (parts.length) { // Some parts are still uploading
-                 l.d('Parts still found after abort...waiting.')
+                 l.d('Parts still found after abort...waiting.');
                  setTimeout(function () { abortUpload(); }, 1000);
               } else {
                  me.info('upload canceled');
@@ -747,7 +808,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                     partNumber: parseInt(nodeValue(cp, "PartNumber")),
                     size: parseInt(nodeValue(cp, "Size")),
                     LastModified: nodeValue(cp, "LastModified")
-                 })
+                });
               }
 
               oDOM = uploadedParts = null; // We don't need these potentially large object any longer
@@ -810,9 +871,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  uploadId: me.uploadId,
                  fileSize: me.file.size,
                  fileType: me.file.type,
-                 lastModifiedDate: me.file.lastModifiedDate.toISOString(),
+                 lastModifiedDate: getLastModifiedDate(me.file),
                  partSize: con.partSize,
-                 createdAt: new Date().toISOString()
+                 createdAt: new Date().toISOString(),
+                 signParams: me.signParams
               };
            if (con.computeContentMd5 && parts.length && typeof parts[1].md5_digest !== 'undefined') {
               newUpload.firstMd5Digest = parts[1].md5_digest;
@@ -847,6 +909,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               me.name = u.awsKey;
               me.eTag = u.eTag;
               me.firstMd5Digest = u.firstMd5Digest;
+              me.signParams = u.signParams;
            }
         }
 
@@ -1010,9 +1073,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
                xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
                xmlHttpRequest.send();
-               requester.dateString = xmlHttpRequest.responseText;               
+               requester.dateString = xmlHttpRequest.responseText;
            }
-           
+
            requester.x_amz_headers = extend(requester.x_amz_headers,{
               'x-amz-date': requester.dateString
            });
@@ -1146,12 +1209,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            for ( var header in me.signHeaders ) {
              if (!me.signHeaders.hasOwnProperty(header)) {continue;}
              if( me.signHeaders[header] instanceof Function ) {
-               xhr.setRequestHeader(header, me.signHeaders[header]())
+               xhr.setRequestHeader(header, me.signHeaders[header]());
              } else {
-               xhr.setRequestHeader(header, me.signHeaders[header])
+               xhr.setRequestHeader(header, me.signHeaders[header]);
              }
            }
-          
+
            if( me.beforeSigner instanceof Function ) {
              me.beforeSigner(xhr);
            }
@@ -1201,7 +1264,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         }
 
         function assignCurrentXhr(requester) {
-           return getBaseXhrObject(requester).currentXhr =  new XMLHttpRequest();
+           return getBaseXhrObject(requester).currentXhr = new XMLHttpRequest();
         }
 
         function clearCurrentXhr(requester) {
@@ -1232,8 +1295,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
      function getSavedUploads(purge) {
-        var result = JSON.parse(localStorage.getItem('awsUploads') || '{}'),
-            new_result = {};
+        var result = JSON.parse(localStorage.getItem('awsUploads') || '{}');
 
         if (purge) {
            for (var key in result) {
@@ -1248,7 +1310,18 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               }
            }
         }
+
         return result;
+     }
+
+     function getLastModifiedDate(file) {
+        // Try to get the modified date from a blob
+        try {
+          return file.lastModifiedDate.toISOString();
+        }
+        catch (err) {
+          return null;
+        }
      }
 
      function uploadKey(fileUpload) {
@@ -1257,7 +1330,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return [
            fileUpload.file.name,
            fileUpload.file.type,
-           fileUpload.file.lastModifiedDate.toISOString(),
+           getLastModifiedDate(fileUpload.file),
            fileUpload.file.size
         ].join("-");
      }
@@ -1275,7 +1348,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
      function nodeValue(parent, nodeName) {
-        return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue
+        return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue;
      }
   };
 
