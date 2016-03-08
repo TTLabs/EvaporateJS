@@ -857,7 +857,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                  uploadId: me.uploadId,
                  fileSize: me.file.size,
                  fileType: me.file.type,
-                 lastModifiedDate: me.file.lastModifiedDate.toISOString(),
+                 lastModifiedDate: dateISOString(me.file.lastModifiedDate),
                  partSize: con.partSize,
                  signParams: me.signParams,
                  createdAt: new Date().toISOString()
@@ -1306,7 +1306,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return [
            fileUpload.file.name,
            fileUpload.file.type,
-           fileUpload.file.lastModifiedDate.toISOString(),
+           dateISOString(fileUpload.file.lastModifiedDate),
            fileUpload.file.size
         ].join("-");
      }
@@ -1327,6 +1327,11 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue
      }
   };
+
+   function dateISOString(date) {
+      // Try to get the modified date as an ISO String, if the date exists
+      return date ? date.toISOString() : '';
+   }
 
    function getFilePart(file, start, end) {
       var slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice'));
