@@ -19,7 +19,55 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ***************************************************************************************************/
 
 (function() {
-   var FAR_FUTURE = new Date('2060-10-22');
+  var FAR_FUTURE = new Date('2060-10-22');
+
+  var localStorage = {
+    supported: (function() {
+      if(!('localStorage' in window)) {
+        return false;
+      }
+
+      // Try to use storage (it might be disabled, e.g. user is in private mode)
+      try {
+        // Add test item
+        window.localStorage.setItem('___test', 'OK');
+
+        // Get the test item
+        var result = window.localStorage.getItem('___test');
+
+        // Clean up
+        window.localStorage.removeItem('___test');
+
+        // Check if value matches
+        return (result === 'OK');
+      }
+      catch (e) {
+        return false;
+      }
+
+      return false;
+    })(),
+    getItem: function(key) {
+      if(!this.supported) { return null; }
+      return window.localStorage.getItem(key);
+    },
+    setItem: function(key, value) {
+      if(!this.supported) { return; }
+      return window.localStorage.setItem(key, value);
+    },
+    clear: function() {
+      if(!this.supported) { return; }
+      return window.localStorage.clear();
+    },
+    key: function(key) {
+      if(!this.supported) { return null; }
+      return window.localStorage.key(key);
+    },
+    removeItem: function(key) {
+      if(!this.supported) { return; }
+      return window.localStorage.removeItem(key);
+    }
+  };
 
   var Evaporate = function (config) {
 
