@@ -21,51 +21,50 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 (function() {
   var FAR_FUTURE = new Date('2060-10-22');
 
-  var localStorage = {
-    supported: (function() {
-      if(!('localStorage' in window)) {
-        return false;
+  var historyCache = {
+    supported: (function () {
+      var result = false;
+      if (!('localStorage' in window)) {
+        return result;
       }
 
       // Try to use storage (it might be disabled, e.g. user is in private mode)
       try {
-        // Add test item
-        window.localStorage.setItem('___test', 'OK');
+        localStorage.setItem('___test', 'OK');
+        var test = localStorage.getItem('___test');
+        localStorage.removeItem('___test');
 
-        // Get the test item
-        var result = window.localStorage.getItem('___test');
-
-        // Clean up
-        window.localStorage.removeItem('___test');
-
-        // Check if value matches
-        return (result === 'OK');
-      }
-      catch (e) {
-        return false;
+        result = test === 'OK';
+      } catch (e) {
+        return result;
       }
 
-      return false;
+      return result;
     })(),
-    getItem: function(key) {
-      if(!this.supported) { return null; }
-      return window.localStorage.getItem(key);
+    getItem: function (key) {
+      if (this.supported) {
+          return localStorage.getItem(key)
+      }
     },
-    setItem: function(key, value) {
-      if(!this.supported) { return; }
-      return window.localStorage.setItem(key, value);
+    setItem: function (key, value) {
+      if (this.supported) {
+          return localStorage.setItem(key, value);
+      }
     },
-    clear: function() {
-      if(!this.supported) { return; }
-      return window.localStorage.clear();
+    clear: function () {
+      if (this.supported) {
+          return localStorage.clear();
+      }
     },
-    key: function(key) {
-      if(!this.supported) { return null; }
-      return window.localStorage.key(key);
+    key: function (key) {
+      if (this.supported) {
+          return localStorage.key(key);
+      }
     },
-    removeItem: function(key) {
-      if(!this.supported) { return; }
-      return window.localStorage.removeItem(key);
+    removeItem: function (key) {
+      if(this.supported) {
+          return localStorage.removeItem(key);
+      }
     }
   };
 
@@ -874,7 +873,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                upload = uploads[uploadKey(me)];
            upload.completedAt = new Date().toISOString();
            upload.eTag = me.eTag;
-           localStorage.setItem('awsUploads', JSON.stringify(uploads));
+           historyCache.setItem('awsUploads', JSON.stringify(uploads));
 
            setStatus(COMPLETE);
            me.progress(1.0);
@@ -1282,7 +1281,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      }
 
      function getSavedUploads(purge) {
-        var result = JSON.parse(localStorage.getItem('awsUploads') || '{}'),
+        var result = JSON.parse(historyCache.getItem('awsUploads') || '{}'),
             new_result = {};
 
         if (purge) {
@@ -1315,13 +1314,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
      function saveUpload(uploadKey, upload) {
         var uploads = getSavedUploads();
         uploads[uploadKey] = upload;
-        localStorage.setItem('awsUploads', JSON.stringify(uploads));
+         historyCache.setItem('awsUploads', JSON.stringify(uploads));
      }
 
      function removeUpload(uploadKey) {
         var uploads = getSavedUploads();
         delete uploads[uploadKey];
-        localStorage.setItem('awsUploads', JSON.stringify(uploads));
+         historyCache.setItem('awsUploads', JSON.stringify(uploads));
      }
 
      function nodeValue(parent, nodeName) {
