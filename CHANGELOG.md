@@ -1,4 +1,13 @@
-#v1.0.0#
+# v1.0.1#
+
+## Features##
+- Issue #117. Adds the signParams configuration to the localStorage cache for reuse when resuming uploads
+
+## Bug Fixes##
+- Issue #116. Fixes issue where the uploader would fail because localStorage is not available in incognito mode on some browsers
+- Issue #115. Fixes an issue where the uploader assumed that a Blob object had a last modified date
+
+# v1.0.0#
 
 ##Features##
 - Adds MD5 checksum/digest validation, Issue #96.
