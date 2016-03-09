@@ -14,6 +14,11 @@ error. For example, if the user refreshes the browser during an upload. To reciv
 files (or the successfully uploaded file parts) that are available on AWS S3 through an incomplete multipart upload
 or an existing S3 object will not be reuploaded.
 
+### Browser Compatibility
+EvaporteJS requires browsers that [support](http://caniuse.com/#feat=fileapi) the JavaScript File API, which includes the `FileReader` object. The MD5 Digest
+support requires that FileReader support the `readAsArrayBuffer` method. For details, look at the `supported` property of the `EvaporateJS`
+object.
+
 ## Set up EvaporateJS
 
 
