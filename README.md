@@ -250,13 +250,13 @@ GET requests. It goes without saying that your AWS IAM credentials and secrets s
 After you initiate multipart upload and upload one or more parts, you must either complete or abort multipart upload in order to stop 
 getting charged for storage of the uploaded parts. Only after you either complete or abort multipart upload, Amazon S3 frees up the parts 
 storage and stops charging you for the parts storage. Refer to the 
-[AWS Multipart Upload Overview]http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html for more information.
+[AWS Multipart Upload Overview](http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html) for more information.
 
 The sample S3 bucket policy shown above should configure your S3 bucket to allow cleanup of orphaned multipart uploads but the cleanup task is
 not part of EvaporateJS. A separate tool or task will need to be created to query orphaned multipart uploads and abort them using some appropriate 
 heuristic.
 
-Refer to this functioning [Ruby on Rails rake task]https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake for ideas.  
+Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.  
 
 
 ## Integration
