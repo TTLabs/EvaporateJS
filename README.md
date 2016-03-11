@@ -177,7 +177,8 @@ So far the api contains just two methods, and one property
 * **allowS3ExistenceOptimization**: default=false, whether to verify file existence against S3 storage. Enabling this option requires
     that the target S3 bucket object permissions include the `s3:GetObject` action for the authorized user performing the upload. If enabled, if the uploader
     believes it is attempting to upload a file that already exists, it will perform a HEAD action on the object to verify its eTag. If this option
-    is not set or if the cached eTag does not match the object's eTag, the file will be uploaded again.
+    is not set or if the cached eTag does not match the object's eTag, the file will be uploaded again. This option is only
+    enabled if `computeContentMd5` is enabled.
 
 ### .add()
 
