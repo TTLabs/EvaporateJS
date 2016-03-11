@@ -90,8 +90,13 @@
             encodeFilename: true,
             computeContentMd5: false,
             allowS3ExistenceOptimization: false,
-            s3FileCacheHoursAgo: null // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
-
+            timeUrl: null,
+            cryptoMd5Method: null,
+            s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
+            // undocumented
+            testUnsupported: false,
+            simulateStalling: false,
+            simulateErrors: false
         }, config);
 
         if (console && console.log) {
