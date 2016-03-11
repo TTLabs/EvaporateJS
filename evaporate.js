@@ -1077,7 +1077,10 @@
                     xhr.onreadystatechange = function () {
                         if (xhr.readyState === 4) {
 
-                            if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
+                            if (payload) {
+                                // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
+                                l.d('  ### ' + payload.size);
+                            }
                             clearCurrentXhr(requester);
                             if (xhr.status === status_success) {
                                 requester.on200(xhr);
