@@ -204,7 +204,6 @@
         function onFileUploadStatusChange() {
             l.d('onFileUploadStatusChange');
             processQueue();
-
         }
 
 
@@ -212,13 +211,13 @@
             setTimeout(processQueue,1);
         }
 
+        function processQueue() {
             l.d('processQueue   length: ' + files.length);
             var next = -1, priorityOfNext = -1, readyForNext = true;
             files.forEach(function (file, i) {
 
                 if (file.priority > priorityOfNext && file.status === PENDING) {
                     next = i;
-        function processQueue() {
                     priorityOfNext = file.priority;
                 }
 
@@ -1045,11 +1044,11 @@
                     }
                     var all_headers = {};
                     var status_success = requester.successStatus || 200;
+
                     extend(all_headers, requester.not_signed_headers);
                     extend(all_headers, requester.x_amz_headers);
 
                     if (con.simulateErrors && requester.attempts === 1 && requester.step === 'upload #3') {
-
                         l.d('simulating error by POST part #3 to invalid url');
                         url = 'https:///foo';
                     }
@@ -1152,16 +1151,16 @@
                 };
 
                 xhr.open('GET', url);
-                for ( var header in me.signHeaders ) {
-                    if (!me.signHeaders.hasOwnProperty(header)) {continue;}
-                    if( me.signHeaders[header] instanceof Function ) {
+                for (var header in me.signHeaders) {
+                    if (!me.signHeaders.hasOwnProperty(header)) { continue; }
+                    if (typeof me.signHeaders[header] === 'function') {
                         xhr.setRequestHeader(header, me.signHeaders[header]())
                     } else {
                         xhr.setRequestHeader(header, me.signHeaders[header])
                     }
                 }
 
-                if( me.beforeSigner instanceof Function ) {
+                if (typeof me.beforeSigner  === 'function') {
                     me.beforeSigner(xhr);
                 }
                 xhr.send();
