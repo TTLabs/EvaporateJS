@@ -343,8 +343,8 @@
 
                 initiate.on200 = function (xhr) {
 
-                    var match = xhr.response.match(/<UploadId\>(.+)<\/UploadId\>/);
-                    if (match && match[1]){
+                    var match = xhr.response.match(/<UploadId>(.+)<\/UploadId>/);
+                    if (match && match[1]) {
                         me.uploadId = match[1];
                         me.awsKey = awsKey;
                         l.d('requester success. got uploadId ' + me.uploadId);
@@ -465,8 +465,7 @@
                     return slice;
                 };
 
-                upload.onFailedAuth = function(xhr){
-
+                upload.onFailedAuth = function () {
                     var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
                     l.w(msg);
                     me.warn(msg);
@@ -705,7 +704,7 @@
                     var oDOM = parseXml(xhr.responseText);
                     var parts = oDOM.getElementsByTagName("Part");
                     if (parts.length) { // Some parts are still uploading
-                        l.d('Parts still found after abort...waiting.')
+                        l.d('Parts still found after abort...waiting.');
                         setTimeout(function () { abortUpload(); }, 1000);
                     } else {
                         me.info('upload canceled');
@@ -970,8 +969,8 @@
 
                 progressPartsInterval = setInterval(function () {
 
-                    l.d('monitorPartsProgress() ' + Date());
-                    parts.forEach(function(part,i){
+                    l.d('monitorPartsProgress() ' + new Date());
+                    parts.forEach(function (part, i) {
 
                         var healthy;
 
@@ -1241,8 +1240,7 @@
         }
 
         function getSavedUploads(purge) {
-            var result = JSON.parse(historyCache.getItem('awsUploads') || '{}'),
-                new_result = {};
+            var result = JSON.parse(historyCache.getItem('awsUploads') || '{}');
 
             if (purge) {
                 for (var key in result) {
