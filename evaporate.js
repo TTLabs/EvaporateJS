@@ -508,20 +508,22 @@
                 l.d('completeUpload');
                 me.info('will attempt to complete upload');
 
-                var completeDoc = '<CompleteMultipartUpload>',
+                var completeDoc = [],
                     originalStatus = me.status,
                     hasErrored;
-                parts.forEach(function (part,partNumber) {
+
+                completeDoc.push('<CompleteMultipartUpload>');
+                parts.forEach(function (part, partNumber) {
                     if (part) {
-                        completeDoc += '<Part><PartNumber>' + partNumber + '</PartNumber><ETag>' + part.eTag + '</ETag></Part>';
+                        completeDoc.push(['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>'].join(""));
                     }
                 });
-                completeDoc += '</CompleteMultipartUpload>';
+                completeDoc.push('</CompleteMultipartUpload>');
 
                 var complete = {
                     method: 'POST',
                     contentType: 'application/xml; charset=UTF-8',
-                    path: getPath() + '?uploadId='+me.uploadId,
+                    path: getPath() + '?uploadId=' + me.uploadId,
                     x_amz_headers: me.xAmzHeadersAtComplete,
                     step: 'complete'
                 };
@@ -558,7 +560,7 @@
                 };
 
                 complete.toSend = function () {
-                    return completeDoc;
+                    return completeDoc.join("");
                 };
 
                 setupRequest(complete);
