@@ -1,3 +1,9 @@
+# v1.0.2#
+
+## Bug Fixes##
+
+- Issue #124. Only enables the history cache if MD5 checksums are also enabled.
+
 # v1.0.1#
 
 ## Features##
