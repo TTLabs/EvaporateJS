@@ -21,53 +21,6 @@
 (function () {
     var FAR_FUTURE = new Date('2060-10-22');
 
-    var historyCache = {
-        supported: (function () {
-            var result = false;
-            if (!('localStorage' in window)) {
-                return result;
-            }
-
-            // Try to use storage (it might be disabled, e.g. user is in private mode)
-            try {
-                localStorage.setItem('___test', 'OK');
-                var test = localStorage.getItem('___test');
-                localStorage.removeItem('___test');
-
-                result = test === 'OK';
-            } catch (e) {
-                return result;
-            }
-
-            return result;
-        })(),
-        getItem: function (key) {
-            if (this.supported) {
-                return localStorage.getItem(key)
-            }
-        },
-        setItem: function (key, value) {
-            if (this.supported) {
-                return localStorage.setItem(key, value);
-            }
-        },
-        clear: function () {
-            if (this.supported) {
-                return localStorage.clear();
-            }
-        },
-        key: function (key) {
-            if (this.supported) {
-                return localStorage.key(key);
-            }
-        },
-        removeItem: function (key) {
-            if(this.supported) {
-                return localStorage.removeItem(key);
-            }
-        }
-    };
-
     var Evaporate = function (config) {
 
         var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, AWS_URL = config.aws_url || 'https://s3.amazonaws.com', ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
@@ -138,6 +91,53 @@
             // Reset the logger to be a no_op
             l = noOpLogger();
         }
+
+        var historyCache = {
+            supported: (function () {
+                var result = false;
+                if (!('localStorage' in window)) {
+                    return result;
+                }
+
+                // Try to use storage (it might be disabled, e.g. user is in private mode)
+                try {
+                    localStorage.setItem('___test', 'OK');
+                    var test = localStorage.getItem('___test');
+                    localStorage.removeItem('___test');
+
+                    result = test === 'OK';
+                } catch (e) {
+                    return result;
+                }
+
+                return result;
+            })(),
+            getItem: function (key) {
+                if (this.supported) {
+                    return localStorage.getItem(key)
+                }
+            },
+            setItem: function (key, value) {
+                if (this.supported) {
+                    return localStorage.setItem(key, value);
+                }
+            },
+            clear: function () {
+                if (this.supported) {
+                    return localStorage.clear();
+                }
+            },
+            key: function (key) {
+                if (this.supported) {
+                    return localStorage.key(key);
+                }
+            },
+            removeItem: function (key) {
+                if(this.supported) {
+                    return localStorage.removeItem(key);
+                }
+            }
+        };
 
         var _d = new Date(),
             HOURS_AGO = new Date(_d.setHours(_d.getHours() - (con.s3FileCacheHoursAgo || -100)));
