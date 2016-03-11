@@ -143,10 +143,10 @@
 
             l.d('add');
             var err;
-            if (typeof file == 'undefined'){
+            if (typeof file === 'undefined') {
                 return 'Missing file';
             }
-            if (typeof file.name == 'undefined'){
+            if (typeof file.name === 'undefined') {
                 err = 'Missing attribute: name  ';
             } else if (con.encodeFilename) {
                 file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
@@ -206,7 +206,9 @@
             processQueue();
 
         }
-        function asynProcessQueue(){
+
+
+        function asynProcessQueue() {
             setTimeout(processQueue,1);
         }
 
@@ -214,13 +216,13 @@
             var next = -1, priorityOfNext = -1, readyForNext = true;
             files.forEach(function (file, i) {
 
-                if (file.priority > priorityOfNext && file.status == PENDING){
+                if (file.priority > priorityOfNext && file.status === PENDING) {
                     next = i;
         function processQueue() {
                     priorityOfNext = file.priority;
                 }
 
-                if (file.status == EVAPORATING){
+                if (file.status === EVAPORATING) {
                     readyForNext = false;
                 }
             });
@@ -411,7 +413,7 @@
                     }
                     hasErrored = true;
 
-                    if (xhr.status == 404){
+                    if (xhr.status === 404) {
                         var errMsg = '404 error resulted in abortion of both this part and the entire file.';
                         l.w(errMsg + ' Server response: ' + xhr.response);
                         me.error(errMsg);
@@ -434,7 +436,7 @@
 
                     var eTag = xhr.getResponseHeader('ETag'), msg;
                     l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
-                    if(part.isEmpty || (eTag != ETAG_OF_0_LENGTH_BLOB)) // issue #58
+                    if(part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) // issue #58
                     {
                         part.eTag = eTag;
                         part.status = COMPLETE;
@@ -457,8 +459,7 @@
                 upload.toSend = function () {
                     var slice = getFilePart(me.file, part.start, part.end);
                     l.d('part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
-                    if(!part.isEmpty && slice.size === 0) // issue #58
-                    {
+                    if (!part.isEmpty && slice.size === 0) { // issue #58
                         l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
                     }
                     return slice;
@@ -689,7 +690,7 @@
                 };
 
                 list.onErr = function (xhr) {
-                    if (xhr.status == 404) {
+                    if (xhr.status === 404) {
                         // Success! Parts are not found because the uploadid has been cleared
                         removeUploadFile();
                         me.info('upload canceled');
@@ -886,7 +887,7 @@
 
                 var evaporatingCount = 0, finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
 
-                if (me.status != EVAPORATING){
+                if (me.status !== EVAPORATING) {
                     me.info('will not process parts list, as not currently evaporating');
                     return;
                 }
@@ -899,7 +900,7 @@
                         }
                         var requiresUpload = false;
                         stati.push(part.status);
-                        switch(part.status){
+                        switch (part.status) {
 
                             case EVAPORATING:
                                 finished = false;
@@ -950,7 +951,7 @@
                 progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
-                    parts.forEach(function(part,i){
+                    parts.forEach(function (part) {
                         totalBytesLoaded += part.loadedBytes;
                     });
 
@@ -974,8 +975,8 @@
 
                         var healthy;
 
-                        if (part.status != EVAPORATING){
-                            l.d(i,  'not evaporating ');
+                        if (part.status !== EVAPORATING) {
+                            l.d(i, 'not evaporating ');
                             return;
                         }
 
@@ -986,8 +987,8 @@
                         }
 
                         healthy = part.loadedBytesPrevious < part.loadedBytes;
-                        if (con.simulateStalling && i == 4){
-                            if (Math.random() < 0.25){
+                        if (con.simulateStalling && i === 4) {
+                            if (Math.random() < 0.25) {
                                 healthy = false;
                             }
                         }
@@ -1048,7 +1049,8 @@
                     extend(all_headers, requester.not_signed_headers);
                     extend(all_headers, requester.x_amz_headers);
 
-                    if (con.simulateErrors && requester.attempts == 1 &&requester.step == 'upload #3'){
+                    if (con.simulateErrors && requester.attempts === 1 && requester.step === 'upload #3') {
+
                         l.d('simulating error by POST part #3 to invalid url');
                         url = 'https:///foo';
                     }
@@ -1070,12 +1072,11 @@
                         xhr.setRequestHeader('Content-MD5', requester.md5_digest);
                     }
                     xhr.onreadystatechange = function () {
-
-                        if (xhr.readyState == 4){
+                        if (xhr.readyState === 4) {
 
                             if(payload){l.d('  ### ' + payload.size);} // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
                             clearCurrentXhr(requester);
-                            if (xhr.status == status_success) {
+                            if (xhr.status === status_success) {
                                 requester.on200(xhr);
                             } else {
                                 requester.onErr(xhr);
@@ -1117,9 +1118,9 @@
                     warnMsg;
 
                 for (var param in me.signParams) {
-                    if (!me.signParams.hasOwnProperty(param)) {continue;}
-                    if( me.signParams[param] instanceof Function ) {
-                        url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]()));
+                    if (!me.signParams.hasOwnProperty(param)) { continue; }
+                    if(typeof me.signParams[param] === 'function') {
+                        url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(me.signParams[param]()));
                     } else {
                         url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(me.signParams[param]));
                     }
@@ -1127,11 +1128,10 @@
 
                 xhr.onreadystatechange = function () {
 
-                    if (xhr.readyState == 4){
+                    if (xhr.readyState === 4) {
 
-                        if (xhr.status == 200 && xhr.response.length == 28){
-
-                            l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: '+ xhr.response);
+                        if (xhr.status === 200 && xhr.response.length === 28) {
+                            l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: ' + xhr.response);
                             authRequester.auth = xhr.response;
                             clearCurrentXhr(authRequester);
                             authRequester.onGotAuth();
@@ -1220,13 +1220,12 @@
         }
 
 
-        function extend(obj1, obj2, obj3){
+        function extend(obj1, obj2, obj3) {
+            obj1 = typeof obj1 === 'undefined' ? {} : obj1;
 
-            if (typeof obj1 == 'undefined'){obj1 = {};}
-
-            if (typeof obj3 == 'object'){
-                for (var key in obj3){
-                    obj2[key]=obj3[key];
+            if (typeof obj3 === 'object') {
+                for (var key in obj3) {
+                    obj2[key] = obj3[key];
                 }
             }
 
@@ -1295,7 +1294,7 @@
     }
 
     function getFilePart(file, start, end) {
-        var slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice'));
+        var slicerFn = (file.slice ? 'slice' : (file['mozSlice'] ? 'mozSlice' : 'webkitSlice'));
         // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
         return file[slicerFn](start, end);
     }
