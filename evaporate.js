@@ -18,7 +18,7 @@
  *                                                                                                  *
  ***************************************************************************************************/
 
-(function() {
+(function () {
     var FAR_FUTURE = new Date('2060-10-22');
 
     var historyCache = {
@@ -80,7 +80,6 @@
         var l = noOpLogger();
 
         var con = extend({
-
             logging: true,
             maxConcurrentParts: 5,
             partSize: 6 * 1024 * 1024,
@@ -98,28 +97,18 @@
         if (console && console.log) {
             l = console;
             l.d = l.log;
-
-            if (console.warn){
-                l.w = l.warn;
-            }else{
-                l.w = l.log;
-            }
-
-            if (console.error){
-                l.e = l.error;
-            }else{
-                l.e = l.log;
-            }
+            l.w = console.warn ? l.warn : l.d;
+            l.e = console.error ? l.error : l.d;
         }
 
         this.supported = !(
-        typeof File === 'undefined' ||
-        typeof Blob === 'undefined' ||
-        typeof (
-        Blob.prototype.webkitSlice ||
-        Blob.prototype.mozSlice ||
-        Blob.prototype.slice) === 'undefined' ||
-        !!config.testUnsupported);
+            typeof File === 'undefined' ||
+            typeof Blob === 'undefined' ||
+            typeof (
+            Blob.prototype['webkitSlice'] ||
+            Blob.prototype['mozSlice']||
+            Blob.prototype['slice']) === 'undefined' ||
+            !!config.testUnsupported);
 
         if (!this.supported) {
             l.e('The browser does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice]');
@@ -150,7 +139,7 @@
 
         //con.simulateStalling =  true
 
-        _.add = function(file){
+        _.add = function (file) {
 
             l.d('add');
             var err;
@@ -159,24 +148,24 @@
             }
             if (typeof file.name == 'undefined'){
                 err = 'Missing attribute: name  ';
-            } else if(con.encodeFilename) {
+            } else if (con.encodeFilename) {
                 file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
             }
 
             /*if (!(file.file instanceof File)){
              err += '.file attribute must be instanceof File';
              }*/
-            if (err){return err;}
+            if (err) { return err; }
 
             var newId = addFile(file);
             asynProcessQueue();
             return newId;
         };
 
-        _.cancel = function(id){
+        _.cancel = function (id) {
 
             l.d('cancel ', id);
-            if (files[id]){
+            if (files[id]) {
                 files[id].stop();
                 return true;
             } else {
@@ -184,32 +173,23 @@
             }
         };
 
-        _.pause = function(id){
+        _.pause = function (id) {};
 
+        _.resume = function (id) {};
 
-        };
+        _.forceRetry = function () {};
 
-        _.resume = function(id){
-
-
-        };
-
-        _.forceRetry = function(){
-
-
-        };
-
-        function addFile(file){
+        function addFile(file) {
 
             var id = files.length;
             files.push(new FileUpload(extend({
-                progress: function(){},
-                complete: function(){},
-                cancelled: function(){},
-                info: function(){},
-                warn: function(){},
-                error: function(){}
-            },file,{
+                progress: function () {},
+                complete: function () {},
+                cancelled: function () {},
+                info: function () {},
+                warn: function () {},
+                error: function () {}
+            }, file, {
                 id: id,
                 status: PENDING,
                 priority: 0,
@@ -221,28 +201,22 @@
             return id;
         }
 
-        function onFileUploadStatusChange(){
-
+        function onFileUploadStatusChange() {
             l.d('onFileUploadStatusChange');
             processQueue();
 
         }
-
-
         function asynProcessQueue(){
-
             setTimeout(processQueue,1);
         }
 
-
-        function processQueue(){
-
             l.d('processQueue   length: ' + files.length);
             var next = -1, priorityOfNext = -1, readyForNext = true;
-            files.forEach(function(file,i){
+            files.forEach(function (file, i) {
 
                 if (file.priority > priorityOfNext && file.status == PENDING){
                     next = i;
+        function processQueue() {
                     priorityOfNext = file.priority;
                 }
 
@@ -251,20 +225,18 @@
                 }
             });
 
-            if (readyForNext && next >= 0){
+            if (readyForNext && next >= 0) {
                 files[next].start();
             }
         }
 
 
-        function FileUpload(file){
-
+        function FileUpload(file) {
             var me = this, parts = [], completedParts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
                 countInitiateAttempts = 0, countCompleteAttempts = 0;
             extend(me,file);
 
-            me.start = function(){
-
+            me.start = function () {
                 l.d('starting FileUpload ' + me.id);
 
                 setStatus(EVAPORATING);
@@ -294,8 +266,7 @@
                 }
             };
 
-            me.stop = function(){
-
+            me.stop = function () {
                 l.d('stopping FileUpload ', me.id);
                 me.cancelled();
                 setStatus(CANCELED);
@@ -303,8 +274,7 @@
                 cancelAllRequests();
             };
 
-
-            function setStatus(s){
+            function setStatus(s) {
                 if (s === COMPLETE || s === ERROR || s === CANCELED) {
                     clearInterval(progressTotalInterval);
                     clearInterval(progressPartsInterval);
@@ -313,8 +283,7 @@
                 me.onStatusChange();
             }
 
-
-            function cancelAllRequests(){
+            function cancelAllRequests() {
                 l.d('cancelAllRequests()');
 
                 for (var i = 1; i < parts.length; i++) {
@@ -335,7 +304,6 @@
             }
 
             function initiateUpload(awsKey) { // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
-
                 var initiate = {
                         method: 'POST',
                         path: getPath() + '?uploads',
@@ -346,11 +314,11 @@
                     originalStatus = me.status,
                     hasErrored;
 
-                if (me.contentType){
+                if (me.contentType) {
                     initiate.contentType = me.contentType;
                 }
 
-                initiate.onErr = function (xhr){
+                initiate.onErr = function (xhr) {
                     if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
                         return;
                     }
@@ -371,7 +339,7 @@
                     }, backOffWait(countInitiateAttempts++));
                 };
 
-                initiate.on200 = function(xhr){
+                initiate.on200 = function (xhr) {
 
                     var match = xhr.response.match(/<UploadId\>(.+)<\/UploadId\>/);
                     if (match && match[1]){
@@ -380,7 +348,7 @@
                         l.d('requester success. got uploadId ' + me.uploadId);
                         makeParts();
                         processFileParts();
-                    }else{
+                    } else {
                         initiate.onErr();
                     }
                 };
@@ -392,8 +360,7 @@
             }
 
 
-            function uploadPart(partNumber){  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
-
+            function uploadPart(partNumber) {  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
                 var backOff, hasErrored, upload, part;
 
                 part = parts[partNumber];
@@ -418,7 +385,7 @@
 
                 upload = {
                     method: 'PUT',
-                    path: getPath() + '?partNumber='+partNumber+'&uploadId='+me.uploadId,
+                    path: getPath() + '?partNumber=' + partNumber + '&uploadId=' + me.uploadId,
                     step: 'upload #' + partNumber,
                     x_amz_headers: me.xAmzHeadersAtUpload,
                     md5_digest: part.md5_digest,
@@ -426,7 +393,7 @@
                     part: part
                 };
 
-                upload.onErr = function (xhr, isOnError){
+                upload.onErr = function (xhr, isOnError) {
 
                     if (me.status === CANCELED || me.status === ABORTED) {
                         return;
@@ -439,7 +406,7 @@
                     l.w(msg);
                     me.warn(msg);
 
-                    if (hasErrored){
+                    if (hasErrored) {
                         return;
                     }
                     hasErrored = true;
@@ -454,7 +421,7 @@
                         part.status = ERROR;
                         part.loadedBytes = 0;
 
-                        awsResponse = getAwsResponse(xhr);
+                        var awsResponse = getAwsResponse(xhr);
                         if (awsResponse.code) {
                             l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
                         }
@@ -463,7 +430,7 @@
                     xhr.abort();
                 };
 
-                upload.on200 = function (xhr){
+                upload.on200 = function (xhr) {
 
                     var eTag = xhr.getResponseHeader('ETag'), msg;
                     l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
@@ -483,11 +450,11 @@
                     processPartsList();
                 };
 
-                upload.onProgress = function (evt){
+                upload.onProgress = function (evt) {
                     part.loadedBytes = evt.loaded;
                 };
 
-                upload.toSend = function() {
+                upload.toSend = function () {
                     var slice = getFilePart(me.file, part.start, part.end);
                     l.d('part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
                     if(!part.isEmpty && slice.size === 0) // issue #58
@@ -519,7 +486,7 @@
                 part.uploader = upload;
             }
 
-            function abortPart(partNumber, clearReadyStateCallback){
+            function abortPart(partNumber, clearReadyStateCallback) {
 
                 var part = parts[partNumber];
                 if (part.currentXhr) {
@@ -532,7 +499,7 @@
 
 
 
-            function completeUpload(){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
+            function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
 
                 l.d('completeUpload');
                 me.info('will attempt to complete upload');
@@ -540,8 +507,8 @@
                 var completeDoc = '<CompleteMultipartUpload>',
                     originalStatus = me.status,
                     hasErrored;
-                parts.forEach(function(part,partNumber){
-                    if (part){
+                parts.forEach(function (part,partNumber) {
+                    if (part) {
                         completeDoc += '<Part><PartNumber>' + partNumber + '</PartNumber><ETag>' + part.eTag + '</ETag></Part>';
                     }
                 });
@@ -578,7 +545,7 @@
                     }, backOffWait(countCompleteAttempts++));
                 };
 
-                complete.on200 = function(xhr){
+                complete.on200 = function (xhr) {
                     var oDOM = parseXml(xhr.responseText),
                         result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
                     me.eTag = nodeValue(result, "ETag");
@@ -586,7 +553,7 @@
                     completeUploadFile();
                 };
 
-                complete.toSend = function() {
+                complete.toSend = function () {
                     return completeDoc;
                 };
 
@@ -594,8 +561,7 @@
                 authorizedSend(complete);
             }
 
-            function headObject(awsKey){ //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
-
+            function headObject(awsKey) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
                 l.d('headObject');
                 me.info('will attempt to verify existence of the file');
 
@@ -605,13 +571,13 @@
                     step: 'head_object'
                 };
 
-                head_object.onErr = function (){
+                head_object.onErr = function () {
                     var msg = 'Error completing head object. Will re-upload file.';
                     l.w(msg);
                     initiateUpload(awsKey);
                 };
 
-                head_object.on200 = function(xhr){
+                head_object.on200 = function (xhr) {
                     var eTag = xhr.getResponseHeader('Etag');
                     if (eTag === me.eTag) {
                         l.d('headObject found matching object on S3.');
@@ -797,7 +763,7 @@
                         })
                     }
 
-                    oDOM = uploadedParts = null; // We don't need these potentially large object any longer
+                    oDOM = uploadedParts = null; // We don't need these potentially large objects any longer
 
                     if (isTruncated) {
                         var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
@@ -824,10 +790,10 @@
                 authorizedSend(list);
             }
 
-            function makeParts(){
+            function makeParts() {
 
                 numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
-                for (var part = 1; part <= numParts; part++){
+                for (var part = 1; part <= numParts; part++) {
                     var status = (typeof parts[part] === 'undefined') ? PENDING : parts[part].status;
 
                     if (status !== COMPLETE) {
@@ -916,7 +882,7 @@
                 );
             }
 
-            function processPartsList(){
+            function processPartsList() {
 
                 var evaporatingCount = 0, finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
 
@@ -954,9 +920,9 @@
                                 break;
                         }
 
-                        if (requiresUpload){
+                        if (requiresUpload) {
                             finished = false;
-                            if (evaporatingCount < con.maxConcurrentParts){
+                            if (evaporatingCount < con.maxConcurrentParts) {
                                 uploadPart(i);
                                 evaporatingCount++;
                             }
@@ -968,20 +934,20 @@
                 info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
                 l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored,info);
 
-                if (countUploadAttempts >= (parts.length-1) || anyPartHasErrored){
+                if (countUploadAttempts >= (parts.length - 1) || anyPartHasErrored) {
                     me.info('part stati: ' + info);
                 }
                 // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
 
-                if (finished){
+                if (finished) {
                     completeUpload();
                 }
             }
 
 
-            function monitorTotalProgress(){
+            function monitorTotalProgress() {
 
-                progressTotalInterval = setInterval(function(){
+                progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
                     parts.forEach(function(part,i){
@@ -989,7 +955,7 @@
                     });
 
                     me.progress(totalBytesLoaded/me.sizeBytes);
-                },con.progressIntervalMS);
+                }, con.progressIntervalMS);
             }
 
 
@@ -999,9 +965,9 @@
              This function was added as a work-around. It checks the progress of each part every 2 minutes.
              If it finds a part that has made no progress in the last 2 minutes then it aborts it. It will then be detected as an error, and restarted in the same manner of any other errored part
              */
-            function monitorPartsProgress(){
+            function monitorPartsProgress() {
 
-                progressPartsInterval = setInterval(function(){
+                progressPartsInterval = setInterval(function () {
 
                     l.d('monitorPartsProgress() ' + Date());
                     parts.forEach(function(part,i){
@@ -1013,7 +979,7 @@
                             return;
                         }
 
-                        if (part.loadedBytesPrevious === null){
+                        if (part.loadedBytesPrevious === null) {
                             l.d(i,'no previous ');
                             part.loadedBytesPrevious = part.loadedBytes;
                             return;
@@ -1028,8 +994,8 @@
 
                         l.d(i, (healthy ? 'moving. ' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
 
-                        if (!healthy){
-                            setTimeout(function(){
+                        if (!healthy) {
+                            setTimeout(function () {
                                 me.info('part #' + i + ' stalled. will abort. ' + part.loadedBytesPrevious + ' ' + part.loadedBytes);
                                 abortPart(i);
                             },0);
@@ -1045,16 +1011,13 @@
                 monitorPartsProgress();
             }
 
-            function setupRequest(requester){
+            function setupRequest(requester) {
 
                 l.d('setupRequest()',requester);
 
-                if(!con.timeUrl)
-                {
+                if(!con.timeUrl) {
                     requester.dateString = new Date().toUTCString();
-                }
-                else
-                {
+                } else {
                     var xmlHttpRequest = new XMLHttpRequest();
 
                     xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
@@ -1062,11 +1025,11 @@
                     requester.dateString = xmlHttpRequest.responseText;
                 }
 
-                requester.x_amz_headers = extend(requester.x_amz_headers,{
+                requester.x_amz_headers = extend(requester.x_amz_headers, {
                     'x-amz-date': requester.dateString
                 });
 
-                requester.onGotAuth = function (){
+                requester.onGotAuth = function () {
 
                     if (hasCurrentXhr(requester)) {
                         l.w('onGotAuth() step', requester.step, 'is already in progress. Returning.');
@@ -1099,14 +1062,14 @@
                         }
                     }
 
-                    if (requester.contentType){
+                    if (requester.contentType) {
                         xhr.setRequestHeader('Content-Type', requester.contentType);
                     }
 
                     if (requester.md5_digest) {
                         xhr.setRequestHeader('Content-MD5', requester.md5_digest);
                     }
-                    xhr.onreadystatechange = function(){
+                    xhr.onreadystatechange = function () {
 
                         if (xhr.readyState == 4){
 
@@ -1120,20 +1083,20 @@
                         }
                     };
 
-                    xhr.onerror = function(){
+                    xhr.onerror = function () {
                         clearCurrentXhr(requester);
                         requester.onErr(xhr, true);
                     };
 
-                    if (typeof requester.onProgress == 'function'){
-                        xhr.upload.onprogress = function(evt){
+                    if (typeof requester.onProgress === 'function') {
+                        xhr.upload.onprogress = function (evt) {
                             requester.onProgress(evt);
                         };
                     }
                     xhr.send(payload);
                 };
 
-                requester.onFailedAuth = requester.onFailedAuth || function(xhr){
+                requester.onFailedAuth = requester.onFailedAuth || function (xhr) {
                         me.error('Error onFailedAuth for step: ' + requester.step);
                         requester.onErr(xhr);
                     };
@@ -1141,7 +1104,7 @@
 
 
             //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
-            function authorizedSend(authRequester){
+            function authorizedSend(authRequester) {
 
                 l.d('authorizedSend() ' + authRequester.step);
                 if (hasCurrentXhr(authRequester)) {
@@ -1149,20 +1112,20 @@
                     return;
                 }
 
-                var xhr = assignCurrentXhr(authRequester);
-                var url = con.signerUrl+'?to_sign='+makeStringToSign(authRequester);
-                var warnMsg;
+                var xhr = assignCurrentXhr(authRequester),
+                    url = con.signerUrl + '?to_sign=' + makeStringToSign(authRequester),
+                    warnMsg;
 
                 for (var param in me.signParams) {
                     if (!me.signParams.hasOwnProperty(param)) {continue;}
                     if( me.signParams[param] instanceof Function ) {
                         url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]()));
                     } else {
-                        url += ('&'+encodeURIComponent(param)+'='+encodeURIComponent(me.signParams[param]));
+                        url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(me.signParams[param]));
                     }
                 }
 
-                xhr.onreadystatechange = function(){
+                xhr.onreadystatechange = function () {
 
                     if (xhr.readyState == 4){
 
@@ -1172,9 +1135,7 @@
                             authRequester.auth = xhr.response;
                             clearCurrentXhr(authRequester);
                             authRequester.onGotAuth();
-
                         } else {
-
                             warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                             l.w(warnMsg);
                             me.warn(warnMsg);
@@ -1184,7 +1145,7 @@
                     }
                 };
 
-                xhr.onerror = function(){
+                xhr.onerror = function () {
                     warnMsg = 'failed to get authorization (onerror) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                     l.w(warnMsg);
                     me.warn(warnMsg);
@@ -1207,7 +1168,7 @@
                 xhr.send();
             }
 
-            function makeStringToSign(request){
+            function makeStringToSign(request) {
 
                 var x_amz_headers = '', to_sign, header_key_array = [];
 
@@ -1218,16 +1179,16 @@
                 }
                 header_key_array.sort();
 
-                header_key_array.forEach(function(header_key,i){
-                    x_amz_headers += (header_key + ':'+ request.x_amz_headers[header_key] + '\n');
+                header_key_array.forEach(function (header_key) {
+                    x_amz_headers += (header_key + ':' + request.x_amz_headers[header_key] + '\n');
                 });
 
-                to_sign = request.method+'\n'+
-                    (request.md5_digest || '')+'\n'+
-                    (request.contentType || '')+'\n'+
-                    '\n'+
+                to_sign = request.method + '\n' +
+                    (request.md5_digest || '') + '\n' +
+                    (request.contentType || '') + '\n' +
+                    '\n' +
                     x_amz_headers +
-                    (con.cloudfront ? '/' + con.bucket : '')+
+                    (con.cloudfront ? '/' + con.bucket : '') +
                     request.path;
                 return encodeURIComponent(to_sign);
             }
@@ -1269,8 +1230,8 @@
                 }
             }
 
-            for (var key2 in obj2){
-                obj1[key2]=obj2[key2];
+            for (var key2 in obj2) {
+                obj1[key2] = obj2[key2];
             }
             return obj1;
         }
