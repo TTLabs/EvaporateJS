@@ -95,7 +95,7 @@
         var historyCache = {
             supported: (function () {
                 var result = false;
-                if (!('localStorage' in window)) {
+                if (!con.computeContentMd5 || !('localStorage' in window)) {
                     return result;
                 }
 
@@ -843,9 +843,12 @@
             function completeUploadFile() {
                 var uploads = getSavedUploads(),
                     upload = uploads[uploadKey(me)];
-                upload.completedAt = new Date().toISOString();
-                upload.eTag = me.eTag;
-                historyCache.setItem('awsUploads', JSON.stringify(uploads));
+
+                if (typeof upload !== 'undefined') {
+                    upload.completedAt = new Date().toISOString();
+                    upload.eTag = me.eTag;
+                    historyCache.setItem('awsUploads', JSON.stringify(uploads));
+                }
 
                 setStatus(COMPLETE);
                 me.progress(1.0);
