@@ -95,7 +95,11 @@
         var historyCache = {
             supported: (function () {
                 var result = false;
-                if (!con.computeContentMd5 || !('localStorage' in window)) {
+                if (typeof window !== 'undefined') {
+                    if (!('localStorage' in window)) {
+                        return result;
+                    }
+                } else {
                     return result;
                 }
 
