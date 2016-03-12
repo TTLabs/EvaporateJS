@@ -1202,7 +1202,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
            }
           
            if( me.beforeSigner instanceof Function ) {
-             me.beforeSigner(xhr);
+             me.beforeSigner(xhr, url);
            }
            xhr.send();
         }
