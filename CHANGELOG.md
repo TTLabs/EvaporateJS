@@ -2,6 +2,7 @@
 
 ## Features##
 - Checks if window is defined before trying to access the window object in `supported`. EvaporateJS can now sucesfully be imported into a node.js environment.
+- Adds an example using AWS SDK for Javascript for the `cryptoMd5Method` configuration option.
 
 ## Bug Fixes##
 

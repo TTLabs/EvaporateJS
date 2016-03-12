@@ -31,6 +31,7 @@ cryptography library that supports creating an MD5 digest for the Content-MD5 re
 specified [here](https://www.ietf.org/rfc/rfc1864.txt). The following library provides support:
 
      - [Spark MD5](https://github.com/satazor/SparkMD5)
+     - [AWS SDK for JavaScript 2.2.43](https://github.com/aws/aws-sdk-js)
 
 2. Setup your S3 bucket, make sure your CORS settings for your S3 bucket looks similar to what is provided
 below (The PUT allowed method and the ETag exposed header are critical).
@@ -170,6 +171,7 @@ So far the api contains just two methods, and one property
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part 
     payload to encode. If you are using:
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`.
+    - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.md5(data, 'base64'); }`. 
 * **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
