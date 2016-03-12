@@ -24,9 +24,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
   var historyCache = {
     supported: (function () {
       var result = false;
-      if (!('localStorage' in window)) {
-        return result;
+
+      if (typeof window !== 'undefined'){
+        if (!('localStorage' in window)) {
+          return result;
+        }
       }
+      else return result;
 
       // Try to use storage (it might be disabled, e.g. user is in private mode)
       try {
@@ -160,9 +164,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
         if (typeof file.name == 'undefined'){
            err = 'Missing attribute: name  ';
         } else if(con.encodeFilename) {
-           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces 
-        }       
-        
+           file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
+        }
+
         /*if (!(file.file instanceof File)){
            err += '.file attribute must be instanceof File';
         }*/
@@ -468,7 +472,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
               var eTag = xhr.getResponseHeader('ETag'), msg;
               l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
               if(part.isEmpty || (eTag != ETAG_OF_0_LENGTH_BLOB)) // issue #58
-              { 
+              {
                  part.eTag = eTag;
                  part.status = COMPLETE;
               }
@@ -1059,9 +1063,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
                xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
                xmlHttpRequest.send();
-               requester.dateString = xmlHttpRequest.responseText;               
+               requester.dateString = xmlHttpRequest.responseText;
            }
-           
+
            requester.x_amz_headers = extend(requester.x_amz_headers,{
               'x-amz-date': requester.dateString
            });
@@ -1200,7 +1204,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
                xhr.setRequestHeader(header, me.signHeaders[header])
              }
            }
-          
+
            if( me.beforeSigner instanceof Function ) {
              me.beforeSigner(xhr);
            }
