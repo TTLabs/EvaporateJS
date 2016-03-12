@@ -444,13 +444,10 @@
 
                     var eTag = xhr.getResponseHeader('ETag'), msg;
                     l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
-                    if(part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) // issue #58
-                    {
+                    if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
                         part.eTag = eTag;
                         part.status = COMPLETE;
-                    }
-                    else
-                    {
+                    } else {
                         part.status = ERROR;
                         part.loadedBytes = 0;
                         msg = 'eTag matches MD5 of 0 length blob for part #' + partNumber  + '   Retrying part.';

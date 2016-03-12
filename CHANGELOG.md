@@ -1,5 +1,8 @@
 # v1.0.2#
 
+## Features##
+- Checks if window is defined before trying to access the window object in `supported`. EvaporateJS can now sucesfully be imported into a node.js environment.
+
 ## Bug Fixes##
 
 - Issue #124. Only enables the history cache if MD5 checksums are also enabled.
