@@ -1273,12 +1273,14 @@
 
         function uploadKey(fileUpload) {
             // The key tries to give a signature to a file in the absence of its path.
-            // "<filename>-<mimetype>-<modifieddate>-<filesize>"
+            // Need to include path (if present) in case the same file is present in multiple paths/folders
+            // "<filename>-<mimetype>-<modifieddate>-<filesize>-<path>"
             return [
                 fileUpload.file.name,
                 fileUpload.file.type,
                 dateISOString(fileUpload.file.lastModifiedDate),
-                fileUpload.file.size
+                fileUpload.file.size,
+                fileUpload.name
             ].join("-");
         }
 

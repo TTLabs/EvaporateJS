@@ -1,3 +1,9 @@
+# v1.0.3#
+
+## Bug Fixes##
+
+- Fix issue when uploading the same file copied in two different locations. Now EvaporateJS will treat these as different files, and not think they are the same file.
+
 # v1.0.2#
 
 ## Features##
