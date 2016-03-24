@@ -137,7 +137,7 @@
                 }
             },
             removeItem: function (key) {
-                if(this.supported) {
+                if (this.supported) {
                     return localStorage.removeItem(key);
                 }
             }
@@ -1025,7 +1025,7 @@
 
                 l.d('setupRequest()',requester);
 
-                if(!con.timeUrl) {
+                if (!con.timeUrl) {
                     requester.dateString = new Date().toUTCString();
                 } else {
                     var xmlHttpRequest = new XMLHttpRequest();
