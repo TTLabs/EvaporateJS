@@ -16,6 +16,8 @@
   "keywords": [
     "aws",
     "S3",
+    "multipart",
+    "multi-part",
     "uploads",
     "browser"
   ],

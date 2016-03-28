@@ -46,6 +46,8 @@
             timeUrl: null,
             cryptoMd5Method: null,
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
+            signParams:{},
+            signHeaders: {},
             awsLambda: null,
             awsLambdaMethod: null,
             // undocumented
@@ -1206,7 +1208,7 @@
                 var out;
                 for (var param in params) {
                     if (!params.hasOwnProperty(param)) { continue; }
-                    if(typeof params[param] === 'function') {
+                    if (typeof params[param] === 'function') {
                         out[param] = params[param]();
                     } else {
                         out[param] = params[param];
