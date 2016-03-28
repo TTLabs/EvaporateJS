@@ -14,6 +14,7 @@ public class SigningExampleController : ApiController
     [Route("")]
     public IHttpActionResult Get([FromUri] string to_sign)
     {
+        // TODO: Do something to authenticate this request
         var content = new StringContent(SignData(to_sign));
         content.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Text.Plain);
         var response = new HttpResponseMessage(HttpStatusCode.OK) {Content = content};
