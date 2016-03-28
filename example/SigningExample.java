@@ -21,6 +21,7 @@ public class SigningExample extends HttpServlet
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
     {
+        // TODO: Do something to authenticate this request
         String data = request.getParameter("to_sign");
 
         if(StringUtils.isEmpty(data))
@@ -35,9 +36,9 @@ public class SigningExample extends HttpServlet
 
     /**
      * http://docs.aws.amazon.com/AmazonSimpleDB/latest/DeveloperGuide/HMACAuth.html#AuthJavaSampleHMACSignature
-     * 
+     *
      * Computes RFC 2104-compliant HMAC signature.
-     * 
+     *
      * @param data
      *           The data to be signed.
      * @param key

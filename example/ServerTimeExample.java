@@ -17,7 +17,7 @@ public class ServerTimeExample extends HttpServlet
 	/**
 	 * Output the date in the RFC 1123, same output from JavaScript new Date().toUTCString()
 	 * In case you don't have or can't add Apache HttpClient library to your project, the pattern is EEE, dd MMM yyyy HH:mm:ss zzz
-	 * 
+	 *
 	 * @param req
 	 * @param resp
 	 * @throws ServletException
@@ -26,6 +26,7 @@ public class ServerTimeExample extends HttpServlet
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException
 	{
+	    // TODO: Do something to authenticate this request
 		resp.getWriter().write(DateUtils.formatDate(new Date()));
 	}
 }

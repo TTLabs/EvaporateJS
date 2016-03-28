@@ -14,6 +14,7 @@ app.use(bodyParser.urlencoded({
 app.listen(8080, '127.0.0.1');
 
 app.use('/sign_auth', function (req, res) {
+	// TODO: Do something to authenticate this request
 	res.send(crypto
 		.createHmac('sha1', env.AWS_SECRET)
 		.update(req.query.to_sign)
