@@ -1,3 +1,8 @@
+# v1.1.0#
+
+## Features##
+- Adds support for signing reqeusts using AWS Lambdas.
+
 # v1.0.2#
 
 ## Features##
