@@ -300,7 +300,7 @@ upload to S3. Here is a sample policy
         ]
     }
 
-* Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaMethod`, instead of `signerUrl`
+* Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaFunction`, instead of `signerUrl`
 
     var _e_ = new Evaporate({
         aws_key: 'your aws_key here',
@@ -310,7 +310,7 @@ upload to S3. Here is a sample policy
             'accessKeyId': 'a key that can invoke the lambda function',
             'secretAccessKey': 'the secret'
         }),
-        awsLambdaMethod: 'arn:aws:lambda:...:function:cw-signer' // arn of your lambda function
+        awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // arn of your lambda function
      });
 
 ## Integration

@@ -49,7 +49,7 @@
             signParams:{},
             signHeaders: {},
             awsLambda: null,
-            awsLambdaMethod: null,
+            awsLambdaFunction: null,
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
