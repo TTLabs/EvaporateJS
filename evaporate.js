@@ -150,7 +150,29 @@
         };
 
         var _d = new Date(),
-            HOURS_AGO = new Date(_d.setHours(_d.getHours() - (con.s3FileCacheHoursAgo || -100)));
+            HOURS_AGO = new Date(_d.setHours(_d.getHours() - (con.s3FileCacheHoursAgo || -100))),
+            localTimeOffset = 0;
+
+        if (con.timeUrl) {
+            var xhr = new XMLHttpRequest();
+
+            xhr.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime());
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        var server_date = new Date(Date.parse(xhr.responseText)),
+                            now = new Date();
+                        localTimeOffset = now - server_date;
+                        l.d('localTimeOsset is', localTimeOffset, 'ms');
+                    }
+                }
+            };
+
+            xhr.onerror = function () {
+                l.e('xhr error timeUrl', xhr);
+            };
+            xhr.send();
+        }
 
         //con.simulateStalling =  true
 
@@ -1042,11 +1064,7 @@
                 if (!con.timeUrl) {
                     requester.dateString = new Date().toUTCString();
                 } else {
-                    var xmlHttpRequest = new XMLHttpRequest();
-
-                    xmlHttpRequest.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime(), false);
-                    xmlHttpRequest.send();
-                    requester.dateString = xmlHttpRequest.responseText;
+                    requester.dateString = new Date(new Date().getTime() + localTimeOffset).toUTCString();
                 }
 
                 requester.x_amz_headers = extend(requester.x_amz_headers, {
