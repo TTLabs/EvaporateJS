@@ -1193,7 +1193,7 @@
                     })
                 }, function (err, data) {
                     if (err) {
-                        warnMsg = 'failed to get authorization with lambda ' + err;
+                        var warnMsg = 'failed to get authorization with lambda ' + err;
                         l.w(warnMsg);
                         me.warn(warnMsg);
                         authRequester.onFailedAuth(err);
@@ -1205,7 +1205,7 @@
             }
 
             function makeSignParamsObject(params) {
-                var out;
+                var out = {};
                 for (var param in params) {
                     if (!params.hasOwnProperty(param)) { continue; }
                     if (typeof params[param] === 'function') {
