@@ -1332,7 +1332,7 @@
         }
 
         function nodeValue(parent, nodeName) {
-            return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue
+            return parent.getElementsByTagName(nodeName)[0].textContent;
         }
     };
 
