@@ -1,3 +1,9 @@
+# v1.1.1#
+
+## Bug Fixes ##
+- Corrects XML parsing method correctly use `textContent` rather than `nodeValue`.
+- Corrects JavaScript style issues
+
 # v1.1.0#
 
 ## Features##
