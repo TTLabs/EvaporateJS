@@ -597,7 +597,6 @@
                         setStatus(COMPLETE);
                     } else {
                         l.d('headObject not found on S3.');
-                        me.name = awsKey;
                         initiateUpload(awsKey);
                     }
                 };
