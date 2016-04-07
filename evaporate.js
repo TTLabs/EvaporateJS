@@ -597,7 +597,6 @@
                         setStatus(COMPLETE);
                     } else {
                         l.d('headObject not found on S3.');
-                        me.name = awsKey;
                         initiateUpload(awsKey);
                     }
                 };
@@ -1332,7 +1331,7 @@
         }
 
         function nodeValue(parent, nodeName) {
-            return parent.getElementsByTagName(nodeName)[0].childNodes[0].nodeValue
+            return parent.getElementsByTagName(nodeName)[0].textContent;
         }
     };
 
