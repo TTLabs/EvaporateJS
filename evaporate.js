@@ -771,7 +771,7 @@
                             partNumber: parseInt(nodeValue(cp, "PartNumber")),
                             size: parseInt(nodeValue(cp, "Size")),
                             LastModified: nodeValue(cp, "LastModified")
-                        })
+                        });
                     }
 
                     oDOM = uploadedParts = null; // We don't need these potentially large objects any longer
