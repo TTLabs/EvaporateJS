@@ -161,6 +161,7 @@ So far the api contains just two methods, and one property
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
+* **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
@@ -196,7 +197,9 @@ So far the api contains just two methods, and one property
 * **name**: _String_. the S3 ObjectName that the completed file will have
 * **file**: _File_. a reference to the file object
 
-The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel an upload.
+The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel
+ an upload. If the file validation passes, this method returns an integer representing the file id, otherwise,
+ it returns a string error message.
 
 `config` has a number of optional parameters:
 

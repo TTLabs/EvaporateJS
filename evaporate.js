@@ -51,6 +51,7 @@
             signHeaders: {},
             awsLambda: null,
             awsLambdaFunction: null,
+            maxFileSize: null,
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
@@ -159,6 +160,9 @@
             var err;
             if (typeof file === 'undefined') {
                 return 'Missing file';
+            }
+            if (con.maxFileSize && file.size > con.maxFileSize) {
+                return 'File size too large. Maximum size allowed is ' + con.maxFileSize;
             }
             if (typeof file.name === 'undefined') {
                 err = 'Missing attribute: name  ';
