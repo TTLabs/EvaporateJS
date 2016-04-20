@@ -830,6 +830,7 @@
                 var fileKey = uploadKey(me),
                     newUpload = {
                         awsKey: me.name,
+                        bucket: con.bucket,
                         uploadId: me.uploadId,
                         fileSize: me.file.size,
                         fileType: me.file.type,
@@ -885,7 +886,7 @@
                 }
                 var completedAt = new Date(u.completedAt || FAR_FUTURE);
 
-                return con.partSize === u.partSize && completedAt > HOURS_AGO && me.name === u.awsKey;
+                return con.partSize === u.partSize && completedAt > HOURS_AGO && me.name === u.awsKey && con.bucket === u.bucket;
             }
 
             function backOffWait(attempts) {
