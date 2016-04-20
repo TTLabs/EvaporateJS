@@ -885,7 +885,7 @@
                 }
                 var completedAt = new Date(u.completedAt || FAR_FUTURE);
 
-                return con.partSize === u.partSize && completedAt > HOURS_AGO;
+                return con.partSize === u.partSize && completedAt > HOURS_AGO && me.name === u.awsKey;
             }
 
             function backOffWait(attempts) {
