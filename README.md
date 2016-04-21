@@ -265,6 +265,9 @@ heuristic.
 
 Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.  
 
+As of March2016, AWS supports cleaning up multipart uploads using an S3 Lifecyle Management in which new rules are added to delete Expired and Incompletely multipart
+uploads. for more information, refer to [S3 Lifecycle Management Update – Support for Multipart Uploads and Delete Markers](https://aws.amazon.com/blogs/aws/s3-lifecycle-management-update-support-for-multipart-uploads-and-delete-markers/).
+
 ## Working with temporary credentials in Amazon EC2 instances
 
 * [Security and S3 Multipart Upload](http://www.thoughtworks.com/mingle/infrastructure/2015/06/15/security-and-s3-multipart-upload.html)
