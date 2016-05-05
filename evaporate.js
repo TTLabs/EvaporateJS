@@ -1218,7 +1218,7 @@
 
             function makeStringToSign(request) {
 
-                var x_amz_headers = '', to_sign, header_key_array = [];
+                var prepend_bucket = con.cloudfront || isAcceleratedS3(), x_amz_headers = '', to_sign, header_key_array = [];
 
                 for (var key in request.x_amz_headers) {
                     if (request.x_amz_headers.hasOwnProperty(key)) {
@@ -1236,14 +1236,22 @@
                     (request.contentType || '') + '\n' +
                     '\n' +
                     x_amz_headers +
-                    (con.cloudfront ? '/' + con.bucket : '') +
+                    (prepend_bucket ? '/' + con.bucket : '') +
                     request.path;
                 return to_sign;
             }
 
+            function isCloudfront() {
+              return con.cloudfront || AWS_URL.indexOf('cloudfront') > -1;
+            }
+
+            function isAcceleratedS3() {
+              return AWS_URL.indexOf('.s3-accelerate.amazonaws.com') > -1;
+            }
+
             function getPath() {
                 var path = '/' + con.bucket + '/' + me.name;
-                if (con.cloudfront || AWS_URL.indexOf('cloudfront') > -1) {
+                if (isCloudfront() || isAcceleratedS3()) {
                     path = '/' + me.name;
                 }
                 return path;
