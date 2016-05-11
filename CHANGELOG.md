@@ -1,3 +1,10 @@
+# v1.2.0#
+
+## Enhancements ##
+
+- Issue #139. If you wish Evaporate to only upload to the AWS key specified, and disregard any previous attempts to
+  upload the same file to a different key, you can now specify `onlyRetryForSameFileName`.
+
 # v1.1.1#
 
 ## Bug Fixes ##

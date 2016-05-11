@@ -43,6 +43,7 @@
             encodeFilename: true,
             computeContentMd5: false,
             allowS3ExistenceOptimization: false,
+            onlyRetryForSameFileName: false,
             timeUrl: null,
             cryptoMd5Method: null,
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
@@ -880,13 +881,18 @@
             }
 
             function canRetryUpload(u) {
-                // Must be the same file name, file size, last_modified, file type and the part sizes must match
+                // Must be the same file name, file size, last_modified, file type as previous upload
                 if (typeof u === 'undefined') {
                     return false;
                 }
                 var completedAt = new Date(u.completedAt || FAR_FUTURE);
 
-                return con.partSize === u.partSize && completedAt > HOURS_AGO && me.name === u.awsKey && con.bucket === u.bucket;
+                // check that the part sizes and bucket match, and if the file name of the upload
+                // matches if onlyRetryForSameFileName is true
+                return con.partSize === u.partSize 
+                    && completedAt > HOURS_AGO 
+                    && con.bucket === u.bucket
+                    && (con.onlyRetryForSameFileName ? me.name === u.awsKey : true);
             }
 
             function backOffWait(attempts) {
