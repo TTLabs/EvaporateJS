@@ -50,6 +50,7 @@
             signHeaders: {},
             awsLambda: null,
             awsLambdaFunction: null,
+            signResponseHandler: null,
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
@@ -1146,11 +1147,23 @@
 
                     if (xhr.readyState === 4) {
 
-                        if (xhr.status === 200 && xhr.response.length === 28) {
-                            l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: ' + xhr.response);
-                            authRequester.auth = xhr.response;
-                            clearCurrentXhr(authRequester);
-                            authRequester.onGotAuth();
+                        if (xhr.status === 200) {
+                            var payload = xhr.response;
+                            if (typeof con.signResponseHandler === 'function') {
+                              payload = con.signResponseHandler(payload) || payload;
+                            }
+                            if (payload.length !== 28) {
+                                warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
+                                l.w(warnMsg);
+                                me.warn(warnMsg);
+                                clearCurrentXhr(authRequester);
+                                authRequester.onFailedAuth(xhr);
+                            } else {
+                              l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: ' + payload);
+                              authRequester.auth = payload;
+                              clearCurrentXhr(authRequester);
+                              authRequester.onGotAuth();
+                            }
                         } else {
                             warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                             l.w(warnMsg);
@@ -1198,7 +1211,11 @@
                         authRequester.onFailedAuth(err);
                         return;
                     }
-                    authRequester.auth = JSON.parse(data.Payload);
+                    var payload = JSON.parse(data.Payload);
+                    if (typeof con.signResponseHandler === 'function') {
+                      payload = con.signResponseHandler(payload) || payload;
+                    }
+                    authRequester.auth = payload;
                     authRequester.onGotAuth();
                 });
             }
