@@ -176,6 +176,9 @@ So far the api contains just two methods, and one property
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
     client or user errors. Refer to the section below for more information on this configuration option.
+* **onlyRetryForSameFileName**: default=false, if the same file is uploaded again, should a retry only be attempted 
+    if the file name matches the time that file name was previously uploaded. Otherwise the upload is resumed to the
+    previous file name that was used.
 * **allowS3ExistenceOptimization**: default=false, whether to verify file existence against S3 storage. Enabling this option requires
     that the target S3 bucket object permissions include the `s3:GetObject` action for the authorized user performing the upload. If enabled, if the uploader
     believes it is attempting to upload a file that already exists, it will perform a HEAD action on the object to verify its eTag. If this option
@@ -233,11 +236,12 @@ The `supported` property is _Boolean_, and indicates whether the browser has the
 
 When `s3FileCacheHoursAgo` is enabled, the uploader will create a small footprint of the uploaded file in `localStorage.awsUploads`. Before a
 file is uploaded, this cache is queried by a key consisting of the file's name, size, mimetype and date timestamp.
-It then verifies that the `partSize` used when uploading matches the partSize currenlty in use. To prevent fase positives, the
-upload then calcuates the MD5 digest of the first part for final verification.
+It then verifies that the `partSize` used when uploading matches the partSize currenlty in use. To prevent false positives, the
+upload then calcuates the MD5 digest of the first part for final verification. If you specify `onlyRetryForSameFileName`, 
+then a further check is done that the specified destination file name matches the destination file name used previously.
 
 If the uploaded file has an unfinished multipart upload ID associated with it, then the uploader queries S3 for the parts that 
-have been uploaded. It hen uploads only the unfinished parts.
+have been uploaded. It then uploads only the unfinished parts.
 
 If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to 
 the Etag of what is currently uploaded. If the the two ETags match, the file is not uploaded again.
