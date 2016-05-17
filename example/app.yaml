@@ -1,0 +1,21 @@
+application: evaporatejs
+version: evaporate-111
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /
+  static_files: evaporate_example.html
+  upload: evaporate_example.html
+
+- url: /lambda
+  static_files: evaporate_example_lambda.html
+  upload: evaporate_example_lambda.html
+
+- url: /sign_auth
+  script: signing_example.app
+
+- url: /evaporate\.js
+  static_files: ../evaporate.js
+  upload: ../evaporate.js
