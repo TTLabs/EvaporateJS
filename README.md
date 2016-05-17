@@ -1,7 +1,7 @@
 EvaporateJS
 ===========
 
-EvaporateJS is a javascript library for directly uploading files from a web browser to AWS S3, using S3's multipart upload. 
+EvaporateJS is a javascript library for directly uploading files from a web browser to AWS S3, using S3's multipart upload.
 
 ### Why?
 EvaporateJS can resume an upload after a problem without having to start again at the beginning. For example, let's say
@@ -76,7 +76,7 @@ below (The PUT allowed method and the ETag exposed header are critical).
         }
 
     If you configure the uploader to enable the S3 existence check optimization (configuration option `allowS3ExistenceOptimization`), then you should
-    add the `s3:GetObject` action to your bucket object statement and your S3 CORS settings must include `HEAD` method if you want to check for object 
+    add the `s3:GetObject` action to your bucket object statement and your S3 CORS settings must include `HEAD` method if you want to check for object
     existence on S3.
     Your security policies can help guide you in whether you want to enable this optimization or not.
 
@@ -160,18 +160,18 @@ So far the api contains just two methods, and one property
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
-* **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
+* **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
-* **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
+* **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a
     RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74.
 * **computeContentMd5**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
 * **cryptoMd5Method**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
-    Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part 
+    Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part
     payload to encode. If you are using:
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`.
-    - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.md5(data, 'base64'); }`. 
+    - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.md5(data, 'base64'); }`.
 * **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
@@ -184,6 +184,9 @@ So far the api contains just two methods, and one property
 * **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
     section "Using AWS Lambda to Sign Requests" below.
 * **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
+* **signResponseHandler**: default=null, a method that handles the XHR response. It must return the `base64` encoded signature.
+    For AWS Lambda responses the parsed JSON response is passed. The method signature is `function (response) { return 'computed signature'; }`
+
 ### .add()
 
 `evap.add(config)`
@@ -202,12 +205,12 @@ The `.add()` method returns the internal EvaporateJS id of the upload to process
 
 * **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
 
-* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl. 
+* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl.
 
 * **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
 
 * **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete. Version 1.0.0 introduced the `awsObjectKey` parameter to notifiy the client of the S3 object key that was used if the object already exists on S3.
- 
+
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
 * **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
@@ -236,10 +239,10 @@ file is uploaded, this cache is queried by a key consisting of the file's name, 
 It then verifies that the `partSize` used when uploading matches the partSize currenlty in use. To prevent fase positives, the
 upload then calcuates the MD5 digest of the first part for final verification.
 
-If the uploaded file has an unfinished multipart upload ID associated with it, then the uploader queries S3 for the parts that 
+If the uploaded file has an unfinished multipart upload ID associated with it, then the uploader queries S3 for the parts that
 have been uploaded. It hen uploads only the unfinished parts.
 
-If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to 
+If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to
 the Etag of what is currently uploaded. If the the two ETags match, the file is not uploaded again.
 
 The timestamp of the last time the part was uploaded is compared against the value of a `Date()` calculated as `s3FileCacheHoursAgo` ago
@@ -254,13 +257,13 @@ GET requests. It goes without saying that your AWS IAM credentials and secrets s
 
 ### AWS S3 Cleanup and Housekeeping
 
-After you initiate multipart upload and upload one or more parts, you must either complete or abort multipart upload in order to stop 
-getting charged for storage of the uploaded parts. Only after you either complete or abort multipart upload, Amazon S3 frees up the parts 
-storage and stops charging you for the parts storage. Refer to the 
+After you initiate multipart upload and upload one or more parts, you must either complete or abort multipart upload in order to stop
+getting charged for storage of the uploaded parts. Only after you either complete or abort multipart upload, Amazon S3 frees up the parts
+storage and stops charging you for the parts storage. Refer to the
 [AWS Multipart Upload Overview](http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html) for more information.
 
 The sample S3 bucket policy shown above should configure your S3 bucket to allow cleanup of orphaned multipart uploads but the cleanup task is
-not part of EvaporateJS. A separate tool or task will need to be created to query orphaned multipart uploads and abort them using some appropriate 
+not part of EvaporateJS. A separate tool or task will need to be created to query orphaned multipart uploads and abort them using some appropriate
 heuristic.
 
 Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.  
@@ -282,7 +285,7 @@ You need to do a couple of things
 
 * Create a lambda function see: [`signing_example_lambda.js`](example/signing_example_lambda.js)
 
-  The Lambda function will receive three parameters to the event; `to_sign`, `sign_params` and `sign_headers`. 
+  The Lambda function will receive three parameters to the event; `to_sign`, `sign_params` and `sign_headers`.
 
 * Setup an IAM user with permissions to call your lambda function. This user should be separate from the one that can
 upload to S3. Here is a sample policy
