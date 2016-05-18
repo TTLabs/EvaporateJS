@@ -1191,10 +1191,8 @@
                     if (xhr.readyState === 4) {
 
                         if (xhr.status === 200) {
-                            var payload = xhr.response;
-                            if (typeof con.signResponseHandler === 'function') {
-                              payload = con.signResponseHandler(payload) || payload;
-                            }
+                            var payload = signResponse(xhr.response);
+
                             if (payload.length !== 28) {
                                 warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                                 l.w(warnMsg);
@@ -1254,13 +1252,18 @@
                         authRequester.onFailedAuth(err);
                         return;
                     }
-                    var payload = JSON.parse(data.Payload);
-                    if (typeof con.signResponseHandler === 'function') {
-                      payload = con.signResponseHandler(payload) || payload;
-                    }
+                    var payload = signResponse(JSON.parse(data.Payload));
                     authRequester.auth = payload;
                     authRequester.onGotAuth();
                 });
+            }
+
+            function signResponse(payload) {
+                if (typeof con.signResponseHandler === 'function') {
+                    payload = con.signResponseHandler(payload) || payload;
+                }
+
+                return payload;
             }
 
             function makeSignParamsObject(params) {
