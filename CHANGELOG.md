@@ -4,6 +4,9 @@
 
 - Issue #139. If you wish Evaporate to only upload to the AWS key specified, and disregard any previous attempts to
   upload the same file to a different key, you can now specify `onlyRetryForSameFileName`.
+- Issues #41, #143. Adds a sample app.yml file for Google apps.
+- Issue #136. Adds a configuration option to validate maximum uploaded file size. You can now specify `maxFileSize`.
+- Issues #74, #133. Removes synchronous logic to fetch server time to resolve AWS `RequestTimeTooSkewed` response.
 
 # v1.1.1#
 
