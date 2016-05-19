@@ -40,6 +40,7 @@
             maxRetryBackoffSecs: 300,
             progressIntervalMS: 500,
             cloudfront: false,
+            s3Acceleration: false,
             encodeFilename: true,
             computeContentMd5: false,
             allowS3ExistenceOptimization: false,
