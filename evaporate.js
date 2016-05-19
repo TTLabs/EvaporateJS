@@ -692,6 +692,11 @@
                 l.d('abortUpload');
                 me.info('will attempt to abort the upload');
 
+                if(typeof me.uploadId === 'undefined') {
+                    setStatus(ABORTED);
+                    return;
+                }
+
                 var abort = {
                     method: 'DELETE',
                     path: getPath() + '?uploadId=' + me.uploadId,
