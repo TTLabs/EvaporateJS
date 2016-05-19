@@ -23,7 +23,7 @@
 
     var Evaporate = function (config) {
 
-        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, AWS_URL = config.aws_url || 'https://s3.amazonaws.com', ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
+        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
 
         var _ = this;
         var files = [];
@@ -149,6 +149,14 @@
                 }
             }
         };
+
+        var AWS_URL;
+        if (con.s3Acceleration) {
+            AWS_URL = ['https://', con.bucket, '.s3-accelerate.amazonaws.com'].join('');
+            con.cloudfront = true;
+        } else {
+            AWS_URL = con.aws_url || 'https://s3.amazonaws.com';
+        }
 
         var _d = new Date(),
             HOURS_AGO = new Date(_d.setHours(_d.getHours() - (con.s3FileCacheHoursAgo || -100))),
