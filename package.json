@@ -15,11 +15,14 @@
   },
   "keywords": [
     "aws",
+    "amazon",
     "S3",
     "multipart",
     "multi-part",
     "uploads",
-    "browser"
+    "browser",
+    "transfer",
+    "acceleration"
   ],
   "bugs": {
     "url": "https://github.com/TTLabs/EvaporateJS/issues"

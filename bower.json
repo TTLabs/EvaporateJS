@@ -6,7 +6,9 @@
   "keywords": [
     "s3",
     "aws",
-    "uploads"
+    "uploads",
+    "transfer",
+    "acceleration"
   ],
   "authors": [
     "Tom Saffell"
