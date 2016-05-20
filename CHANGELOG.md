@@ -1,5 +1,8 @@
 # v1.x#
 
+## Enhancements ##
+- Issue #144. Adds support for enabling AWS S3 Transfer Acceleeration using the new options `s3Acceleration`.
+
 ## Bug Fixes ##
 - Issue #135: Does not throw an error on uninitiated uploads if user chooses to Cancel
 
