@@ -189,8 +189,9 @@ So far the api contains just two methods, and one property
 * **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
     section "Using AWS Lambda to Sign Requests" below.
 * **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
-* **signResponseHandler**: default=null, a method that handles the XHR response. It must return the `base64` encoded signature.
-    For AWS Lambda responses the parsed JSON response is passed. The method signature is `function (response) { return 'computed signature'; }`
+* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
+    set this option, EvaporateJS will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
+    The method signature is `function (response) { return 'computed signature'; }`.
 
 ### .add()
 
