@@ -1,7 +1,8 @@
-# v1.x#
+# v1.3.0#
 
 ## Enhancements ##
 - Issue #144. Adds support for enabling AWS S3 Transfer Acceleeration using the new options `s3Acceleration`.
+- Issue #148. Adds support for signature processing with a custom method using `signResponseHandler`.
 
 ## Bug Fixes ##
 - Issue #135: Does not throw an error on uninitiated uploads if user chooses to Cancel
