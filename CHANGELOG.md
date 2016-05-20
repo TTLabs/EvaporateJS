@@ -1,3 +1,8 @@
+# v1.x#
+
+## Bug Fixes ##
+- Issue #135: Does not throw an error on uninitiated uploads if user chooses to Cancel
+
 # v1.2.0#
 
 ## Enhancements ##
