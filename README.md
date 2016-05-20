@@ -163,7 +163,7 @@ So far the api contains just two methods, and one property
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
-* **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL
+* **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US Standard, you will need to change this to the correct endpoint from this list: http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region. For example, for 'Ireland' you would need 'https://s3-eu-west-1.amazonaws.com'.
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
 * **s3Acceleration**: default=false, whether to use [S3 Transfer Acceleration](http://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html).
 * **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
