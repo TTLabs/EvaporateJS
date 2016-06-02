@@ -147,7 +147,8 @@ So far the api contains just two methods, and one property
 
 `config` has 3 required properties
 
-* **signerUrl**:  a url on your application server which will sign a string with your aws secret key. for example 'http://myserver.com/auth_upload'
+* **signerUrl**:  a url on your application server which will sign a string with your aws secret key. for example 'http://myserver.com/auth_upload'. When
+using AWS Signature Version 4, this URL must respond with the V4 signing key.
 
 * **aws_key**:  your aws key, for example 'AKIAIQC7JOOdsfsdf'
 
@@ -164,6 +165,9 @@ So far the api contains just two methods, and one property
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US Standard, you will need to change this to the correct endpoint from this list: http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region. For example, for 'Ireland' you would need 'https://s3-eu-west-1.amazonaws.com'.
+* **aws_key**: default=undefined, the AWS Account key to use. Required when `awsSignatureVersion` is `'4'`.
+* **awsRegion**: default=undefined, the AWS region to use, for example, 'us-east-1'. Required when `awsSignatureVersion` is `'4'`.
+* **awsSignatureVersion**: default='2', Determines the AWS Signature signong process version to use. Set this option to `'4'` for Version 4 signatures.
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
 * **s3Acceleration**: default=false, whether to use [S3 Transfer Acceleration](http://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html).
 * **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
@@ -174,6 +178,10 @@ So far the api contains just two methods, and one property
     payload to encode. If you are using:
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`.
     - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.md5(data, 'base64'); }`.
+* **cryptoHmacMethod**: default=undefined, a method that computes the HMAC by using the SHA256 algorithm with the signing key provided. Required when `awsSignatureVersion` is `'4'`.
+    - AWS SDK for JavaScript: `function (signingKey, stringToSign) { return AWS.util.crypto.hmac(signingKey, stringToSign, 'hex'); }`.
+* **cryptoHexEncodedHash256**: default=undefined, a method that computes the lowercase base 16 encoded SHA256 hash. Required when `awsSignatureVersion` is `'4'`.
+    - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.sha256(data, 'hex'); }`.
 * **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, EvaporateJS will not resume uploads after
@@ -238,6 +246,11 @@ The `.add()` method returns the internal EvaporateJS id of the upload to process
 - `timeUrl`
 - `cryptoMd5Method`
 - `aws_key`
+- `cryptoHmacMethod`
+- `cryptoHexEncodedHash256`
+- `awsRegion`
+- `awsSignatureVersion`
+
 
 ### .cancel()
 `evap.cancel(id)`
@@ -271,6 +284,15 @@ part and compares that to the checksum of the first part of the file to be uploa
 Note that in order to determine if the uploaded file is the same as a local file, the uploader invokes a HEAD request to S3.
 The AWS S3 permissions to allow HEAD also allow GET (get object). This means that your signing url algorithm might want to not sign
 GET requests. It goes without saying that your AWS IAM credentials and secrets should be protected and never shared.
+
+### AWS Signature Version 4
+
+You can use AWS Signature Version 4. The `signerUrl` response must respond with a valid V4 signature. This version of EvaporateJS sends the
+part payload as `UNSIGNED-PAYLOAD` because we enable MD5 checksum calculations.
+
+Be sure to configure EvaporateJS with `aws_key`, `aws_region`, `cryptoHmacMethod` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
+
+[AWS Sginature Version 4](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html) for more information.
 
 ### AWS S3 Cleanup and Housekeeping
 

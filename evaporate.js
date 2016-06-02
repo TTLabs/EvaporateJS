@@ -66,6 +66,11 @@
             onlyRetryForSameFileName: false,
             timeUrl: null,
             cryptoMd5Method: null,
+            cryptoHmacMethod: null,
+            cryptoHexEncodedHash256: null,
+            aws_key: null,
+            awsRegion: null,
+            awsSignatureVersion: '2',
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
             signParams:{},
             signHeaders: {},
@@ -117,6 +122,19 @@
                 return;
             }
 
+            if (con.awsSignatureVersion === '4') {
+                if (typeof con.cryptoHexEncodedHash256 !== 'function') {
+                    l.e('Option awsSignatureVersion is 4 but cryptoHexEncodedHash256 is not defined.');
+                    return;
+                }
+                if (typeof con.cryptoHmacMethod !== 'function') {
+                    l.e('Option awsSignatureVersion is 4 but cryptoHmacMethod is not defined.');
+                    return;
+                }
+            }
+        } else if (con.awsSignatureVersion === '4') {
+            l.e('Option awsSignatureVersion is 4 but computeContentMd5 is not enabled.');
+            return;
         }
 
         if (!con.logging) {
@@ -180,8 +198,9 @@
             AWS_URL = ['https://', con.bucket, '.s3-accelerate.amazonaws.com'].join('');
             con.cloudfront = true;
         } else {
-            AWS_URL = con.aws_url || 'https://s3.amazonaws.com';
+            AWS_URL = con.aws_url || ["https://", (con.cloudfront ? con.bucket + "." : ""), "s3.amazonaws.com"].join("");
         }
+        var AWS_HOST = uri(AWS_URL).hostname;
 
         var _d = new Date(),
             HOURS_AGO = new Date(_d.setHours(_d.getHours() - (con.s3FileCacheHoursAgo || -100))),
@@ -267,7 +286,11 @@
                 cancelled: function () {},
                 info: function () {},
                 warn: function () {},
-                error: function () {}
+                error: function () {},
+                xAmzHeadersAtInitiate: {},
+                notSignedHeadersAtInitiate: {},
+                xAmzHeadersAtUpload: {},
+                xAmzHeadersAtComplete: {}
             }, file, {
                 id: id,
                 status: PENDING,
@@ -406,7 +429,7 @@
                     hasErrored = true;
 
                     l.d('onInitiateError for FileUpload ' + me.id);
-                    me.warn('Error initiating upload');
+                    me.warn('Error initiating upload', getAwsResponse(xhr));
                     setStatus(ERROR);
 
                     xhr.abort();
@@ -429,7 +452,7 @@
                         makeParts();
                         processFileParts();
                     } else {
-                        initiate.onErr();
+                        initiate.onErr(xhr);
                     }
                 };
 
@@ -452,23 +475,13 @@
                 backOff = backOffWait(part.attempts++);
                 l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
 
-                function getAwsResponse(xhr) {
-                    var oParser = new DOMParser(),
-                        oDOM = oParser.parseFromString(xhr.responseText, "text/xml"),
-                        code = oDOM.getElementsByTagName("Code"),
-                        msg = oDOM.getElementsByTagName("Message");
-                    code = code.length ? code[0].innerHTML : '';
-                    msg = msg.length ? msg[0].innerHTML : '';
-
-                    return code.length ? {code: code, msg: msg} : {};
-                }
-
                 upload = {
                     method: 'PUT',
                     path: getPath() + '?partNumber=' + partNumber + '&uploadId=' + me.uploadId,
                     step: 'upload #' + partNumber,
                     x_amz_headers: me.xAmzHeadersAtUpload,
                     md5_digest: part.md5_digest,
+                    contentSha256: "UNSIGNED-PAYLOAD",
                     attempts: part.attempts,
                     part: part
                 };
@@ -607,7 +620,7 @@
                     hasErrored = true;
 
                     var msg = 'Error completing upload.';
-                    l.w(msg);
+                    l.w(msg, getAwsResponse(xhr));
                     me.error(msg);
                     setStatus(ERROR);
 
@@ -776,7 +789,7 @@
                         me.info('upload canceled');
                     } else {
                         var msg = 'Error listing parts.';
-                        l.w(msg);
+                        l.w(msg, getAwsResponse(xhr));
                         me.error(msg);
                     }
                 };
@@ -804,8 +817,7 @@
 
                 var list = {
                     method: 'GET',
-                    path: getPath() + '?uploadId=' + me.uploadId,
-                    query_string: "&part-number-marker=" + partNumberMarker,
+                    path: [getPath(), '?uploadId=', me.uploadId, "&part-number-marker=" + partNumberMarker].join(""),
                     step: 'get upload parts'
                 };
 
@@ -819,7 +831,7 @@
                         processPartsList();
                     } else {
                         var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
-                        l.w(msg);
+                        l.w(msg, getAwsResponse(xhr));
                         me.error(msg);
                     }
                 };
@@ -1102,14 +1114,20 @@
             }
 
             function setupRequest(requester) {
+                requester.getPayload = function () {
+                    return requester.toSend ? requester.toSend() : null;
+                };
+
+                requester.getPayloadSha256Content = function () {
+                    var result = requester.contentSha256 || con.cryptoHexEncodedHash256(requester.getPayload() || '');
+                    l.d('getPayloadSha256Content', result);
+                    return result;
+                };
 
                 l.d('setupRequest()',requester);
 
-                if (!con.timeUrl) {
-                    requester.dateString = new Date().toUTCString();
-                } else {
-                    requester.dateString = new Date(new Date().getTime() + localTimeOffset).toUTCString();
-                }
+                var datetime = con.timeUrl ? new Date(new Date().getTime() + localTimeOffset) : new Date();
+                requester.dateString = datetime.toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
 
                 requester.x_amz_headers = extend(requester.x_amz_headers, {
                     'x-amz-date': requester.dateString
@@ -1124,7 +1142,7 @@
 
                     var xhr = assignCurrentXhr(requester);
 
-                    var payload = requester.toSend ? requester.toSend() : null;
+                    var payload = requester.getPayload();
                     var url = AWS_URL + requester.path;
                     if (requester.query_string) {
                         url += requester.query_string;
@@ -1141,12 +1159,16 @@
                     }
 
                     xhr.open(requester.method, url);
-                    xhr.setRequestHeader('Authorization', 'AWS ' + con.aws_key + ':' + requester.auth);
+                    xhr.setRequestHeader('Authorization', authorizationMethod(requester));
 
                     for (var key in all_headers) {
                         if (all_headers.hasOwnProperty(key)) {
                             xhr.setRequestHeader(key, all_headers[key]);
                         }
+                    }
+
+                    if (con.awsSignatureVersion === '4') {
+                        xhr.setRequestHeader("x-amz-content-sha256", requester.getPayloadSha256Content());
                     }
 
                     if (requester.contentType) {
@@ -1206,7 +1228,7 @@
                 }
 
                 var xhr = assignCurrentXhr(authRequester),
-                    url = con.signerUrl + '?to_sign=' + encodeURIComponent(makeStringToSign(authRequester)),
+                    url = [con.signerUrl, '?to_sign=', stringToSignMethod(authRequester), '&datetime=', authRequester.dateString].join(''),
                     warnMsg;
 
                 var signParams = makeSignParamsObject(me.signParams);
@@ -1222,7 +1244,7 @@
                         if (xhr.status === 200) {
                             var payload = signResponse(xhr.response);
 
-                            if (payload.length !== 28) {
+                            if (con.awsSignatureVersion === '2' &&  payload.length !== 28) {
                                 warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                                 l.w(warnMsg);
                                 me.warn(warnMsg);
@@ -1287,6 +1309,10 @@
                 });
             }
 
+            function stringToSignMethod(request) {
+                return encodeURIComponent(con.awsSignatureVersion === '4' ? stringToSignV4(request) : makeStringToSign(request));
+            }
+
             function signResponse(payload) {
                 if (typeof con.signResponseHandler === 'function') {
                     payload = con.signResponseHandler(payload) || payload;
@@ -1308,9 +1334,13 @@
                 return out;
             }
 
+            function authorizationMethod(request) {
+                return con.awsSignatureVersion === '4' ? authorizationV4(request) : authorizationV2(request);
+            }
+
             function makeStringToSign(request) {
 
-                var x_amz_headers = '', to_sign, header_key_array = [];
+                var x_amz_headers = '', result, header_key_array = [];
 
                 for (var key in request.x_amz_headers) {
                     if (request.x_amz_headers.hasOwnProperty(key)) {
@@ -1323,14 +1353,164 @@
                     x_amz_headers += (header_key + ':' + request.x_amz_headers[header_key] + '\n');
                 });
 
-                to_sign = request.method + '\n' +
+                result = request.method + '\n' +
                     (request.md5_digest || '') + '\n' +
                     (request.contentType || '') + '\n' +
                     '\n' +
                     x_amz_headers +
                     (con.cloudfront ? '/' + con.bucket : '') +
                     request.path;
-                return to_sign;
+
+                l.d('makeStringToSign (V2)', result);
+                return result;
+            }
+
+            function stringToSignV4(request) {
+                var parts = [];
+                parts.push('AWS4-HMAC-SHA256');
+                parts.push(request.dateString);
+                parts.push(credentialStringV4(request));
+                parts.push(con.cryptoHexEncodedHash256(canonicalRequestV4(request)));
+                var result = parts.join('\n');
+
+                l.d('makeStringToSign (V2)', result);
+                return result;
+            }
+
+            function authorizationV2(request) {
+                return ['AWS ', con.aws_key, ':', request.auth].join('');
+            }
+
+            function authorizationV4(request) {
+                var parts = [];
+
+                var credentials = credentialStringV4(request);
+                var headers = canonicalHeadersV4(request);
+
+                parts.push(['AWS4-HMAC-SHA256 Credential=', con.aws_key, '/', credentials].join(''));
+                parts.push('SignedHeaders=' + headers.signedHeaders);
+                parts.push('Signature=' + request.auth);
+
+                return parts.join(', ');
+            }
+
+            function credentialStringV4(request) {
+                var parts = [];
+
+                parts.push(request.dateString.slice(0, 8));
+                parts.push(con.awsRegion);
+                parts.push('s3');
+                parts.push('aws4_request');
+                return parts.join('/');
+            }
+
+            function canonicalRequestV4(request) {
+                var parts = [];
+
+                parts.push(request.method);
+                parts.push(uri(request.path).pathname);
+                parts.push(canonicalQueryStringV4(request) || '');
+
+                var headers = canonicalHeadersV4(request);
+                parts.push(headers.canonicalHeaders + '\n');
+                parts.push(headers.signedHeaders);
+                parts.push(request.getPayloadSha256Content());
+
+                var result = parts.join("\n");
+                l.d('CanonicalRequest', result);
+                return result;
+            }
+
+            function canonicalQueryStringV4(request) {
+                var search = uri(request.path).search,
+                    parts = search.split('&'),
+                    encoded = [],
+                    nameValue,
+                    i;
+
+                for (i = 0; i < parts.length; i++) {
+                    nameValue = parts[i].split("=");
+                    encoded.push({
+                        name: encodeURIComponent(nameValue[0]),
+                        value: nameValue.length > 1 ? encodeURIComponent(nameValue[1]) : null
+                    })
+                }
+                var sorted = encoded.sort(function (a, b) {
+                    if (a.name < b.name) {
+                        return -1;
+                    } else if (a.name > b.name) {
+                        return 1;
+                    }
+                    return 0;
+                });
+
+                var result = [];
+                for (i = 0; i < sorted.length; i++) {
+                    nameValue = sorted[i].value ? [sorted[i].name, sorted[i].value].join("=") : sorted[i].name + '=';
+                    result.push(nameValue);
+                }
+
+                return result.join('&');
+            }
+
+            function canonicalHeadersV4(request) {
+                var canonicalHeaders = [],
+                    keys = [],
+                    i;
+
+                function addHeader(name, value) {
+                    var key = name.toLowerCase();
+                    keys.push(key);
+                    canonicalHeaders[key] = value.replace(/\s+/g, ' ');
+                }
+
+                if (request.md5_digest) {
+                    addHeader("Content-Md5", request.md5_digest);
+                }
+
+                addHeader('Host', AWS_HOST);
+
+                if (request.contentType) {
+                    addHeader('Content-Type', request.contentType || '');
+                }
+
+                var amzHeaders = request.x_amz_headers || {};
+                for (var key in amzHeaders) {
+                    if (amzHeaders.hasOwnProperty(key)) {
+                        addHeader(key, amzHeaders[key]);
+                    }
+                }
+
+                var sortedKeys = keys.sort(function (a, b) {
+                    if (a < b) {
+                        return -1;
+                    } else if (a > b) {
+                        return 1;
+                    }
+                    return 0;
+                });
+
+                var result = [];;
+
+                var unsigned_headers = [],
+                    not_signed = request.not_signed_headers || [],
+                    signed_headers = [];
+                for (i = 0; i < not_signed.length; i++) {
+                    unsigned_headers.push(not_signed[i].toLowerCase());
+                }
+
+                for (i = 0; i < sortedKeys.length; i++) {
+                    var k = sortedKeys[i];
+                    result.push([k, canonicalHeaders[k]].join(":"));
+                    if (unsigned_headers.indexOf(k) === -1) {
+                        signed_headers.push(k);
+                    }
+                }
+
+                return {
+                    canonicalHeaders: result.join("\n"),
+                    signedHeaders: signed_headers.join(";")
+                };
             }
 
             function getPath() {
@@ -1427,6 +1607,21 @@
         }
     };
 
+    function uri(url) {
+        var p = document.createElement('a');
+        p.href = url || "/";
+
+        return {
+            protocol: p.protocol, // => "http:"
+            hostname: p.hostname, // => "example.com"
+            pathname: p.pathname, // => "/pathname/"
+            port: p.port, // => "3000"
+            search: (p.search[0] === '?') ? p.search.substr(1) : p.search, // => "search=test"
+            hash: p.hash, // => "#hash"
+            host: p.host  // => "example.com:3000"
+        };
+    }
+
     function dateISOString(date) {
         // Try to get the modified date as an ISO String, if the date exists
         return date ? date.toISOString() : '';
@@ -1436,6 +1631,17 @@
         var slicerFn = (file.slice ? 'slice' : (file['mozSlice'] ? 'mozSlice' : 'webkitSlice'));
         // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
         return file[slicerFn](start, end);
+    }
+
+    function getAwsResponse(xhr) {
+        var oParser = new DOMParser(),
+            oDOM = oParser.parseFromString(xhr.responseText, "text/xml"),
+            code = oDOM.getElementsByTagName("Code"),
+            msg = oDOM.getElementsByTagName("Message");
+        code = code.length ? code[0].innerHTML : '';
+        msg = msg.length ? msg[0].innerHTML : '';
+
+        return code.length ? {code: code, msg: msg} : {};
     }
 
     if (typeof module !== 'undefined' && module.exports) {

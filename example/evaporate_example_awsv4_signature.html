@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+   <title>Evaporate Example</title>
+
+   <style>
+
+   </style>
+
+
+   <script language="javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
+   <script src="https://sdk.amazonaws.com/js/aws-sdk-2.2.43.min.js"></script>
+   <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
+
+</head>
+<body>
+
+<div>
+   <input type="file" id="files"  multiple />
+</div>
+
+
+<script language="javascript">
+
+   var files;
+
+   var _e_ = new Evaporate({
+      signerUrl: 'http://localhost:3000/signv4_auth',
+      aws_key: '<aws_key>',
+      awsRegion: 'us-east-1',
+      bucket: '<bucket-name>,
+      awsSignatureVersion: '4',
+      computeContentMd5: true,
+      cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
+      cryptoHmacMethod: function (signingKey, stringToSign) { return AWS.util.crypto.hmac(signingKey, stringToSign, 'hex'); },
+      cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); }
+   });
+
+   $('#files').change(function (evt) {
+      files = evt.target.files;
+
+      for (var i = 0; i < files.length; i++) {
+
+         _e_.add({
+            name: 'test_' + Math.floor(1000000000*Math.random()),
+            file: files[i],
+            complete: function () {
+               console.log('complete................yay!');
+            },
+            progress: function (progress) {
+               console.log('making progress: ' + progress);
+            }
+         });
+      }
+
+      $(evt.target).val('');
+
+   });
+
+</script>
+
+</body>
+</html>
