@@ -24,6 +24,24 @@
     var Evaporate = function (config) {
 
         var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
+        var IMMUTABLE_OPTIONS = [
+            'maxConcurrentParts',
+            'logging',
+            'cloudfront',
+            'aws_url',
+            'bucket',
+            'encodeFilename',
+            'computeContentMd5',
+            'allowS3ExistenceOptimization',
+            'onlyRetryForSameFileName',
+            'timeUrl',
+            'cryptoMd5Method',
+            'cryptoHmacMethod',
+            'cryptoHexEncodedHash256',
+            'aws_key',
+            'awsRegion',
+            'awsSignatureVersion'
+        ];
 
         var _ = this;
         var files = [];
@@ -33,6 +51,7 @@
         var l = noOpLogger();
 
         var con = extend({
+            bucket: null,
             logging: true,
             maxConcurrentParts: 5,
             partSize: 6 * 1024 * 1024,
@@ -75,6 +94,11 @@
             Blob.prototype['mozSlice']||
             Blob.prototype['slice']) === 'undefined' ||
             !!config.testUnsupported);
+
+        if (!con.bucket) {
+            l.e("The AWS 'bucket' option must be present.");
+            return;
+        }
 
         if (!this.supported) {
             l.e('The browser does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice]');
@@ -186,19 +210,24 @@
 
         //con.simulateStalling =  true
 
-        _.add = function (file) {
+        _.add = function (file,  pConfig) {
+            var c = extend(pConfig, {});
+
+            IMMUTABLE_OPTIONS.map(function (a) { delete c[a]; });
+
+            var fileConfig = extend(con, c);
 
             l.d('add');
             var err;
             if (typeof file === 'undefined') {
                 return 'Missing file';
             }
-            if (con.maxFileSize && file.size > con.maxFileSize) {
-                return 'File size too large. Maximum size allowed is ' + con.maxFileSize;
+            if (fileConfig.maxFileSize && file.size > fileConfig.maxFileSize) {
+                return 'File size too large. Maximum size allowed is ' + fileConfig.maxFileSize;
             }
             if (typeof file.name === 'undefined') {
                 err = 'Missing attribute: name  ';
-            } else if (con.encodeFilename) {
+            } else if (fileConfig.encodeFilename) {
                 file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
             }
 
@@ -207,7 +236,7 @@
              }*/
             if (err) { return err; }
 
-            var newId = addFile(file);
+            var newId = addFile(file, fileConfig);
             asynProcessQueue();
             return newId;
         };
@@ -229,7 +258,7 @@
 
         _.forceRetry = function () {};
 
-        function addFile(file) {
+        function addFile(file, fileConfig) {
 
             var id = files.length;
             files.push(new FileUpload(extend({
@@ -247,7 +276,7 @@
                 loadedBytes: 0,
                 sizeBytes: file.file.size,
                 eTag: ''
-            })));
+            }), fileConfig));
             return id;
         }
 
@@ -282,7 +311,7 @@
         }
 
 
-        function FileUpload(file) {
+        function FileUpload(file, con) {
             var me = this, parts = [], completedParts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
                 countInitiateAttempts = 0, countCompleteAttempts = 0;
             extend(me,file);
