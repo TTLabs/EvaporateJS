@@ -1,7 +1,13 @@
+# v1.4.0#
+
+## Enhancements ##
+- Issue #61. Adds ability to change some config options when adding a file to EvaporateJS.
+- Issue #71. Adds support for AWS Signature Version 4.
+
 # v1.3.0#
 
 ## Enhancements ##
-- Issue #144. Adds support for enabling AWS S3 Transfer Acceleeration using the new options `s3Acceleration`.
+- Issue #144. Adds support for enabling AWS S3 Transfer Acceleration using the new options `s3Acceleration`.
 - Issue #148. Adds support for signature processing with a custom method using `signResponseHandler`.
 
 ## Bug Fixes ##
