@@ -10,7 +10,7 @@ at this point you'd have to restart the upload from the beginning. Not so with E
 that failed, and then carry on from where it left off, and upload the final 100MB.
 
 In addition, EvaporateJS can resume uploads of entire files and parts when the upload failed due to a user or client
-error. For example, if the user refreshes the browser during an upload. To reciver, upload the same files. Those
+error. For example, if the user refreshes the browser during an upload. To recover, simply re-upload the same files. Those
 files (or the successfully uploaded file parts) that are available on AWS S3 through an incomplete multipart upload
 or an existing S3 object will not be reuploaded.
 
