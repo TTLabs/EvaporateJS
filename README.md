@@ -329,6 +329,7 @@ You need to do a couple of things
 * Setup an IAM user with permissions to call your lambda function. This user should be separate from the one that can
 upload to S3. Here is a sample policy
 
+```json
     {
         "Version": "2012-10-17",
         "Statement": [
@@ -344,7 +345,7 @@ upload to S3. Here is a sample policy
             }
         ]
     }
-
+```
 * Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaFunction`, instead of `signerUrl`
 
     var _e_ = new Evaporate({
