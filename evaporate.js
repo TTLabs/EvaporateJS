@@ -1490,7 +1490,7 @@
                     return 0;
                 });
 
-                var result = [];;
+                var result = [];
 
                 var unsigned_headers = [],
                     not_signed = request.not_signed_headers || [],
