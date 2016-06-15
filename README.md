@@ -222,17 +222,15 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
 
 ### .add()
 
-`evap.add(file[, config])`
+`evap.add(config[, overrideOptions])`
 
+`config` is an object with 2 required keys:
+
+* **name**: _String_. the S3 ObjectName that the completed file will have
 * **file**: _File_. a reference to the file object
-* **config**: _Object_. Optional. Used to override the configuration options passed when instantiating EvaporateJS (for the added file only).
 
-The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel
- an upload. If the file validation passes, this method returns an integer representing the file id, otherwise,
- it returns a string error message.
- 
- `config`, when present allows you to change the global configuration for the added file. These configuration options cannot be overriddent and
- will be ignored if present in the provided object:
+`overrideOptions`, when present, will override th EvaporateJS global configuration options for the added file only. 
+Not all options can be overridden. The following configuration options will be ignored if present in the provided object:
  
 - `maxConcurrentParts`
 - `logging`
