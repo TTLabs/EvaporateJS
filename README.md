@@ -178,8 +178,6 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
     payload to encode. If you are using:
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`.
     - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.md5(data, 'base64'); }`.
-* **cryptoHmacMethod**: default=undefined, a method that computes the HMAC by using the SHA256 algorithm with the signing key provided. Required when `awsSignatureVersion` is `'4'`.
-    - AWS SDK for JavaScript: `function (signingKey, stringToSign) { return AWS.util.crypto.hmac(signingKey, stringToSign, 'hex'); }`.
 * **cryptoHexEncodedHash256**: default=undefined, a method that computes the lowercase base 16 encoded SHA256 hash. Required when `awsSignatureVersion` is `'4'`.
     - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.sha256(data, 'hex'); }`.
 * **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
@@ -246,7 +244,6 @@ The `.add()` method returns the internal EvaporateJS id of the upload to process
 - `timeUrl`
 - `cryptoMd5Method`
 - `aws_key`
-- `cryptoHmacMethod`
 - `cryptoHexEncodedHash256`
 - `awsRegion`
 - `awsSignatureVersion`
@@ -290,7 +287,7 @@ GET requests. It goes without saying that your AWS IAM credentials and secrets s
 You can use AWS Signature Version 4. The `signerUrl` response must respond with a valid V4 signature. This version of EvaporateJS sends the
 part payload as `UNSIGNED-PAYLOAD` because we enable MD5 checksum calculations.
 
-Be sure to configure EvaporateJS with `aws_key`, `aws_region`, `cryptoHmacMethod` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
+Be sure to configure EvaporateJS with `aws_key`, `aws_region` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
 
 [AWS Sginature Version 4](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html) for more information.
 

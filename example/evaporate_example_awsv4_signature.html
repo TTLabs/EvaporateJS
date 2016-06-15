@@ -33,7 +33,6 @@
       awsSignatureVersion: '4',
       computeContentMd5: true,
       cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
-      cryptoHmacMethod: function (signingKey, stringToSign) { return AWS.util.crypto.hmac(signingKey, stringToSign, 'hex'); },
       cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); }
    });
 

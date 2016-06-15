@@ -36,7 +36,6 @@
             'onlyRetryForSameFileName',
             'timeUrl',
             'cryptoMd5Method',
-            'cryptoHmacMethod',
             'cryptoHexEncodedHash256',
             'aws_key',
             'awsRegion',
@@ -66,7 +65,6 @@
             onlyRetryForSameFileName: false,
             timeUrl: null,
             cryptoMd5Method: null,
-            cryptoHmacMethod: null,
             cryptoHexEncodedHash256: null,
             aws_key: null,
             awsRegion: null,
@@ -125,10 +123,6 @@
             if (con.awsSignatureVersion === '4') {
                 if (typeof con.cryptoHexEncodedHash256 !== 'function') {
                     l.e('Option awsSignatureVersion is 4 but cryptoHexEncodedHash256 is not defined.');
-                    return;
-                }
-                if (typeof con.cryptoHmacMethod !== 'function') {
-                    l.e('Option awsSignatureVersion is 4 but cryptoHmacMethod is not defined.');
                     return;
                 }
             }
