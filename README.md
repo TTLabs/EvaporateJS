@@ -227,7 +227,7 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
 `config` is an object with 2 required keys:
 
 * **name**: _String_. the S3 ObjectName that the completed file will have
-* **file**: _File_. a reference to the file object
+* **file**: _File_. a reference to the JavaScript [File](https://developer.mozilla.org/en-US/docs/Web/API/File) object.
 
 `overrideOptions`, when present, will override th EvaporateJS global configuration options for the added file only. 
 Not all options can be overridden. The following configuration options will be ignored if present in the provided object:
@@ -246,6 +246,9 @@ Not all options can be overridden. The following configuration options will be i
 - `awsRegion`
 - `awsSignatureVersion`
 
+The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel
+an upload. If the file validation passes, this method returns an integer representing the file id, otherwise,
+it returns a string error message.
 
 ### .cancel()
 `evap.cancel(id)`
