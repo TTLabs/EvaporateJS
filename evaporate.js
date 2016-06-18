@@ -281,6 +281,7 @@
 
             var id = files.length;
             files.push(new FileUpload(extend({
+                started: function () {},
                 progress: function () {},
                 complete: function () {},
                 cancelled: function () {},
@@ -341,7 +342,7 @@
 
             me.start = function () {
                 l.d('starting FileUpload ' + me.id);
-
+                me.started();
                 setStatus(EVAPORATING);
 
                 var awsKey = me.name;
