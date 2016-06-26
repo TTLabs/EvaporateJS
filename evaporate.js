@@ -210,7 +210,7 @@
                         var server_date = new Date(Date.parse(xhr.responseText)),
                             now = new Date();
                         localTimeOffset = now - server_date;
-                        l.d('localTimeOsset is', localTimeOffset, 'ms');
+                        l.d('localTimeOffset is', localTimeOffset, 'ms');
                     }
                 }
             };
@@ -265,9 +265,23 @@
             }
         };
 
-        _.pause = function (id) {};
+        _.pause = function (id, force) {
+            if (typeof files[id] === 'undefined') {
+                l.w('Cannot pause a file that has not been added.');
+            } else if (files[id].status === PAUSED) {
+                l.w('Cannot pause a file that is already paused. Status:', files[id].status);
+            } else {
+                files[id].pause(force);
+            }
+        };
 
-        _.resume = function (id) {};
+        _.resume = function (id) {
+            if (files[id].status !== PAUSED) {
+                l.w('Cannot resume a file that has not been paused. Status:', files[id].status);
+            } else {
+                files[id].resume();
+            }
+        };
 
         _.forceRetry = function () {};
 
@@ -305,7 +319,7 @@
 
 
         function asynProcessQueue() {
-            setTimeout(processQueue,1);
+            setTimeout(processQueue, 1);
         }
 
         function processQueue() {
@@ -372,8 +386,27 @@
                 cancelAllRequests();
             };
 
+            me.pause = function (force) {
+                l.d('pausing FileUpload ', me.id);
+                me.info('Pausing uploads...');
+                if (force) {
+                    l.d('aborting parts that are evaporating');
+                    abortParts();
+                }
+                clearInterval(progressTotalInterval);
+                clearInterval(progressPartsInterval);
+                me.status = PAUSED;
+            };
+
+            me.resume = function () {
+                l.d('resuming FileUpload ', me.id);
+                me.status = PENDING;
+
+                me.onStatusChange();
+            };
+
             function setStatus(s) {
-                if (s === COMPLETE || s === ERROR || s === CANCELED || s === ABORTED) {
+                if ([COMPLETE, ERROR, CANCELED, ABORTED].indexOf(s) > -1) {
                     clearInterval(progressTotalInterval);
                     clearInterval(progressPartsInterval);
                 }
@@ -381,13 +414,15 @@
                 me.onStatusChange();
             }
 
-            function cancelAllRequests() {
-                l.d('cancelAllRequests()');
-
+            function abortParts() {
                 for (var i = 1; i < parts.length; i++) {
                     abortPart(i, true);
                 }
+            }
 
+            function cancelAllRequests() {
+                l.d('cancelAllRequests()');
+                abortParts();
                 abortUpload();
             }
 
@@ -483,7 +518,7 @@
 
                 upload.onErr = function (xhr, isOnError) {
 
-                    if (me.status === CANCELED || me.status === ABORTED) {
+                    if ([CANCELED, ABORTED, PAUSED].indexOf(me.status) > -1) {
                         return;
                     }
 
@@ -683,7 +718,7 @@
             function computePartMd5Digest(part) {
                 return function () {
                     var s = me.status;
-                    if (s === ERROR || s === CANCELED || s === ABORTED) {
+                    if ([ERROR, CANCELED, ABORTED].indexOf(s) > -1) {
                         return;
                     }
 
@@ -1047,6 +1082,7 @@
 
             function monitorTotalProgress() {
 
+                clearInterval(progressTotalInterval);
                 progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
@@ -1067,6 +1103,7 @@
              */
             function monitorPartsProgress() {
 
+                clearInterval(progressPartsInterval);
                 progressPartsInterval = setInterval(function () {
 
                     l.d('monitorPartsProgress() ' + new Date());
@@ -1309,8 +1346,7 @@
                         authRequester.onFailedAuth(err);
                         return;
                     }
-                    var payload = signResponse(JSON.parse(data.Payload));
-                    authRequester.auth = payload;
+                    authRequester.auth = signResponse(JSON.parse(data.Payload));
                     authRequester.onGotAuth();
                 });
             }
