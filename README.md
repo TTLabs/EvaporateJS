@@ -206,10 +206,14 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
 
 * **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
 
-* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete. Version 1.0.0 introduced the `awsObjectKey` parameter to notifiy the client of the S3 object key that was used if the object already exists on S3.
+* **started**: _function()_. a function that will be called when the file upload starts.
+
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
+* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
+    Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
+    the object already exists on S3.
 * **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
 
 * **warn**: _function(msg)_. a function that will be called on a potentially recoverable error, and will be retried (e.g. part upload).
