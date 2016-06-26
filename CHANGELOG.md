@@ -1,3 +1,10 @@
+# v1.4.1#
+
+## Enhancements ##
+- Issue #163. Adds a File callback used to indicate when Evaporate starts processing a file for upload.
+- Adds a Golang example file
+- Various documentation corrections
+
 # v1.4.0#
 
 ## Enhancements ##
