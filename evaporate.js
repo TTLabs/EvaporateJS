@@ -393,8 +393,7 @@
                     l.d('aborting parts that are evaporating');
                     abortParts();
                 }
-                clearInterval(progressTotalInterval);
-                clearInterval(progressPartsInterval);
+                stopMonitorProgress();
                 me.status = PAUSED;
             };
 
@@ -407,8 +406,7 @@
 
             function setStatus(s) {
                 if ([COMPLETE, ERROR, CANCELED, ABORTED].indexOf(s) > -1) {
-                    clearInterval(progressTotalInterval);
-                    clearInterval(progressPartsInterval);
+                    stopMonitorProgress();
                 }
                 me.status = s;
                 me.onStatusChange();
@@ -1146,6 +1144,11 @@
             function monitorProgress() {
                 monitorTotalProgress();
                 monitorPartsProgress();
+            }
+
+            function stopMonitorProgress() {
+                clearInterval(progressTotalInterval);
+                clearInterval(progressPartsInterval);
             }
 
             function setupRequest(requester) {
