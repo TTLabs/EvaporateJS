@@ -1122,7 +1122,11 @@
                 l.d('setupRequest()',requester);
 
                 var datetime = con.timeUrl ? new Date(new Date().getTime() + localTimeOffset) : new Date();
-                requester.dateString = datetime.toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
+                if (con.awsSignatureVersion === '4') {
+                    requester.dateString = datetime.toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
+                } else {
+                    requester.dateString = datetime.toUTCString();
+                }
 
                 requester.x_amz_headers = extend(requester.x_amz_headers, {
                     'x-amz-date': requester.dateString
