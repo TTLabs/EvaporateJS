@@ -1,3 +1,8 @@
+# v1.4.2#
+
+## Bug Fixes ##
+- Issue #166. Resolves incorrect signuature for V2 signing on getListParts. This bug was introduced in v1.4.0.
+
 # v1.4.1#
 
 ## Enhancements ##
