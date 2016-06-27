@@ -810,9 +810,14 @@
 
                 var list = {
                     method: 'GET',
-                    path: [getPath(), '?uploadId=', me.uploadId, "&part-number-marker=" + partNumberMarker].join(""),
+                    path: getPath() + '?uploadId=' + me.uploadId,
+                    query_string: "&part-number-marker=" + partNumberMarker,
                     step: 'get upload parts'
                 };
+
+                if (con.awsSignatureVersion === '4') {
+                    list.path = [getPath(), '?uploadId=', me.uploadId, "&part-number-marker=" + partNumberMarker].join("");
+                }
 
                 list.onErr = function (xhr) {
                     if (xhr.status === 404) {
