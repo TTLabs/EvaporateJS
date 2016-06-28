@@ -23,7 +23,7 @@
 
     var Evaporate = function (config) {
 
-        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
+        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
         var IMMUTABLE_OPTIONS = [
             'maxConcurrentParts',
             'logging',
@@ -276,7 +276,7 @@
         };
 
         _.resume = function (id) {
-            if (files[id].status !== PAUSED) {
+            if ([PAUSED, PAUSING].indexOf(files[id].status) === -1) {
                 l.w('Cannot resume a file that has not been paused. Status:', files[id].status);
             } else {
                 files[id].resume();
@@ -287,12 +287,16 @@
 
         function addFile(file, fileConfig) {
 
-            var id = files.length;
+            var id = files.length,
+                partsInProcess = [];
             files.push(new FileUpload(extend({
                 started: function () {},
                 progress: function () {},
                 complete: function () {},
                 cancelled: function () {},
+                paused: function () {},
+                resumed: function () {},
+                pausing: function () {},
                 info: function () {},
                 warn: function () {},
                 error: function () {},
@@ -345,7 +349,8 @@
 
         function FileUpload(file, con) {
             var me = this, parts = [], completedParts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
-                countInitiateAttempts = 0, countCompleteAttempts = 0;
+                countInitiateAttempts = 0, countCompleteAttempts = 0,
+                partsInProcess = [];
             extend(me,file);
 
             me.start = function () {
@@ -392,20 +397,37 @@
                 if (force) {
                     l.d('aborting parts that are evaporating');
                     abortParts();
+                    setStatus(PAUSED);
+                    me.paused();
+                } else {
+                    setStatus(PAUSING);
+                    me.pausing();
                 }
-                stopMonitorProgress();
-                me.status = PAUSED;
             };
 
             me.resume = function () {
                 l.d('resuming FileUpload ', me.id);
-                me.status = PENDING;
-
-                me.onStatusChange();
+                setStatus(PENDING);
+                me.resumed();
             };
 
+            function addPartToProcessing(part) {
+                partsInProcess.push(part.part);
+            }
+
+            function removePartFromProcessing(part) {
+                var idx = partsInProcess.indexOf(part.part);
+                if (idx > -1) {
+                    partsInProcess.splice(idx, 1);
+                }
+                if (partsInProcess.length === 0 && me.status == PAUSING) {
+                    me.status = PAUSED;
+                    me.paused();
+                }
+            }
+
             function setStatus(s) {
-                if ([COMPLETE, ERROR, CANCELED, ABORTED].indexOf(s) > -1) {
+                if ([COMPLETE, ERROR, CANCELED, ABORTED, PAUSED].indexOf(s) > -1) {
                     stopMonitorProgress();
                 }
                 me.status = s;
@@ -416,6 +438,7 @@
                 for (var i = 1; i < parts.length; i++) {
                     abortPart(i, true);
                 }
+                monitorTotalProgress();
             }
 
             function cancelAllRequests() {
@@ -515,8 +538,9 @@
                 };
 
                 upload.onErr = function (xhr, isOnError) {
+                    removePartFromProcessing(part);
 
-                    if ([CANCELED, ABORTED, PAUSED].indexOf(me.status) > -1) {
+                    if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(me.status) > -1) {
                         return;
                     }
 
@@ -558,6 +582,8 @@
                     if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
                         part.eTag = eTag;
                         part.status = COMPLETE;
+
+                        removePartFromProcessing(part);
                     } else {
                         part.status = ERROR;
                         part.loadedBytes = 0;
@@ -594,6 +620,7 @@
 
                 setTimeout(function () {
                     if (me.status !== ABORTED && me.status !== CANCELED) {
+                        addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
                     }
@@ -610,6 +637,7 @@
                         part.currentXhr.onreadystatechange = function () {};
                     }
                     part.currentXhr.abort();
+                    part.loadedBytes = 0;
                 }
             }
 
