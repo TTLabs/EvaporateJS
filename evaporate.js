@@ -776,9 +776,12 @@
                 // as a FileReader object whose value is fetched asynchronously.
 
                 // This method delays submitting the part for upload until its MD5 digest is ready
+                var completed = 1;
                 for (var i = 1; i <= numParts; i++) {
                     var part = parts[i];
-                    if (part.status !== COMPLETE && part.md5_digest === null) {
+                    if (part.status === COMPLETE) {
+                        completed += 1;
+                    } else if (part.md5_digest === null) {
                         if (i > 1 || typeof me.firstMd5Digest === 'undefined') {
                             part.reader = new FileReader();
                             part.reader.onloadend = computePartMd5Digest(part);
@@ -790,6 +793,10 @@
                             processPartsList();
                         }
                     }
+                }
+                if (completed === parts.length) {
+                    setStatus(COMPLETE);
+                    me.progress(1.0);
                 }
             }
 
