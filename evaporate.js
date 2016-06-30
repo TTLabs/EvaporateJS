@@ -347,7 +347,7 @@
 
 
         function FileUpload(file, con) {
-            var me = this, parts = [], partsOnS3 = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
+            var me = this, s3Parts = [], partsOnS3 = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
                 countInitiateAttempts = 0, countCompleteAttempts = 0,
                 partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me,file);
@@ -434,7 +434,7 @@
             }
 
             function abortParts() {
-                for (var i = 1; i < parts.length; i++) {
+                for (var i = 1; i < s3Parts.length; i++) {
                     abortPart(i, true);
                 }
                 monitorTotalProgress();
@@ -516,7 +516,7 @@
             function uploadPart(partNumber) {  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
                 var backOff, hasErrored, upload, part;
 
-                part = parts[partNumber];
+                part = s3Parts[partNumber];
 
                 part.status = EVAPORATING;
                 countUploadAttempts++;
@@ -630,7 +630,7 @@
 
             function abortPart(partNumber, clearReadyStateCallback) {
 
-                var part = parts[partNumber];
+                var part = s3Parts[partNumber];
                 if (part.currentXhr) {
                     if (!!clearReadyStateCallback) {
                         part.currentXhr.onreadystatechange = function () {};
@@ -650,7 +650,7 @@
                     hasErrored;
 
                 completeDoc.push('<CompleteMultipartUpload>');
-                parts.forEach(function (part, partNumber) {
+                s3Parts.forEach(function (part, partNumber) {
                     if (part) {
                         completeDoc.push(['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>'].join(""));
                     }
@@ -777,7 +777,7 @@
                 // This method delays submitting the part for upload until its MD5 digest is ready
                 var completed = 1;
                 for (var i = 1; i <= numParts; i++) {
-                    var part = parts[i];
+                    var part = s3Parts[i];
                     if (part.status === COMPLETE) {
                         completed += 1;
                     } else if (part.md5_digest === null) {
@@ -793,7 +793,7 @@
                         }
                     }
                 }
-                if (completed === parts.length) {
+                if (completed === s3Parts.length) {
                     setStatus(COMPLETE);
                     me.progress(1.0);
                 }
@@ -856,8 +856,8 @@
 
                 list.on200 = function (xhr) {
                     var oDOM = parseXml(xhr.responseText);
-                    var parts = oDOM.getElementsByTagName("Part");
-                    if (parts.length) { // Some parts are still uploading
+                    var domParts = oDOM.getElementsByTagName("Part");
+                    if (domParts.length) { // Some parts are still uploading
                         l.d('Parts still found after abort...waiting.');
                         setTimeout(function () { abortUpload(); }, 1000);
                     } else {
@@ -938,7 +938,7 @@
                             uploadedPart.loadedBytesPrevious = cp.size;
                             uploadedPart.finishedUploadingAt = cp.LastModified;
                             uploadedPart.md5_digest = 'n/a';
-                            parts[cp.partNumber] = uploadedPart;
+                            s3Parts[cp.partNumber] = uploadedPart;
                         });
                         monitorProgress();
                         processFileParts();
@@ -954,10 +954,10 @@
 
                 numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
                 for (var part = 1; part <= numParts; part++) {
-                    var status = (typeof parts[part] === 'undefined') ? PENDING : parts[part].status;
+                    var status = (typeof s3Parts[part] === 'undefined') ? PENDING : s3Parts[part].status;
 
                     if (status !== COMPLETE) {
-                        parts[part] = makePart(part, PENDING, me.file.size);
+                        s3Parts[part] = makePart(part, PENDING, me.file.size);
                     }
                 }
             }
@@ -989,8 +989,8 @@
                         signParams: me.signParams,
                         createdAt: new Date().toISOString()
                     };
-                if (con.computeContentMd5 && parts.length && typeof parts[1].md5_digest !== 'undefined') {
-                    newUpload.firstMd5Digest = parts[1].md5_digest;
+                if (con.computeContentMd5 && s3Parts.length && typeof s3Parts[1].md5_digest !== 'undefined') {
+                    newUpload.firstMd5Digest = s3Parts[1].md5_digest;
                 }
                 saveUpload(fileKey, newUpload);
             }
@@ -1059,10 +1059,10 @@
                     me.info('will not process parts list, as not currently evaporating');
                     return;
                 }
-                for (var i = 1; i < parts.length; i++) {
-                    var part = parts[i];
+                for (var i = 1; i < s3Parts.length; i++) {
+                    var part = s3Parts[i];
                     if (con.computeContentMd5 && part.md5_digest === null) {
-console.log('processPartsList NOT READY', 3)
+
                         return; // MD5 Digest isn't ready yet
                     }
                     var requiresUpload = false;
@@ -1100,10 +1100,10 @@ console.log('processPartsList NOT READY', 3)
                 info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
                 l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored, info);
 
-                if (countUploadAttempts >= (parts.length - 1) || anyPartHasErrored) {
+                if (countUploadAttempts >= (s3Parts.length - 1) || anyPartHasErrored) {
                     me.info('part stati:', info);
                 }
-                // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
+                // s3Parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
 
                 if (finished) {
                     completeUpload();
@@ -1117,7 +1117,7 @@ console.log('processPartsList NOT READY', 3)
                 progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
-                    parts.forEach(function (part) {
+                    s3Parts.forEach(function (part) {
                         totalBytesLoaded += part.loadedBytes;
                     });
 
@@ -1140,7 +1140,7 @@ console.log('processPartsList NOT READY', 3)
                     l.d('monitorPartsProgress() ' + new Date());
                     partsInProcess.forEach(function (partIdx, i) {
 
-                        var part = parts[partIdx],
+                        var part = s3Parts[partIdx],
                             healthy;
                         if (part.status !== EVAPORATING) {
                             l.d(i, 'not evaporating ');
@@ -1444,12 +1444,12 @@ console.log('processPartsList NOT READY', 3)
             }
 
             function stringToSignV4(request) {
-                var parts = [];
-                parts.push('AWS4-HMAC-SHA256');
-                parts.push(request.dateString);
-                parts.push(credentialStringV4(request));
-                parts.push(con.cryptoHexEncodedHash256(canonicalRequestV4(request)));
-                var result = parts.join('\n');
+                var signParts = [];
+                signParts.push('AWS4-HMAC-SHA256');
+                signParts.push(request.dateString);
+                signParts.push(credentialStringV4(request));
+                signParts.push(con.cryptoHexEncodedHash256(canonicalRequestV4(request)));
+                var result = signParts.join('\n');
 
                 l.d('makeStringToSign (V4)', result);
                 return result;
@@ -1460,54 +1460,55 @@ console.log('processPartsList NOT READY', 3)
             }
 
             function authorizationV4(request) {
-                var parts = [];
+                var authParts = [];
 
                 var credentials = credentialStringV4(request);
                 var headers = canonicalHeadersV4(request);
 
-                parts.push(['AWS4-HMAC-SHA256 Credential=', con.aws_key, '/', credentials].join(''));
-                parts.push('SignedHeaders=' + headers.signedHeaders);
-                parts.push('Signature=' + request.auth);
+                authParts.push(['AWS4-HMAC-SHA256 Credential=', con.aws_key, '/', credentials].join(''));
+                authParts.push('SignedHeaders=' + headers.signedHeaders);
+                authParts.push('Signature=' + request.auth);
 
-                return parts.join(', ');
+                return authParts.join(', ');
             }
 
             function credentialStringV4(request) {
-                var parts = [];
+                var credParts = [];
 
-                parts.push(request.dateString.slice(0, 8));
-                parts.push(con.awsRegion);
-                parts.push('s3');
-                parts.push('aws4_request');
-                return parts.join('/');
+                credParts.push(request.dateString.slice(0, 8));
+                credParts.push(con.awsRegion);
+                credParts.push('s3');
+                credParts.push('aws4_request');
+                return credParts.join('/');
             }
 
             function canonicalRequestV4(request) {
-                var parts = [];
+                var canonParts = [];
 
-                parts.push(request.method);
-                parts.push(uri(request.path).pathname);
-                parts.push(canonicalQueryStringV4(request) || '');
+                canonParts.push(request.method);
+                canonParts.push(uri(request.path).pathname);
+                canonParts.push(canonicalQueryStringV4(request) || '');
 
                 var headers = canonicalHeadersV4(request);
-                parts.push(headers.canonicalHeaders + '\n');
-                parts.push(headers.signedHeaders);
-                parts.push(request.getPayloadSha256Content());
+                canonParts.push(headers.canonicalHeaders + '\n');
+                canonParts.push(headers.signedHeaders);
+                canonParts.push(request.getPayloadSha256Content());
 
-                var result = parts.join("\n");
+                var result = canonParts.join("\n");
                 l.d('CanonicalRequest', result);
                 return result;
             }
 
             function canonicalQueryStringV4(request) {
                 var search = uri(request.path).search,
-                    parts = search.length ? search.split('&') : [],
+                searchParts = searchParts.length ? searchParts.split('&') : [],
+                    searchParts = search.split('&'),
                     encoded = [],
                     nameValue,
                     i;
 
-                for (i = 0; i < parts.length; i++) {
-                    nameValue = parts[i].split("=");
+                for (i = 0; i < searchParts.length; i++) {
+                    nameValue = searchParts[i].split("=");
                     encoded.push({
                         name: encodeURIComponent(nameValue[0]),
                         value: nameValue.length > 1 ? encodeURIComponent(nameValue[1]) : null
