@@ -580,8 +580,6 @@
                 }
             }
 
-
-
             function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
 
                 l.d('completeUpload');
@@ -1560,22 +1558,25 @@
         }
 
         function getSavedUploads(purge) {
-            var result = JSON.parse(historyCache.getItem('awsUploads') || '{}');
+            var uploads = JSON.parse(historyCache.getItem('awsUploads') || '{}');
 
             if (purge) {
-                for (var key in result) {
-                    if (result.hasOwnProperty(key)) {
-                        var upload = result[key],
+                for (var key in uploads) {
+                    if (uploads.hasOwnProperty(key)) {
+                        var upload = uploads[key],
                             completedAt = new Date(upload.completedAt || FAR_FUTURE);
 
                         if (completedAt < HOURS_AGO) {
                             // The upload is recent, let's keep it
-                            delete result[key];
+                            delete uploads[key];
                         }
                     }
                 }
+
+                historyCache.setItem('awsUploads', JSON.stringify(uploads));
             }
-            return result;
+
+            return uploads;
         }
 
         function uploadKey(fileUpload) {
