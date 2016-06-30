@@ -872,8 +872,8 @@
 
             function getUploadParts(partNumberMarker) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
 
-                l.d('getUploadParts() for uploadId starting at part # ' + partNumberMarker);
-                me.info('getUploadParts() for uploadId starting at part # ' + partNumberMarker);
+                l.d('getUploadParts() for uploadId starting at part #', partNumberMarker);
+                me.info('getUploadParts() for uploadId starting at part #', partNumberMarker);
 
                 var list = {
                     method: 'GET',
@@ -902,7 +902,7 @@
                 };
 
                 list.on200 = function (xhr) {
-                    me.info(['uploadId ', me.uploadId, ' is not complete. Fetching parts from part marker=', partNumberMarker].join(''));
+                    me.info(['uploadId', me.uploadId, 'is not complete. Fetching parts from part marker=', partNumberMarker].join(''));
                     var oDOM = parseXml(xhr.responseText),
                         listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
                         isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
@@ -1099,10 +1099,10 @@
 
 
                 info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
-                l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored,info);
+                l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored, info);
 
                 if (countUploadAttempts >= (parts.length - 1) || anyPartHasErrored) {
-                    me.info('part stati: ' + info);
+                    me.info('part stati:', info);
                 }
                 // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
 
