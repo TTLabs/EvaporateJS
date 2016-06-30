@@ -347,9 +347,9 @@
 
 
         function FileUpload(file, con) {
-            var me = this, parts = [], completedParts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
+            var me = this, parts = [], partsOnS3 = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
                 countInitiateAttempts = 0, countCompleteAttempts = 0,
-                partsInProcess = [];
+                partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me,file);
 
             me.start = function () {
@@ -909,14 +909,16 @@
                         uploadedParts = oDOM.getElementsByTagName("Part"),
                         uploadedPart,
                         parts_len = uploadedParts.length,
-                        cp;
+                        cp, partSize;
 
                     for (var i = 0; i < parts_len; i++) {
-                        cp = uploadedParts[i];
-                        completedParts.push({
+                        cp = uploadedParts[i],
+                             partSize = parseInt(nodeValue(cp, "Size"));
+                        fileTotalBytesUploaded += partSize;
+                        partsOnS3.push({
                             eTag: nodeValue(cp, "ETag"),
                             partNumber: parseInt(nodeValue(cp, "PartNumber")),
-                            size: parseInt(nodeValue(cp, "Size")),
+                            size: partSize,
                             LastModified: nodeValue(cp, "LastModified")
                         });
                     }
@@ -928,7 +930,7 @@
                         getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
                     } else {
                         makeParts();
-                        completedParts.forEach(function (cp) {
+                        partsOnS3.forEach(function (cp) {
                             uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
                             uploadedPart.eTag = cp.eTag;
                             uploadedPart.attempts = 1;
