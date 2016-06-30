@@ -287,8 +287,7 @@
 
         function addFile(file, fileConfig) {
 
-            var id = files.length,
-                partsInProcess = [];
+            var id = files.length;
             files.push(new FileUpload(extend({
                 started: function () {},
                 progress: function () {},
@@ -1140,10 +1139,10 @@
                 progressPartsInterval = setInterval(function () {
 
                     l.d('monitorPartsProgress() ' + new Date());
-                    parts.forEach(function (part, i) {
+                    partsInProcess.forEach(function (partIdx, i) {
 
-                        var healthy;
-
+                        var part = parts[partIdx],
+                            healthy;
                         if (part.status !== EVAPORATING) {
                             l.d(i, 'not evaporating ');
                             return;
@@ -1162,7 +1161,7 @@
                             }
                         }
 
-                        l.d(i, (healthy ? 'moving. ' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
+                        l.d(i, (healthy ? 'moving.' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
 
                         if (!healthy) {
                             setTimeout(function () {
