@@ -1059,42 +1059,39 @@
                     me.info('will not process parts list, as not currently evaporating');
                     return;
                 }
-
-                for (var i = 0; i < parts.length; i++) {
+                for (var i = 1; i < parts.length; i++) {
                     var part = parts[i];
-                    if (part) {
-                        if (con.computeContentMd5 && part.md5_digest === null) {
-                            return; // MD5 Digest isn't ready yet
-                        }
-                        var requiresUpload = false;
-                        stati.push(part.status);
-                        switch (part.status) {
+                    if (con.computeContentMd5 && part.md5_digest === null) {
+console.log('processPartsList NOT READY', 3)
+                        return; // MD5 Digest isn't ready yet
+                    }
+                    var requiresUpload = false;
+                    stati.push(part.status);
+                    switch (part.status) {
 
-                            case EVAPORATING:
-                                finished = false;
-                                evaporatingCount++;
-                                bytesLoaded.push(part.loadedBytes);
-                                break;
-
-                            case ERROR:
-                                anyPartHasErrored = true;
-                                requiresUpload = true;
-                                break;
-
-                            case PENDING:
-                                requiresUpload = true;
-                                break;
-
-                            default:
-                                break;
-                        }
-
-                        if (requiresUpload) {
+                        case EVAPORATING:
                             finished = false;
-                            if (evaporatingCount < con.maxConcurrentParts) {
-                                uploadPart(i);
-                                evaporatingCount++;
-                            }
+                            evaporatingCount++;
+                            bytesLoaded.push(part.loadedBytes);
+                            break;
+
+                        case ERROR:
+                            anyPartHasErrored = true;
+                            requiresUpload = true;
+                            break;
+
+                        case PENDING:
+                            requiresUpload = true;
+                            break;
+
+                        default:
+                            break;
+                    }
+                    if (requiresUpload) {
+                        finished = false;
+                        if (evaporatingCount < con.maxConcurrentParts) {
+                            uploadPart(i);
+                            evaporatingCount++;
                         }
                     }
                 }
@@ -1167,7 +1164,7 @@
 
                         if (!healthy) {
                             setTimeout(function () {
-                                me.info('part #' + i + ' stalled. will abort. ' + part.loadedBytesPrevious + ' ' + part.loadedBytes);
+                                me.info('part #' + i, ' stalled. will abort.', part.loadedBytesPrevious, part.loadedBytes);
                                 abortPart(i);
                             },0);
                         }
