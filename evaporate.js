@@ -42,7 +42,8 @@
         ];
 
         var _ = this;
-        var files = [];
+        var files = [],
+            evaporatingCount = 0;
 
         function noOpLogger() { return {d: function () {}, w: function () {}, e: function () {}}; }
 
@@ -415,13 +416,19 @@
             }
 
             function removePartFromProcessing(part) {
-                var idx = partsInProcess.indexOf(part.part);
-                if (idx > -1) {
-                    partsInProcess.splice(idx, 1);
-                }
+                removeAtIndex(partsInProcess, part.part);
+                removeAtIndex(partsToUpload, part.part);
+                evaporatingCount--;
                 if (partsInProcess.length === 0 && me.status == PAUSING) {
                     me.status = PAUSED;
                     me.paused();
+                }
+            }
+
+            function removeAtIndex(a, i) {
+                var idx = a.indexOf(i);
+                if (idx > -1) {
+                    a.splice(idx, 1);
                 }
             }
 
@@ -517,9 +524,9 @@
                 var backOff, hasErrored, upload, part;
 
                 part = s3Parts[partNumber];
-
                 part.status = EVAPORATING;
                 countUploadAttempts++;
+                evaporatingCount++;
                 part.loadedBytesPrevious = null;
 
                 backOff = backOffWait(part.attempts++);
@@ -760,7 +767,9 @@
 
                     numDigestsProcessed += 1;
 
-                    processPartsList();
+                    if (evaporatingCount < con.maxConcurrentParts) {
+                        processPartsList();
+                    }
 
                     if (numDigestsProcessed === numParts) {
                         l.d('All parts have MD5 digests');
@@ -817,6 +826,7 @@
                 };
 
                 abort.onErr = function () {
+                    evaporatingCount = 0;
                     var msg = 'Error aborting upload.';
                     l.w(msg);
                     me.error(msg);
@@ -824,6 +834,7 @@
 
                 abort.on200 = function () {
                     setStatus(ABORTED);
+                    evaporatingCount = 0;
                     checkForParts();
                 };
 
@@ -1054,14 +1065,14 @@
 
             function processPartsList() {
 
-                var evaporatingCount = 0, finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
+                var finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
 
                 if (me.status !== EVAPORATING) {
                     me.info('will not process parts list, as not currently evaporating');
                     return;
                 }
-                for (var i = 1; i < s3Parts.length; i++) {
-                    var part = s3Parts[i];
+                for (var i = 0; i < partsToUpload.length; i++) {
+                    var part = s3Parts[partsToUpload[i]];
                     if (con.computeContentMd5 && part.md5_digest === null) {
 
                         return; // MD5 Digest isn't ready yet
@@ -1072,7 +1083,6 @@
 
                         case EVAPORATING:
                             finished = false;
-                            evaporatingCount++;
                             bytesLoaded.push(part.loadedBytes);
                             break;
 
@@ -1091,8 +1101,9 @@
                     if (requiresUpload) {
                         finished = false;
                         if (evaporatingCount < con.maxConcurrentParts) {
-                            uploadPart(i);
-                            evaporatingCount++;
+                            uploadPart(part.part);
+                        } else {
+                            return; // We might as well stop iterating because we're out of concurrent part slots
                         }
                     }
                 }
