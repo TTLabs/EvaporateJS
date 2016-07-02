@@ -347,7 +347,7 @@
 
 
         function FileUpload(file, con) {
-            var me = this, s3Parts = [], partsOnS3 = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
+            var me = this, s3Parts = [], partsOnS3 = [], partsToUpload = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
                 countInitiateAttempts = 0, countCompleteAttempts = 0,
                 partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me,file);
@@ -434,9 +434,9 @@
             }
 
             function abortParts() {
-                for (var i = 1; i < s3Parts.length; i++) {
+                partsInProcess.forEach(function (i) {
                     abortPart(i, true);
-                }
+                })
                 monitorTotalProgress();
             }
 
@@ -651,7 +651,7 @@
 
                 completeDoc.push('<CompleteMultipartUpload>');
                 s3Parts.forEach(function (part, partNumber) {
-                    if (part) {
+                    if (partNumber > 0) {
                         completeDoc.push(['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>'].join(""));
                     }
                 });
@@ -958,6 +958,7 @@
 
                     if (status !== COMPLETE) {
                         s3Parts[part] = makePart(part, PENDING, me.file.size);
+                        partsToUpload.push(part);
                     }
                 }
             }
@@ -1117,6 +1118,7 @@
                 progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
+// TODO: Improve this
                     s3Parts.forEach(function (part) {
                         totalBytesLoaded += part.loadedBytes;
                     });
@@ -1138,34 +1140,34 @@
                 progressPartsInterval = setInterval(function () {
 
                     l.d('monitorPartsProgress() ' + new Date());
-                    partsInProcess.forEach(function (partIdx, i) {
+                    partsInProcess.forEach(function (partIdx) {
 
                         var part = s3Parts[partIdx],
                             healthy;
                         if (part.status !== EVAPORATING) {
-                            l.d(i, 'not evaporating ');
+                            l.d(partIdx, 'not evaporating ');
                             return;
                         }
 
                         if (part.loadedBytesPrevious === null) {
-                            l.d(i,'no previous ');
+                            l.d(partIdx,'no previous ');
                             part.loadedBytesPrevious = part.loadedBytes;
                             return;
                         }
 
                         healthy = part.loadedBytesPrevious < part.loadedBytes;
-                        if (con.simulateStalling && i === 4) {
+                        if (con.simulateStalling && partIdx === 4) {
                             if (Math.random() < 0.25) {
                                 healthy = false;
                             }
                         }
 
-                        l.d(i, (healthy ? 'moving.' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
+                        l.d(partIdx, (healthy ? 'moving.' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
 
                         if (!healthy) {
                             setTimeout(function () {
-                                me.info('part #' + i, ' stalled. will abort.', part.loadedBytesPrevious, part.loadedBytes);
-                                abortPart(i);
+                                me.info('part #' + partIdx, ' stalled. will abort.', part.loadedBytesPrevious, part.loadedBytes);
+                                abortPart(partIdx);
                             },0);
                         }
 
