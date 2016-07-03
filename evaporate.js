@@ -355,7 +355,7 @@
 
             me.start = function () {
                 l.d('starting FileUpload ' + me.id);
-                me.started();
+                me.started(me.id);
                 setStatus(EVAPORATING);
 
                 var awsKey = me.name;

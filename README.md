@@ -227,9 +227,9 @@ Not all options can be overridden. The following configuration options will be i
 - `awsRegion`
 - `awsSignatureVersion`
 
-The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel
-an upload. If the file validation passes, this method returns an integer representing the file id, otherwise,
-it returns a string error message.
+The `.add()` method returns the EvaporateJS id of the upload to process. Use this id to abort or cancel
+an upload. The id is also passed as a parameter to the `started()` callback. If the file validation passes, this method
+returns an integer representing the file id, otherwise, it returns a string error message.
 
 `config` has a number of optional parameters:
 
