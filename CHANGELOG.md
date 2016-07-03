@@ -1,3 +1,8 @@
+# v1.4.3#
+
+## Bug Fixes ##
+- Issue #168. Resolves issue where the localStorage cache was not being cleaned up, resulting in a potential browser error when limits were exceeded.
+
 # v1.4.2#
 
 ## Bug Fixes ##
