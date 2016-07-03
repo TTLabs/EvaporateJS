@@ -266,8 +266,19 @@
             }
         };
 
-        _.pause = function (id, force) {
-            if (typeof files[id] === 'undefined') {
+        _.pause = function (id, options) {
+            options = options || {};
+            var force = options.force === 'undefined' ? false : options.force,
+                typeOfId = typeof id;
+            if (typeOfId === 'undefined') {
+                l.d('Pausing all file uploads');
+                files.forEach(function (file) {
+
+                   if ([PENDING, EVAPORATING, ERROR].indexOf(file.status) > -1)  {
+                       file.pause(force);
+                   }
+                });
+            }  else if (typeof files[id] === 'undefined') {
                 l.w('Cannot pause a file that has not been added.');
             } else if (files[id].status === PAUSED) {
                 l.w('Cannot pause a file that is already paused. Status:', files[id].status);
@@ -277,7 +288,17 @@
         };
 
         _.resume = function (id) {
-            if ([PAUSED, PAUSING].indexOf(files[id].status) === -1) {
+            var PAUSED_STATUSES = [PAUSED, PAUSING];
+            if (typeof id === 'undefined') {
+                l.d('Resuming all file uploads');
+                files.forEach(function (file) {
+                    if (PAUSED_STATUSES.indexOf(file.status) > -1)  {
+                        file.resume();
+                    }
+                });
+            }  else if (typeof files[id] === 'undefined') {
+                l.w('Cannot pause a file that does not exist.');
+            } else if (PAUSED_STATUSES.indexOf(files[id].status) === -1) {
                 l.w('Cannot resume a file that has not been paused. Status:', files[id].status);
             } else {
                 files[id].resume();
@@ -395,11 +416,16 @@
                 l.d('pausing FileUpload ', me.id);
                 me.info('Pausing uploads...');
                 if (force) {
-                    l.d('aborting parts that are evaporating');
+                    l.d('Pause requests to force abort parts that are evaporating');
                     abortParts();
                     setStatus(PAUSED);
                     me.paused();
                 } else {
+                    if (me.status === ERROR) {
+                        me.statusBeforePause = me.status;
+                    } else {
+                        delete me.statusBeforePause;
+                    }
                     setStatus(PAUSING);
                     me.pausing();
                 }
@@ -407,7 +433,7 @@
 
             me.resume = function () {
                 l.d('resuming FileUpload ', me.id);
-                setStatus(PENDING);
+                setStatus(me.statusBeforePause || PENDING);
                 me.resumed();
             };
 
