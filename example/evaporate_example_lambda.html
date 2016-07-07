@@ -41,9 +41,8 @@
 
             for (var i = 0; i < files.length; i++) {
 
-               _e_.add({
+               _e_.add(files[i], {
                   name: 'test_' + Math.floor(1000000000*Math.random()),
-                  file: files[i],
                   notSignedHeadersAtInitiate: {
                      'Cache-Control': 'max-age=3600'
                   },

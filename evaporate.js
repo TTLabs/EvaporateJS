@@ -292,7 +292,7 @@
                 priority: 0,
                 onStatusChange: onFileUploadStatusChange,
                 loadedBytes: 0,
-                sizeBytes: file.file.size,
+                sizeBytes: (arguments.length === 1) ? file.file.size : file.size,
                 eTag: ''
             }), fileConfig));
             return id;
