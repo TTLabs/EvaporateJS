@@ -235,7 +235,7 @@
             if (typeof file === 'undefined') {
                 return 'Missing file';
             }
-            if (fileConfig.maxFileSize && file.size > fileConfig.maxFileSize) {
+            if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
                 return 'File size too large. Maximum size allowed is ' + fileConfig.maxFileSize;
             }
             if (typeof file.name === 'undefined') {
