@@ -39,7 +39,8 @@
             'cryptoHexEncodedHash256',
             'aws_key',
             'awsRegion',
-            'awsSignatureVersion'
+            'awsSignatureVersion',
+            'file'
         ];
 
         var _ = this;
@@ -223,8 +224,22 @@
 
         //con.simulateStalling =  true
 
-        _.add = function (file,  pConfig) {
-            var c = extend(pConfig, {});
+        _.add = function (pFile,  pConfig) {
+            var file,
+                config;
+            
+           if (arguments.length === 1) {
+               // Users pass one parameter, an object with configuration with a file property
+               // This occurs because past documentation and example was out of sync with the method
+                file = pFile.file;
+                config = pFile;
+            } else {
+               // Users pass the parameters as specified in the method
+                file = pFile;
+                config = pConfig;
+            }
+
+            var c = extend(config, {});
 
             IMMUTABLE_OPTIONS.map(function (a) { delete c[a]; });
 
@@ -233,19 +248,19 @@
             l.d('add');
             var err;
             if (typeof file === 'undefined') {
-                return 'Missing file';
+                err = 'Missing file';
             }
-            if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
-                return 'File size too large. Maximum size allowed is ' + fileConfig.maxFileSize;
+            if (fileConfig.maxFileSize && file.size > fileConfig.maxFileSize) {
+                err = 'File size too large. Maximum size allowed is ' + fileConfig.maxFileSize;
             }
             if (typeof file.name === 'undefined') {
-                err = 'Missing attribute: name  ';
+                err = 'Missing attribute: file name';
             } else if (fileConfig.encodeFilename) {
                 file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
             }
 
-            /*if (!(file.file instanceof File)){
-             err += '.file attribute must be instanceof File';
+            /*if (!(file instanceof File)){
+             err += 'file attribute must be instanceof File';
              }*/
             if (err) { return err; }
 
@@ -292,7 +307,7 @@
                 priority: 0,
                 onStatusChange: onFileUploadStatusChange,
                 loadedBytes: 0,
-                sizeBytes: (file.file != undefined) ? file.file.size : file.size,
+                sizeBytes: (typeof file.file !== undefined) ? file.file.size : file.size,
                 eTag: ''
             }), fileConfig));
             return id;
