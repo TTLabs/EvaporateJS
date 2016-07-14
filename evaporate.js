@@ -307,7 +307,7 @@
                 priority: 0,
                 onStatusChange: onFileUploadStatusChange,
                 loadedBytes: 0,
-                sizeBytes: (typeof file.file !== undefined) ? file.file.size : file.size,
+                sizeBytes: (typeof file.file !== "undefined") ? file.file.size : file.size,
                 eTag: ''
             }), fileConfig));
             return id;
