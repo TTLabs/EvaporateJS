@@ -1,3 +1,12 @@
+# v1.4.4#
+
+## Enhancements ##
+- Adds a python example.
+
+## Bug Fixes ##
+- Issue #174. Reverts changes to the documentation around the .add() method and fixes bug related to how the file is passed
+to EvaporateJS.
+
 # v1.4.3#
 
 ## Bug Fixes ##
