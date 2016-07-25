@@ -41,8 +41,9 @@
 
       for (var i = 0; i < files.length; i++) {
 
-         _e_.add(files[i], {
+         _e_.add({
             name: 'test_' + Math.floor(1000000000*Math.random()),
+            file: files[i],
             complete: function () {
                console.log('complete................yay!');
             },

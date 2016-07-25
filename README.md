@@ -198,31 +198,6 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
 * **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
     set this option, EvaporateJS will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
     The method signature is `function (response) { return 'computed signature'; }`.
-* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
-
-* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
-
-* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl.
-
-* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
-
-* **started**: _function()_. a function that will be called when the file upload starts.
-
-
-* **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
-
-* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
-    Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
-    the object already exists on S3.
-* **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
-
-* **warn**: _function(msg)_. a function that will be called on a potentially recoverable error, and will be retried (e.g. part upload).
-
-* **error**: _function(msg)_. a function that will be called on an irrecoverable error.
-
-* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
-
-* **contentType**: _String_. the content type (MIME type) the file will have
 
 ### .add()
 
@@ -253,6 +228,35 @@ Not all options can be overridden. The following configuration options will be i
 The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel
 an upload. If the file validation passes, this method returns an integer representing the file id, otherwise,
 it returns a string error message.
+
+`config` has a number of optional parameters:
+
+* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
+
+* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
+
+* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the signerUrl.
+
+* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
+
+* **started**: _function()_. a function that will be called when the file upload starts.
+
+
+* **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
+
+* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
+    Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
+    the object already exists on S3.
+* **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
+
+* **warn**: _function(msg)_. a function that will be called on a potentially recoverable error, and will be retried (e.g. part upload).
+
+* **error**: _function(msg)_. a function that will be called on an irrecoverable error.
+
+* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
+
+* **contentType**: _String_. the content type (MIME type) the file will have
+
 
 ### .cancel()
 `evap.cancel(id)`
