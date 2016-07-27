@@ -221,6 +221,7 @@ Not all options can be overridden. The following configuration options will be i
 - `timeUrl`
 - `cryptoMd5Method`
 - `aws_key`
+- `aws_url`
 - `cryptoHexEncodedHash256`
 - `awsRegion`
 - `awsSignatureVersion`

@@ -29,7 +29,6 @@
             'logging',
             'cloudfront',
             'aws_url',
-            'bucket',
             'encodeFilename',
             'computeContentMd5',
             'allowS3ExistenceOptimization',
