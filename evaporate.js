@@ -75,6 +75,7 @@
             awsLambdaFunction: null,
             maxFileSize: null,
             signResponseHandler: null,
+            xhrWithCredentials: false,
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
@@ -968,8 +969,8 @@
 
                 // check that the part sizes and bucket match, and if the file name of the upload
                 // matches if onlyRetryForSameFileName is true
-                return con.partSize === u.partSize 
-                    && completedAt > HOURS_AGO 
+                return con.partSize === u.partSize
+                    && completedAt > HOURS_AGO
                     && con.bucket === u.bucket
                     && (con.onlyRetryForSameFileName ? me.name === u.awsKey : true);
             }
@@ -1236,6 +1237,10 @@
                 for (var param in signParams) {
                     if (!signParams.hasOwnProperty(param)) { continue; }
                     url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
+                }
+
+                if (con.xhrWithCredentials) {
+                    xhr.withCredentials = true;
                 }
 
                 xhr.onreadystatechange = function () {

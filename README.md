@@ -170,6 +170,7 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
 * **awsSignatureVersion**: default='2', Determines the AWS Signature signong process version to use. Set this option to `'4'` for Version 4 signatures.
 * **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
 * **s3Acceleration**: default=false, whether to use [S3 Transfer Acceleration](http://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html).
+* **xhrWithCredentials**: default=false, set the XMLHttpRequest xhr object to use [credentials](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials).
 * **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
     RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74.
 * **computeContentMd5**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,

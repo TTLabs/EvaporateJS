@@ -1,5 +1,8 @@
 # v1.4.5#
 
+## Enhancements ##
+- Issue #179. Allows XMLHttpRequest `xhrWithCreditials` to be set.
+
 ## Bug Fixes ##
 - Issue #180. Adds 'bucket' to the list of configuration options that can
 be overridden in the `.add()` method.
