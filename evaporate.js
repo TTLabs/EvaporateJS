@@ -1374,7 +1374,7 @@
                 parts.push(con.cryptoHexEncodedHash256(canonicalRequestV4(request)));
                 var result = parts.join('\n');
 
-                l.d('makeStringToSign (V2)', result);
+                l.d('makeStringToSign (V4)', result);
                 return result;
             }
 
