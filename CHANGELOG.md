@@ -1,3 +1,10 @@
+# v1.4.5#
+
+## Bug Fixes ##
+- Issue #180. Adds 'bucket' to the list of configuration options that can
+be overridden in the `.add()` method.
+- Issue #183. Revtored maxFileSize validation.
+
 # v1.4.4#
 
 ## Enhancements ##
