@@ -241,8 +241,17 @@ returns an integer representing the file id, otherwise, it returns a string erro
 
 * **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
 
-* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id represents
-the file whose upload is being started.
+* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
+represents the file whose upload is being started.
+
+* **paused**: _function(upload_id)_. a function that will be called when the file upload is completely paused (all
+in-progress parts are aborted or completed). The upload id represents the file whose upload has been paused.
+
+* **resumed**: _function(upload_id)_. a function that will be called when the file upload resumes.
+
+* **pausing**: _function(upload_id)_. a function that will be called when the file upload has been asked to pause
+after all in-progress parts are completed. The upload id represents the file whose upload has been requested
+to pause.
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
@@ -259,6 +268,18 @@ the file whose upload is being started.
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 
+### .pause()
+`evap.pause([id[, options]])` - Pauses the upload for the file identified by the upload id. If options include `force`,
+then the in-progress parts will be immediately aborted; otherwise, the file upload will be paused when all in-progress
+parts complete. Refer to the `.paused` and `.pausing` callbacks for status feedback when pausing.
+
+`id` is the optional id of the upload that you want to pause. IF `id` is not defined, then all files will be paused.
+
+### .resume()
+`evap.resume([id])` - Resumes the upload for the file identified by the upload id, or all files if the id is not
+passed. The `.resumed` callback is invoked when a file upload resumes.
+
+`id` is the optional id of the upload to resume
 
 ### .cancel()
 `evap.cancel(id)`
