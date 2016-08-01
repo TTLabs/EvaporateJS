@@ -241,8 +241,8 @@ returns an integer representing the file id, otherwise, it returns a string erro
 
 * **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
 
-* **started**: _function()_. a function that will be called when the file upload starts.
-
+* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id represents
+the file whose upload is being started.
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
