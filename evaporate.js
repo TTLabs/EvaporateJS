@@ -1429,7 +1429,7 @@
 
             function canonicalQueryStringV4(request) {
                 var search = uri(request.path).search,
-                    parts = search.split('&'),
+                    parts = search.length ? search.split('&') : [],
                     encoded = [],
                     nameValue,
                     i;
