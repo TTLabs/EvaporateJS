@@ -373,7 +373,7 @@
             };
 
             function setStatus(s) {
-                if (s === COMPLETE || s === ERROR || s === CANCELED) {
+                if (s === COMPLETE || s === ERROR || s === CANCELED || s === ABORTED) {
                     clearInterval(progressTotalInterval);
                     clearInterval(progressPartsInterval);
                 }
