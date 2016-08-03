@@ -1,3 +1,9 @@
+# v1.4.6#
+
+## Bug Fixes ##
+- Issue #183. Fixes issue where V4 signature was incorrectly calculated
+for URLs without a search part.
+
 # v1.4.5#
 
 ## Enhancements ##
