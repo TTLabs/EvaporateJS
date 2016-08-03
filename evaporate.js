@@ -469,7 +469,7 @@
             function abortParts() {
                 partsInProcess.forEach(function (i) {
                     abortPart(i, true);
-                })
+                });
                 monitorTotalProgress();
             }
 
@@ -949,8 +949,8 @@
                         cp, partSize;
 
                     for (var i = 0; i < parts_len; i++) {
-                        cp = uploadedParts[i],
-                             partSize = parseInt(nodeValue(cp, "Size"));
+                        cp = uploadedParts[i];
+                        partSize = parseInt(nodeValue(cp, "Size"));
                         fileTotalBytesUploaded += partSize;
                         partsOnS3.push({
                             eTag: nodeValue(cp, "ETag"),
@@ -1540,8 +1540,7 @@
 
             function canonicalQueryStringV4(request) {
                 var search = uri(request.path).search,
-                searchParts = searchParts.length ? searchParts.split('&') : [],
-                    searchParts = search.split('&'),
+                    searchParts = search.length ? search.split('&') : [],
                     encoded = [],
                     nameValue,
                     i;
