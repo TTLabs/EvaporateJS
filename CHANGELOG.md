@@ -1,3 +1,7 @@
+# v1.4.7#
+
+Republished 1.4.6 as NPM had a draft version by mistake
+
 # v1.4.6#
 
 ## Bug Fixes ##
