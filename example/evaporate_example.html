@@ -1,93 +1,234 @@
 <!DOCTYPE html>
-<html>
-   <head>
-    
-      <title>Evaporate Example</title>
-    
-      <style>
-         
-      </style>
-    
-   
-      <script language="javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
-      <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
-   
-   </head>
-   <body>
-      
-      <div>
-         <input type="file" id="files"  multiple />
-      </div>
-            
-      
-      <script language="javascript">
-      
-         var files;
-         
-         var _e_ = new Evaporate({
-            signerUrl: 'http://localhost:3000/sign_auth',
-            timeUrl: 'http://localhost:3000/timestamp',
-            aws_key: '<aws_key>',
-            bucket: '<bucket-name>'
-         });
-      
-         $('#files').change(function(evt){
-            files = evt.target.files;
-            
-            for (var i = 0; i < files.length; i++){
-            
-               _e_.add({
-                  name: 'test_' + Math.floor(1000000000*Math.random()),
-                  file: files[i],
-                  complete: function(){
-                     console.log('complete................yay!');
-                  },
-                  progress: function(progress){
-                     console.log('making progress: ' + progress);
-                  }
-               });
-            }
-            
-            $(evt.target).val('');
-            
-         });
-      
-      </script>
+<html lang="en">
+<head>
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+   <title>Evaporate Example</title>
 
-   </body>
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+   <link rel="stylesheet" type="text/css" href="assets/example.css">
+
+   <script src="https://sdk.amazonaws.com/js/aws-sdk-2.4.13.min.js"></script>
+   <script language="javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
+   <script language="javascript" type="text/javascript" src="assets/progressbar-1.0.1.min.js"></script>
+   <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
+
+</head>
+<body>
+<div class="container-fluid">
+   <h1 id="header">EvaporateJS Example</h1>
+   <dl>
+      <dt>AWS Key</dt>
+      <dd id="awsKey">AWS Key</dd>
+      <dt>S3 Bucket</dt>
+      <dd id="s3Bucket">S3 Bucket</dd>
+      <dt>Signer Url</dt>
+      <dd id="signerUrl">Signer Url</dd>
+   </dl>
+   <input type="file" id="files"  multiple />
+   <button type="button" id="pause-all" class="btn btn-warning btn-sm glyphicon glyphicon-pause" title="Pause All"></button>
+   <button type="button" id="pause-all-force" class="btn btn-primary btn-sm glyphicon glyphicon-off" title="Force Pause All"></button>
+   <button type="button" id="resume" class="btn btn-success btn-sm glyphicon glyphicon-play" title="Resume All"></button>
+   <div><br/>Total parts in-progress: <span id="totalParts">0</span></div>
+   <div id="progress-container"></div>
+</div>
+
+<script language="javascript">
+
+   var files, file_id = 0, file_ids = [];
+
+   // Change these to reflect your local settings
+   var AWS_KEY = 'AWS KEY',
+           AWS_BUCKET = 's3 bucket name',
+           SIGNER_URL = 'http://localhost:3000/sign_auth';
+
+   $("#awsKey").text(AWS_KEY);
+   $("#s3Bucket").text(AWS_BUCKET);
+   $("#SIGNERURL").text(SIGNER_URL);
+
+   var _e_ = new Evaporate({
+      signerUrl: SIGNER_URL,
+      aws_key: AWS_KEY,
+      bucket: AWS_BUCKET,
+      cloudfront: true,
+      computeContentMd5: true,
+      cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
+      logging: true,
+      evaporateChanged: function (file, evaporatingCount) {
+         $('#totalParts').text(evaporatingCount);
+         if (evaporatingCount > 0) {
+            $("#pause-all, #pause-all-force").show();
+         } else if (evaporatingCount === 0) {
+            $("#pause-all, #pause-all-force, #resume").hide();
+         }
+      }
+   });
+
+   $('#files').change(function (evt) {
+      files = evt.target.files;
+
+      for (var i = 0; i < files.length; i++) {
+         callback_methods = callbacks(files[i], i);
+
+         file_id = _e_.add({
+                    name: files[i].name,
+                    file: files[i],
+                    started: callback_methods.started,
+                    complete: callback_methods.complete,
+                    cancelled: callback_methods.cancelled,
+                    progress: callback_methods.progress,
+                    error: callback_methods.error,
+                    warn: callback_methods.warn,
+                    paused: callback_methods.paused,
+                    pausing: callback_methods.pausing,
+                    resumed: callback_methods.resumed
+                 },
+                 {
+                    bucket: AWS_BUCKET // Shows that the bucket can be changed per
+                 }
+         );
+
+         callback_methods.progress_clock.attr('file_id', file_id);
+
+         ["#pause-all",  "#pause-all-force", "resume"].forEach(function (v) { $(v).show(); });
+      }
+
+      $(evt.target).val('');
+
+   });
+
+   $("#pause-all").hide().click(function () {
+      _e_.pause();
+   });
+
+   $("#pause-all-force").hide().click(function () {
+      _e_.pause(undefined, {force: true});
+   });
+
+   $("#resume").hide().click(function () {
+      _e_.resume();
+      $("#resume").hide();
+   });
+
+   function callbacks(file, idx) {
+
+      var progress_clock = $('<div class="progress-clock"/>'),
+              clock,
+              progress;
+
+      $('#progress-container')
+              .append(progress_clock);
+
+      progress_clock
+              .append('<span>' + file.name + '</span>')
+              .append('<div class="circle"/>');
+      var cancel = $('<button class="cancel btn btn-danger btn-xs glyphicon glyphicon-stop" title="Cancel"></button>')
+              .click(function () {
+                 _e_.cancel(file_id);
+              });
+      progress_clock.append(cancel);
+
+      var pause = $('<button class="pause btn btn-warning btn-xs glyphicon glyphicon-pause" title="Pause"></button>')
+              .hide()
+              .click(function () {
+                 _e_.pause(file_id);
+              });
+      progress_clock.append(pause);
+
+      var resume = $('<button class="resume btn btn-success btn-xs glyphicon glyphicon-play" title="Resume"></button>').hide()
+              .hide()
+              .click(function () {
+                 _e_.resume(file_id);
+              });
+      progress_clock.append(resume);
+
+      var status = $('<span class="status"></span>');
+      progress_clock.append(status);
+
+      clock = new ProgressBar.Circle(progress_clock.find('.circle')[0], {
+         strokeWidth: 3,
+         trailWidth: 1,
+         duration: 350,
+         text: {
+            value: ''
+         },
+         step: function(state, bar) {
+            bar.setText((bar.value() * 100).toFixed(0) + '%');
+         }
+      });
+
+      progress_clock.find('svg path').removeAttr('stroke');
+      progress_clock.find('.progressbar-text').css('color', '');
+
+
+      function markComplete(className) {
+         progress_clock.addClass(className);
+         status.text(className);
+      }
+
+      return {
+         progress: function (progressValue) {
+            progress = progressValue;
+            clock.animate(progressValue);
+         },
+         started: function (file_id) {
+            pause.show();
+            resume.hide();
+            progress_clock.addClass('evaporating');
+            status.text('evaporating');
+         },
+         error: function (msg) {
+            var m = $('<div/>').append(msg);
+            var html = $('<small/>').html(m);
+            markComplete('error');
+            clock.animate(progress);
+            progress_clock.removeClass('evaporating warning');
+         },
+         cancelled: function () {
+            clock.animate(progress);
+            markComplete('canceled');
+            progress_clock.removeClass('evaporating warning paused pausing');
+            cancel.hide();
+            resume.hide();
+            pause.hide();
+         },
+         pausing: function () {
+            clock.animate(progress);
+            markComplete('pausing');
+            $("#resume").show();
+            progress_clock.removeClass('evaporating warning');
+         },
+         paused: function () {
+            clock.animate(progress);
+            markComplete('paused');
+            pause.hide();
+            resume.show();
+            $("#resume").show();
+            progress_clock.removeClass('evaporating warning pausing');
+         },
+         resumed: function () {
+            clock.animate(progress);
+            markComplete('evaporating');
+            pause.show();
+            resume.hide();
+            progress_clock.removeClass('pausing paused');
+         },
+         warn: function (msg) {
+            var m = $('<small/>').html(msg);
+            var html = $('<div/>').append(m);
+            clock.animate(progress)
+         },
+         complete: function (_xhr, awsKey){
+            var m = $('<small/>').html(awsKey + ' - Completed');
+            var html = $('<div/>').append(m);
+            clock.animate(1);
+            progress_clock.removeClass('evaporating warning');
+            markComplete('completed');
+         },
+         progress_clock: progress_clock
+      }
+   }
+
+</script>
+
+</body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

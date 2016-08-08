@@ -1,0 +1,63 @@
+#files {
+    display: inline;
+}
+.progress-clock {
+    min-width: 100px;
+    min-height: 60px;
+    width: 60px;
+    float: left;
+    text-align: center;
+
+
+    border: black;
+    border-width: 2px;
+    border-style: dotted;
+    padding: 3px;
+    margin: 3px;
+}
+
+.progress-clock svg path {
+    transition: stroke 1.5s ease;
+}
+
+.progress-clock p.progressbar-text {
+    transition: color 1.5s ease;
+}
+
+.progress-clock.evaporating svg path, .progress-clock.evaporating p.progressbar-text {
+    stroke: #4A55CB;
+    color: #4A55CB;
+}
+
+.progress-clock.canceled svg path, .progress-clock.canceled p.progressbar-text {
+    stroke: #D1FF0A;
+    color: #D1FF0A;
+}
+
+.progress-clock.completed svg path, .progress-clock.completed p.progressbar-text {
+    stroke: #009A00;
+    color: #009A00;
+}
+
+.progress-clock.error svg path, .progress-clock.error p.progressbar-text {
+    stroke: #C71704;
+    color: #C71704;
+}
+
+.progress-clock.warning svg path, .progress-clock.warning p.progressbar-text {
+    stroke: #F59F08;
+    color: #F59F08;
+
+}
+
+.progress-clock.pausing svg path, .progress-clock.pausing p.progressbar-text {
+    stroke: #9406f5;
+    color: #9406f5;
+
+}
+
+.progress-clock.paused svg path, .progress-clock.paused p.progressbar-text {
+    stroke: #9d7521;
+    color: #9d7521;
+
+}
