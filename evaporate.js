@@ -19,11 +19,13 @@
  ***************************************************************************************************/
 
 (function () {
+    "use strict";
+
     var FAR_FUTURE = new Date('2060-10-22');
 
     var Evaporate = function (config) {
 
-        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
+        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
         var IMMUTABLE_OPTIONS = [
             'maxConcurrentParts',
             'logging',
@@ -38,11 +40,13 @@
             'cryptoHexEncodedHash256',
             'aws_key',
             'awsRegion',
-            'awsSignatureVersion'
+            'awsSignatureVersion',
+            'evaporateChanged'
         ];
 
         var _ = this;
-        var files = [];
+        var files = [],
+            evaporatingCount = 0;
 
         function noOpLogger() { return {d: function () {}, w: function () {}, e: function () {}}; }
 
@@ -79,7 +83,8 @@
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
-            simulateErrors: false
+            simulateErrors: false,
+            evaporateChanged: function () {}
         }, config);
 
         if (console && console.log) {
@@ -210,7 +215,7 @@
                         var server_date = new Date(Date.parse(xhr.responseText)),
                             now = new Date();
                         localTimeOffset = now - server_date;
-                        l.d('localTimeOsset is', localTimeOffset, 'ms');
+                        l.d('localTimeOffset is', localTimeOffset, 'ms');
                     }
                 }
             };
@@ -265,9 +270,44 @@
             }
         };
 
-        _.pause = function (id) {};
+        _.pause = function (id, options) {
+            options = options || {};
+            var force = options.force === 'undefined' ? false : options.force,
+                typeOfId = typeof id;
+            if (typeOfId === 'undefined') {
+                l.d('Pausing all file uploads');
+                files.forEach(function (file) {
 
-        _.resume = function (id) {};
+                   if ([PENDING, EVAPORATING, ERROR].indexOf(file.status) > -1)  {
+                       file.pause(force);
+                   }
+                });
+            }  else if (typeof files[id] === 'undefined') {
+                l.w('Cannot pause a file that has not been added.');
+            } else if (files[id].status === PAUSED) {
+                l.w('Cannot pause a file that is already paused. Status:', files[id].status);
+            } else {
+                files[id].pause(force);
+            }
+        };
+
+        _.resume = function (id) {
+            var PAUSED_STATUSES = [PAUSED, PAUSING];
+            if (typeof id === 'undefined') {
+                l.d('Resuming all file uploads');
+                files.forEach(function (file) {
+                    if (PAUSED_STATUSES.indexOf(file.status) > -1)  {
+                        file.resume();
+                    }
+                });
+            }  else if (typeof files[id] === 'undefined') {
+                l.w('Cannot pause a file that does not exist.');
+            } else if (PAUSED_STATUSES.indexOf(files[id].status) === -1) {
+                l.w('Cannot resume a file that has not been paused. Status:', files[id].status);
+            } else {
+                files[id].resume();
+            }
+        };
 
         _.forceRetry = function () {};
 
@@ -279,6 +319,9 @@
                 progress: function () {},
                 complete: function () {},
                 cancelled: function () {},
+                paused: function () {},
+                resumed: function () {},
+                pausing: function () {},
                 info: function () {},
                 warn: function () {},
                 error: function () {},
@@ -305,7 +348,7 @@
 
 
         function asynProcessQueue() {
-            setTimeout(processQueue,1);
+            setTimeout(processQueue, 1);
         }
 
         function processQueue() {
@@ -330,13 +373,20 @@
 
 
         function FileUpload(file, con) {
-            var me = this, parts = [], completedParts = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
-                countInitiateAttempts = 0, countCompleteAttempts = 0;
+            var me = this, s3Parts = [], partsOnS3 = [], partsToUpload = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
+                countInitiateAttempts = 0, countCompleteAttempts = 0,
+                partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me,file);
+
+
+            function evaporatingCnt(incr) {
+                evaporatingCount = Math.max(0, evaporatingCount + incr);
+                con.evaporateChanged(me, evaporatingCount);
+            }
 
             me.start = function () {
                 l.d('starting FileUpload ' + me.id);
-                me.started();
+                me.started(me.id);
                 setStatus(EVAPORATING);
 
                 var awsKey = me.name;
@@ -372,22 +422,73 @@
                 cancelAllRequests();
             };
 
+            me.pause = function (force) {
+                l.d('pausing FileUpload ', me.id);
+                me.info('Pausing uploads...');
+                if (force) {
+                    l.d('Pause requests to force abort parts that are evaporating');
+                    abortParts();
+                    setStatus(PAUSED);
+                    me.paused();
+                } else {
+                    if (me.status === ERROR) {
+                        me.statusBeforePause = me.status;
+                    } else {
+                        delete me.statusBeforePause;
+                    }
+                    setStatus(PAUSING);
+                    me.pausing();
+                }
+            };
+
+            me.resume = function () {
+                l.d('resuming FileUpload ', me.id);
+                setStatus(me.statusBeforePause || PENDING);
+                me.resumed();
+            };
+
+            function addPartToProcessing(part) {
+                partsInProcess.push(part.part);
+            }
+
+            function removePartFromProcessing(part) {
+                removeAtIndex(partsInProcess, part.part);
+                removeAtIndex(partsToUpload, part.part);
+                evaporatingCnt(-1);
+                if (partsInProcess.length === 0 && me.status == PAUSING) {
+                    me.status = PAUSED;
+                    me.paused();
+                }
+            }
+
+            function removeAtIndex(a, i) {
+                var idx = a.indexOf(i);
+                if (idx > -1) {
+                    a.splice(idx, 1);
+                }
+            }
+
             function setStatus(s) {
-                if (s === COMPLETE || s === ERROR || s === CANCELED || s === ABORTED) {
-                    clearInterval(progressTotalInterval);
-                    clearInterval(progressPartsInterval);
+                if ([COMPLETE, ERROR, CANCELED, ABORTED, PAUSED].indexOf(s) > -1) {
+                    stopMonitorProgress();
                 }
                 me.status = s;
                 me.onStatusChange();
             }
 
+            function abortParts() {
+                var partList = [];
+                partsInProcess.forEach(function (i) {
+                    partList.push(i);
+                });
+                partList.forEach(function (i) {
+                    abortPart(i, true);
+                });
+                monitorTotalProgress();
+            }
+
             function cancelAllRequests() {
                 l.d('cancelAllRequests()');
-
-                for (var i = 1; i < parts.length; i++) {
-                    abortPart(i, true);
-                }
-
                 abortUpload();
             }
 
@@ -461,10 +562,10 @@
             function uploadPart(partNumber) {  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
                 var backOff, hasErrored, upload, part;
 
-                part = parts[partNumber];
-
+                part = s3Parts[partNumber];
                 part.status = EVAPORATING;
                 countUploadAttempts++;
+                evaporatingCnt(+1);
                 part.loadedBytesPrevious = null;
 
                 backOff = backOffWait(part.attempts++);
@@ -482,8 +583,9 @@
                 };
 
                 upload.onErr = function (xhr, isOnError) {
+                    removePartFromProcessing(part);
 
-                    if (me.status === CANCELED || me.status === ABORTED) {
+                    if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(me.status) > -1) {
                         return;
                     }
 
@@ -525,6 +627,8 @@
                     if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
                         part.eTag = eTag;
                         part.status = COMPLETE;
+
+                        removePartFromProcessing(part);
                     } else {
                         part.status = ERROR;
                         part.loadedBytes = 0;
@@ -560,7 +664,8 @@
                 setupRequest(upload);
 
                 setTimeout(function () {
-                    if (me.status !== ABORTED && me.status !== CANCELED) {
+                    if ([ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
+                        addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
                     }
@@ -571,12 +676,17 @@
 
             function abortPart(partNumber, clearReadyStateCallback) {
 
-                var part = parts[partNumber];
+                var part = s3Parts[partNumber];
                 if (part.currentXhr) {
                     if (!!clearReadyStateCallback) {
-                        part.currentXhr.onreadystatechange = function () {};
+                        part.currentXhr.onreadystatechange = function () {
+                            if (part.currentXhr.readyState === 4) {
+                                evaporatingCnt(-1);
+                            }
+                        };
                     }
                     part.currentXhr.abort();
+                    part.loadedBytes = 0;
                 }
             }
 
@@ -590,8 +700,8 @@
                     hasErrored;
 
                 completeDoc.push('<CompleteMultipartUpload>');
-                parts.forEach(function (part, partNumber) {
-                    if (part) {
+                s3Parts.forEach(function (part, partNumber) {
+                    if (partNumber > 0) {
                         completeDoc.push(['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>'].join(""));
                     }
                 });
@@ -683,7 +793,7 @@
             function computePartMd5Digest(part) {
                 return function () {
                     var s = me.status;
-                    if (s === ERROR || s === CANCELED || s === ABORTED) {
+                    if ([ERROR, CANCELED, ABORTED].indexOf(s) > -1) {
                         return;
                     }
 
@@ -700,7 +810,9 @@
 
                     numDigestsProcessed += 1;
 
-                    processPartsList();
+                    if (evaporatingCount < con.maxConcurrentParts) {
+                        processPartsList();
+                    }
 
                     if (numDigestsProcessed === numParts) {
                         l.d('All parts have MD5 digests');
@@ -715,9 +827,12 @@
                 // as a FileReader object whose value is fetched asynchronously.
 
                 // This method delays submitting the part for upload until its MD5 digest is ready
+                var completed = 1;
                 for (var i = 1; i <= numParts; i++) {
-                    var part = parts[i];
-                    if (part.status !== COMPLETE && part.md5_digest === null) {
+                    var part = s3Parts[i];
+                    if (part.status === COMPLETE) {
+                        completed += 1;
+                    } else if (part.md5_digest === null) {
                         if (i > 1 || typeof me.firstMd5Digest === 'undefined') {
                             part.reader = new FileReader();
                             part.reader.onloadend = computePartMd5Digest(part);
@@ -730,12 +845,18 @@
                         }
                     }
                 }
+                if (completed === s3Parts.length) {
+                    setStatus(COMPLETE);
+                    me.progress(1.0);
+                }
             }
 
             function abortUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
 
                 l.d('abortUpload');
                 me.info('will attempt to abort the upload');
+
+                abortParts();
 
                 if(typeof me.uploadId === 'undefined') {
                     setStatus(ABORTED);
@@ -789,8 +910,8 @@
 
                 list.on200 = function (xhr) {
                     var oDOM = parseXml(xhr.responseText);
-                    var parts = oDOM.getElementsByTagName("Part");
-                    if (parts.length) { // Some parts are still uploading
+                    var domParts = oDOM.getElementsByTagName("Part");
+                    if (domParts.length) { // Some parts are still uploading
                         l.d('Parts still found after abort...waiting.');
                         setTimeout(function () { abortUpload(); }, 1000);
                     } else {
@@ -805,8 +926,8 @@
 
             function getUploadParts(partNumberMarker) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
 
-                l.d('getUploadParts() for uploadId starting at part # ' + partNumberMarker);
-                me.info('getUploadParts() for uploadId starting at part # ' + partNumberMarker);
+                l.d('getUploadParts() for uploadId starting at part #', partNumberMarker);
+                me.info('getUploadParts() for uploadId starting at part #', partNumberMarker);
 
                 var list = {
                     method: 'GET',
@@ -835,21 +956,23 @@
                 };
 
                 list.on200 = function (xhr) {
-                    me.info(['uploadId ', me.uploadId, ' is not complete. Fetching parts from part marker=', partNumberMarker].join(''));
+                    me.info(['uploadId', me.uploadId, 'is not complete. Fetching parts from part marker=', partNumberMarker].join(''));
                     var oDOM = parseXml(xhr.responseText),
                         listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
                         isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
                         uploadedParts = oDOM.getElementsByTagName("Part"),
                         uploadedPart,
                         parts_len = uploadedParts.length,
-                        cp;
+                        cp, partSize;
 
                     for (var i = 0; i < parts_len; i++) {
                         cp = uploadedParts[i];
-                        completedParts.push({
+                        partSize = parseInt(nodeValue(cp, "Size"));
+                        fileTotalBytesUploaded += partSize;
+                        partsOnS3.push({
                             eTag: nodeValue(cp, "ETag"),
                             partNumber: parseInt(nodeValue(cp, "PartNumber")),
-                            size: parseInt(nodeValue(cp, "Size")),
+                            size: partSize,
                             LastModified: nodeValue(cp, "LastModified")
                         });
                     }
@@ -861,7 +984,7 @@
                         getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
                     } else {
                         makeParts();
-                        completedParts.forEach(function (cp) {
+                        partsOnS3.forEach(function (cp) {
                             uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
                             uploadedPart.eTag = cp.eTag;
                             uploadedPart.attempts = 1;
@@ -869,7 +992,7 @@
                             uploadedPart.loadedBytesPrevious = cp.size;
                             uploadedPart.finishedUploadingAt = cp.LastModified;
                             uploadedPart.md5_digest = 'n/a';
-                            parts[cp.partNumber] = uploadedPart;
+                            s3Parts[cp.partNumber] = uploadedPart;
                         });
                         monitorProgress();
                         processFileParts();
@@ -885,10 +1008,11 @@
 
                 numParts = Math.ceil(me.file.size / con.partSize) || 1; // issue #58
                 for (var part = 1; part <= numParts; part++) {
-                    var status = (typeof parts[part] === 'undefined') ? PENDING : parts[part].status;
+                    var status = (typeof s3Parts[part] === 'undefined') ? PENDING : s3Parts[part].status;
 
                     if (status !== COMPLETE) {
-                        parts[part] = makePart(part, PENDING, me.file.size);
+                        s3Parts[part] = makePart(part, PENDING, me.file.size);
+                        partsToUpload.push(part);
                     }
                 }
             }
@@ -920,8 +1044,8 @@
                         signParams: me.signParams,
                         createdAt: new Date().toISOString()
                     };
-                if (con.computeContentMd5 && parts.length && typeof parts[1].md5_digest !== 'undefined') {
-                    newUpload.firstMd5Digest = parts[1].md5_digest;
+                if (con.computeContentMd5 && s3Parts.length && typeof s3Parts[1].md5_digest !== 'undefined') {
+                    newUpload.firstMd5Digest = s3Parts[1].md5_digest;
                 }
                 saveUpload(fileKey, newUpload);
             }
@@ -984,60 +1108,57 @@
 
             function processPartsList() {
 
-                var evaporatingCount = 0, finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
+                var finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
 
                 if (me.status !== EVAPORATING) {
                     me.info('will not process parts list, as not currently evaporating');
                     return;
                 }
+                for (var i = 0; i < partsToUpload.length; i++) {
+                    var part = s3Parts[partsToUpload[i]];
+                    if (con.computeContentMd5 && part.md5_digest === null) {
 
-                for (var i = 0; i < parts.length; i++) {
-                    var part = parts[i];
-                    if (part) {
-                        if (con.computeContentMd5 && part.md5_digest === null) {
-                            return; // MD5 Digest isn't ready yet
-                        }
-                        var requiresUpload = false;
-                        stati.push(part.status);
-                        switch (part.status) {
+                        return; // MD5 Digest isn't ready yet
+                    }
+                    var requiresUpload = false;
+                    stati.push(part.status);
+                    switch (part.status) {
 
-                            case EVAPORATING:
-                                finished = false;
-                                evaporatingCount++;
-                                bytesLoaded.push(part.loadedBytes);
-                                break;
-
-                            case ERROR:
-                                anyPartHasErrored = true;
-                                requiresUpload = true;
-                                break;
-
-                            case PENDING:
-                                requiresUpload = true;
-                                break;
-
-                            default:
-                                break;
-                        }
-
-                        if (requiresUpload) {
+                        case EVAPORATING:
                             finished = false;
-                            if (evaporatingCount < con.maxConcurrentParts) {
-                                uploadPart(i);
-                                evaporatingCount++;
-                            }
+                            bytesLoaded.push(part.loadedBytes);
+                            break;
+
+                        case ERROR:
+                            anyPartHasErrored = true;
+                            requiresUpload = true;
+                            break;
+
+                        case PENDING:
+                            requiresUpload = true;
+                            break;
+
+                        default:
+                            break;
+                    }
+                    if (requiresUpload) {
+                        finished = false;
+                        if (evaporatingCount < con.maxConcurrentParts) {
+                            uploadPart(part.part);
+                        } else {
+                            return; // We might as well stop iterating because we're out of concurrent part slots
                         }
                     }
                 }
 
 
                 info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
-                l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored,info);
+                l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored, info);
 
-                if (countUploadAttempts >= (parts.length - 1) || anyPartHasErrored) {
-                    me.info('part stati: ' + info);
+                if (countUploadAttempts >= (s3Parts.length - 1) || anyPartHasErrored) {
+                    me.info('part stati:', info);
                 }
-                // parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
+                // s3Parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
 
                 if (finished) {
                     completeUpload();
@@ -1047,10 +1168,12 @@
 
             function monitorTotalProgress() {
 
+                clearInterval(progressTotalInterval);
                 progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
-                    parts.forEach(function (part) {
+// TODO: Improve this
+                    s3Parts.forEach(function (part) {
                         totalBytesLoaded += part.loadedBytes;
                     });
 
@@ -1067,37 +1190,38 @@
              */
             function monitorPartsProgress() {
 
+                clearInterval(progressPartsInterval);
                 progressPartsInterval = setInterval(function () {
 
                     l.d('monitorPartsProgress() ' + new Date());
-                    parts.forEach(function (part, i) {
+                    partsInProcess.forEach(function (partIdx) {
 
-                        var healthy;
-
+                        var part = s3Parts[partIdx],
+                            healthy;
                         if (part.status !== EVAPORATING) {
-                            l.d(i, 'not evaporating ');
+                            l.d(partIdx, 'not evaporating ');
                             return;
                         }
 
                         if (part.loadedBytesPrevious === null) {
-                            l.d(i,'no previous ');
+                            l.d(partIdx,'no previous ');
                             part.loadedBytesPrevious = part.loadedBytes;
                             return;
                         }
 
                         healthy = part.loadedBytesPrevious < part.loadedBytes;
-                        if (con.simulateStalling && i === 4) {
+                        if (con.simulateStalling && partIdx === 4) {
                             if (Math.random() < 0.25) {
                                 healthy = false;
                             }
                         }
 
-                        l.d(i, (healthy ? 'moving. ' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
+                        l.d(partIdx, (healthy ? 'moving.' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
 
                         if (!healthy) {
                             setTimeout(function () {
-                                me.info('part #' + i + ' stalled. will abort. ' + part.loadedBytesPrevious + ' ' + part.loadedBytes);
-                                abortPart(i);
+                                me.info('part #' + partIdx, ' stalled. will abort.', part.loadedBytesPrevious, part.loadedBytes);
+                                abortPart(partIdx);
                             },0);
                         }
 
@@ -1109,6 +1233,11 @@
             function monitorProgress() {
                 monitorTotalProgress();
                 monitorPartsProgress();
+            }
+
+            function stopMonitorProgress() {
+                clearInterval(progressTotalInterval);
+                clearInterval(progressPartsInterval);
             }
 
             function setupRequest(requester) {
@@ -1309,8 +1438,7 @@
                         authRequester.onFailedAuth(err);
                         return;
                     }
-                    var payload = signResponse(JSON.parse(data.Payload));
-                    authRequester.auth = payload;
+                    authRequester.auth = signResponse(JSON.parse(data.Payload));
                     authRequester.onGotAuth();
                 });
             }
@@ -1372,12 +1500,12 @@
             }
 
             function stringToSignV4(request) {
-                var parts = [];
-                parts.push('AWS4-HMAC-SHA256');
-                parts.push(request.dateString);
-                parts.push(credentialStringV4(request));
-                parts.push(con.cryptoHexEncodedHash256(canonicalRequestV4(request)));
-                var result = parts.join('\n');
+                var signParts = [];
+                signParts.push('AWS4-HMAC-SHA256');
+                signParts.push(request.dateString);
+                signParts.push(credentialStringV4(request));
+                signParts.push(con.cryptoHexEncodedHash256(canonicalRequestV4(request)));
+                var result = signParts.join('\n');
 
                 l.d('makeStringToSign (V4)', result);
                 return result;
@@ -1388,54 +1516,54 @@
             }
 
             function authorizationV4(request) {
-                var parts = [];
+                var authParts = [];
 
                 var credentials = credentialStringV4(request);
                 var headers = canonicalHeadersV4(request);
 
-                parts.push(['AWS4-HMAC-SHA256 Credential=', con.aws_key, '/', credentials].join(''));
-                parts.push('SignedHeaders=' + headers.signedHeaders);
-                parts.push('Signature=' + request.auth);
+                authParts.push(['AWS4-HMAC-SHA256 Credential=', con.aws_key, '/', credentials].join(''));
+                authParts.push('SignedHeaders=' + headers.signedHeaders);
+                authParts.push('Signature=' + request.auth);
 
-                return parts.join(', ');
+                return authParts.join(', ');
             }
 
             function credentialStringV4(request) {
-                var parts = [];
+                var credParts = [];
 
-                parts.push(request.dateString.slice(0, 8));
-                parts.push(con.awsRegion);
-                parts.push('s3');
-                parts.push('aws4_request');
-                return parts.join('/');
+                credParts.push(request.dateString.slice(0, 8));
+                credParts.push(con.awsRegion);
+                credParts.push('s3');
+                credParts.push('aws4_request');
+                return credParts.join('/');
             }
 
             function canonicalRequestV4(request) {
-                var parts = [];
+                var canonParts = [];
 
-                parts.push(request.method);
-                parts.push(uri(request.path).pathname);
-                parts.push(canonicalQueryStringV4(request) || '');
+                canonParts.push(request.method);
+                canonParts.push(uri(request.path).pathname);
+                canonParts.push(canonicalQueryStringV4(request) || '');
 
                 var headers = canonicalHeadersV4(request);
-                parts.push(headers.canonicalHeaders + '\n');
-                parts.push(headers.signedHeaders);
-                parts.push(request.getPayloadSha256Content());
+                canonParts.push(headers.canonicalHeaders + '\n');
+                canonParts.push(headers.signedHeaders);
+                canonParts.push(request.getPayloadSha256Content());
 
-                var result = parts.join("\n");
+                var result = canonParts.join("\n");
                 l.d('CanonicalRequest', result);
                 return result;
             }
 
             function canonicalQueryStringV4(request) {
                 var search = uri(request.path).search,
-                    parts = search.length ? search.split('&') : [],
+                    searchParts = search.length ? search.split('&') : [],
                     encoded = [],
                     nameValue,
                     i;
 
-                for (i = 0; i < parts.length; i++) {
-                    nameValue = parts[i].split("=");
+                for (i = 0; i < searchParts.length; i++) {
+                    nameValue = searchParts[i].split("=");
                     encoded.push({
                         name: encodeURIComponent(nameValue[0]),
                         value: nameValue.length > 1 ? encodeURIComponent(nameValue[1]) : null

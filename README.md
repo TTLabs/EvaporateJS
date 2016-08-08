@@ -227,9 +227,9 @@ Not all options can be overridden. The following configuration options will be i
 - `awsRegion`
 - `awsSignatureVersion`
 
-The `.add()` method returns the internal EvaporateJS id of the upload to process. Use this id to abort or cancel
-an upload. If the file validation passes, this method returns an integer representing the file id, otherwise,
-it returns a string error message.
+The `.add()` method returns the EvaporateJS id of the upload to process. Use this id to abort or cancel
+an upload. The id is also passed as a parameter to the `started()` callback. If the file validation passes, this method
+returns an integer representing the file id, otherwise, it returns a string error message.
 
 `config` has a number of optional parameters:
 
@@ -241,8 +241,17 @@ it returns a string error message.
 
 * **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the signerUrl.
 
-* **started**: _function()_. a function that will be called when the file upload starts.
+* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
+represents the file whose upload is being started.
 
+* **paused**: _function(upload_id)_. a function that will be called when the file upload is completely paused (all
+in-progress parts are aborted or completed). The upload id represents the file whose upload has been paused.
+
+* **resumed**: _function(upload_id)_. a function that will be called when the file upload resumes.
+
+* **pausing**: _function(upload_id)_. a function that will be called when the file upload has been asked to pause
+after all in-progress parts are completed. The upload id represents the file whose upload has been requested
+to pause.
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
@@ -259,6 +268,18 @@ it returns a string error message.
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 
+### .pause()
+`evap.pause([id[, options]])` - Pauses the upload for the file identified by the upload id. If options include `force`,
+then the in-progress parts will be immediately aborted; otherwise, the file upload will be paused when all in-progress
+parts complete. Refer to the `.paused` and `.pausing` callbacks for status feedback when pausing.
+
+`id` is the optional id of the upload that you want to pause. IF `id` is not defined, then all files will be paused.
+
+### .resume()
+`evap.resume([id])` - Resumes the upload for the file identified by the upload id, or all files if the id is not
+passed. The `.resumed` callback is invoked when a file upload resumes.
+
+`id` is the optional id of the upload to resume
 
 ### .cancel()
 `evap.cancel(id)`
@@ -315,7 +336,7 @@ heuristic.
 
 Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.  
 
-As of March2016, AWS supports cleaning up multipart uploads using an S3 Lifecyle Management in which new rules are added to delete Expired and Incompletely multipart
+As of March 2016, AWS supports cleaning up multipart uploads using an S3 Lifecyle Management in which new rules are added to delete Expired and Incompletely multipart
 uploads. for more information, refer to [S3 Lifecycle Management Update – Support for Multipart Uploads and Delete Markers](https://aws.amazon.com/blogs/aws/s3-lifecycle-management-update-support-for-multipart-uploads-and-delete-markers/).
 
 ## Working with temporary credentials in Amazon EC2 instances
