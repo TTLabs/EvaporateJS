@@ -38,7 +38,8 @@
             'cryptoHexEncodedHash256',
             'aws_key',
             'awsRegion',
-            'awsSignatureVersion'
+            'awsSignatureVersion',
+            'evaporateChanged'
         ];
 
         var _ = this;
@@ -80,7 +81,8 @@
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
-            simulateErrors: false
+            simulateErrors: false,
+            evaporateChanged: function () {}
         }, config);
 
         if (console && console.log) {
@@ -374,6 +376,12 @@
                 partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me,file);
 
+
+            function evaporatingCnt(incr) {
+                evaporatingCount += incr;
+                con.evaporateChanged(me, evaporatingCount);
+            }
+
             me.start = function () {
                 l.d('starting FileUpload ' + me.id);
                 me.started(me.id);
@@ -444,7 +452,7 @@
             function removePartFromProcessing(part) {
                 removeAtIndex(partsInProcess, part.part);
                 removeAtIndex(partsToUpload, part.part);
-                evaporatingCount--;
+                evaporatingCnt(-1);
                 if (partsInProcess.length === 0 && me.status == PAUSING) {
                     me.status = PAUSED;
                     me.paused();
@@ -551,7 +559,7 @@
                 part = s3Parts[partNumber];
                 part.status = EVAPORATING;
                 countUploadAttempts++;
-                evaporatingCount++;
+                evaporatingCnt(+1);
                 part.loadedBytesPrevious = null;
 
                 backOff = backOffWait(part.attempts++);
@@ -670,7 +678,7 @@
                     part.currentXhr.abort();
                     part.loadedBytes = 0;
                 }
-                evaporatingCount--;
+                evaporatingCnt(-1);
             }
 
             function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
