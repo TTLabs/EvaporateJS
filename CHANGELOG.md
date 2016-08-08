@@ -1,3 +1,17 @@
+# v1.5.0#
+
+## Enhancements ##
+- Issue #17. Allows file uploads to be paused and resumed. Pausing can
+be forced. In such cases, the in-progress parts are immediately aborted
+and the file upload paused. Otherwise, the file is paused after all
+in-progress parts have completed.
+- Adds three new file callbacks: `paused`, `pausing` and `resumed`.
+- The file `started` callback is now passed the upload ID of the file
+being started.
+- Some internal variables renamed for clarity
+- Improves evaporate_example.html to exercise more features, including
+MD5 checksums, pause/resume and integration with ProgressBar.
+
 # v1.4.7#
 
 Republished 1.4.6 as NPM had a draft version by mistake
