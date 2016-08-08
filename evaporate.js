@@ -19,6 +19,8 @@
  ***************************************************************************************************/
 
 (function () {
+    "use strict";
+
     var FAR_FUTURE = new Date('2060-10-22');
 
     var Evaporate = function (config) {
@@ -378,7 +380,7 @@
 
 
             function evaporatingCnt(incr) {
-                evaporatingCount += incr;
+                evaporatingCount = Math.max(0, evaporatingCount + incr);
                 con.evaporateChanged(me, evaporatingCount);
             }
 
@@ -475,7 +477,11 @@
             }
 
             function abortParts() {
+                var partList = [];
                 partsInProcess.forEach(function (i) {
+                    partList.push(i);
+                });
+                partList.forEach(function (i) {
                     abortPart(i, true);
                 });
                 monitorTotalProgress();
@@ -658,7 +664,7 @@
                 setupRequest(upload);
 
                 setTimeout(function () {
-                    if (me.status !== ABORTED && me.status !== CANCELED) {
+                    if ([ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
                         addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
@@ -673,12 +679,15 @@
                 var part = s3Parts[partNumber];
                 if (part.currentXhr) {
                     if (!!clearReadyStateCallback) {
-                        part.currentXhr.onreadystatechange = function () {};
+                        part.currentXhr.onreadystatechange = function () {
+                            if (part.currentXhr.readyState === 4) {
+                                evaporatingCnt(-1);
+                            }
+                        };
                     }
                     part.currentXhr.abort();
                     part.loadedBytes = 0;
                 }
-                evaporatingCnt(-1);
             }
 
             function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
