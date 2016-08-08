@@ -475,7 +475,6 @@
 
             function cancelAllRequests() {
                 l.d('cancelAllRequests()');
-                abortParts();
                 abortUpload();
             }
 
@@ -671,6 +670,7 @@
                     part.currentXhr.abort();
                     part.loadedBytes = 0;
                 }
+                evaporatingCount--;
             }
 
             function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -839,6 +839,8 @@
                 l.d('abortUpload');
                 me.info('will attempt to abort the upload');
 
+                abortParts();
+
                 if(typeof me.uploadId === 'undefined') {
                     setStatus(ABORTED);
                     return;
@@ -852,7 +854,6 @@
                 };
 
                 abort.onErr = function () {
-                    evaporatingCount = 0;
                     var msg = 'Error aborting upload.';
                     l.w(msg);
                     me.error(msg);
@@ -860,7 +861,6 @@
 
                 abort.on200 = function () {
                     setStatus(ABORTED);
-                    evaporatingCount = 0;
                     checkForParts();
                 };
 
