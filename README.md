@@ -112,26 +112,28 @@ correct Policies and CORS configurations applied.
 
     Replace the AWS ARNs with values that apply to your account and S3 bucket organization.
 
-        {
-            "Version": "2012-10-17",
-            "Id": "Policy145337ddwd",
-            "Statement": [
-                {
-                    "Sid": "",
-                    "Effect": "Allow",
-                    "Principal": {
-                        "AWS": "arn:aws:iam::6681765859115:user/me"
-                    },
-                    "Action": [
-                        "s3:AbortMultipartUpload",
-                        "s3:ListMultipartUploadParts",
-                        "s3:PutObject"
-                    ],
-                    "Resource": "arn:aws:s3:::mybucket/*"
-                }
-            ]
-        }
-
+    ```json
+    {
+        "Version": "2012-10-17",
+        "Id": "Policy145337ddwd",
+        "Statement": [
+            {
+                "Sid": "",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::6681765859115:user/me"
+                },
+                "Action": [
+                    "s3:AbortMultipartUpload",
+                    "s3:ListMultipartUploadParts",
+                    "s3:PutObject"
+                ],
+                "Resource": "arn:aws:s3:::mybucket/*"
+            }
+        ]
+    }
+    ```
+    
     If you configure the uploader to enable the S3 existence check optimization (configuration
     option `allowS3ExistenceOptimization`), then you should add the `s3:GetObject` action to
     your bucket object statement and your S3 CORS settings must include `HEAD` method if you
@@ -141,27 +143,29 @@ correct Policies and CORS configurations applied.
     Here is an example of the bucket object policy statement that includes the required actions
     to re-use files already uploaded to S3:
 
-        {
-            "Version": "2012-10-17",
-            "Id": "Policy145337ddwd",
-            "Statement": [
-                {
-                    "Sid": "",
-                    "Effect": "Allow",
-                    "Principal": {
-                        "AWS": "arn:aws:iam::6681765859115:user/me"
-                    },
-                    "Action": [
-                        "s3:AbortMultipartUpload",
-                        "s3:ListMultipartUploadParts",
-                        "s3:GetObject",
-                        "s3:PutObject"
-                    ],
-                    "Resource": "arn:aws:s3:::mybucket/*"
-                }
-            ]
-        }
-
+    ```json
+    {
+        "Version": "2012-10-17",
+        "Id": "Policy145337ddwd",
+        "Statement": [
+            {
+                "Sid": "",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::6681765859115:user/me"
+                },
+                "Action": [
+                    "s3:AbortMultipartUpload",
+                    "s3:ListMultipartUploadParts",
+                    "s3:GetObject",
+                    "s3:PutObject"
+                ],
+                "Resource": "arn:aws:s3:::mybucket/*"
+            }
+        ]
+    }
+    ```
+    
 4. Setup a signing handler on your application server (see `signer_example.py`).
    This handler will create a signature for your multipart request that is sent
    to S3.  This handler will be contacted via AJAX on your site by evaporate.js.
@@ -435,34 +439,36 @@ You need to do a couple of things
 upload to S3. Here is a sample policy
 
 ```json
-    {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "Stmt1431709794000",
-                "Effect": "Allow",
-                "Action": [
-                    "lambda:InvokeFunction"
-                ],
-                "Resource": [
-                    "arn:aws:lambda:...:function:cw-signer"
-                ]
-            }
-        ]
-    }
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1431709794000",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": [
+                "arn:aws:lambda:...:function:cw-signer"
+            ]
+        }
+    ]
+}
 ```
 * Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaFunction`, instead of `signerUrl`
 
-    var evaporate = new Evaporate({
-        aws_key: 'your aws_key here',
-        bucket: 'your s3 bucket name here',
-        awsLambda:  new AWS.Lambda({
-            'region': 'lambda region',
-            'accessKeyId': 'a key that can invoke the lambda function',
-            'secretAccessKey': 'the secret'
-        }),
-        awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // ARN of your lambda function
-     });
+```javascript
+var evaporate = new Evaporate({
+    aws_key: 'your aws_key here',
+    bucket: 'your s3 bucket name here',
+    awsLambda:  new AWS.Lambda({
+        'region': 'lambda region',
+        'accessKeyId': 'a key that can invoke the lambda function',
+        'secretAccessKey': 'the secret'
+    }),
+    awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // ARN of your lambda function
+ });
+```
 
 ## License
 
