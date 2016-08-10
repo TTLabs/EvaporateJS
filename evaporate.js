@@ -14,7 +14,7 @@
 
 /***************************************************************************************************
  *                                                                                                  *
- *  version 1.5.0                                                                                   *
+ *  version 1.5.1                                                                                   *
  *                                                                                                  *
  ***************************************************************************************************/
 
@@ -246,7 +246,8 @@
             if (typeof file.name === 'undefined') {
                 err = 'Missing attribute: name  ';
             } else if (fileConfig.encodeFilename) {
-                file.name = encodeURIComponent(file.name); // prevent signature fail in case file name has spaces
+                // correctly encode to an S3 object name, considering '/' and ' '
+                file.name = S3EncodedObjectName(file.name);
             }
 
             /*if (!(file.file instanceof File)){
@@ -349,6 +350,15 @@
 
         function asynProcessQueue() {
             setTimeout(processQueue, 1);
+        }
+
+        function S3EncodedObjectName(fileName) {
+            var fileParts = fileName.split('/'),
+                encodedParts = [];
+            fileParts.forEach(function (p) {
+                encodedParts.push(encodeURIComponent(p));
+            });
+            return encodedParts.join('/');
         }
 
         function processQueue() {

@@ -1,3 +1,9 @@
+# v1.5.1#
+
+## Bug Fixes ##
+- Issue #196. S3 object names containing a slash '/' were being encoded,
+causing the Signature V4 calculation to be wrong.
+
 # v1.5.0#
 
 ## Enhancements ##
