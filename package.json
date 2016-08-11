@@ -34,5 +34,13 @@
     "email": "tcs@videopixie.com"
   },
   "license": "BSD-2-Clause",
-  "homepage": "https://github.com/TTLabs/EvaporateJS"
+  "homepage": "https://github.com/TTLabs/EvaporateJS",
+  "devDependencies": {
+    "ava": "^0.15.2",
+    "chai": "^3.5.0",
+    "nyc": "^7.1.0",
+    "sinon": "^1.17.5",
+    "sinon-chai": "^2.8.0",
+    "url-parse": "^1.1.1"
+  }
 }
