@@ -1,16 +1,18 @@
-const urlParse = require('url-parse')
+"use strict";
+
+const urlParse = require('url-parse');
 
 
 class Element {
   set href(url) {
-    const parsedUrl = urlParse(url)
+    const parsedUrl = urlParse(url);
 
-    this.protocol = parsedUrl.protocol
-    this.hostname = parsedUrl.hostname
-    this.pathname = parsedUrl.pathname
-    this.port = parsedUrl.port
-    this.search = 'TODO'
-    this.hash = parsedUrl.hash
+    this.protocol = parsedUrl.protocol;
+    this.hostname = parsedUrl.hostname;
+    this.pathname = parsedUrl.pathname;
+    this.port = parsedUrl.port;
+    this.search = 'TODO';
+    this.hash = parsedUrl.hash;
     this.host = parsedUrl.host
   }
 }
@@ -21,4 +23,4 @@ class Document {
   }
 }
 
-module.exports = new Document
+module.exports = new Document();
