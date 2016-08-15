@@ -41,6 +41,7 @@
     "nyc": "^7.1.0",
     "sinon": "^1.17.5",
     "sinon-chai": "^2.8.0",
-    "url-parse": "^1.1.1"
+    "url-parse": "^1.1.1",
+    "codeclimate-test-reporter": "0.3.3"
   }
 }

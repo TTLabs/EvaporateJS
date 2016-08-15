@@ -164,8 +164,6 @@ test('should call a callback on cancel()', () => {
   expect(config.cancelled).to.have.been.called
 })
 
-// TODO: pause
-
 test('should call a callback on pause()', () => {
   const evaporate = new Evaporate(baseConfig)
   const config = Object.assign({}, baseAddConfig, {
@@ -189,8 +187,6 @@ test('should call a callback on pause() with force option', () => {
 
   expect(config.paused).to.have.been.called
 })
-
-// TODO: resume
 
 test('should call a callback on resume()', () => {
   const evaporate = new Evaporate(baseConfig)
