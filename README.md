@@ -2,7 +2,7 @@ Evaporate
 =========
 
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
-[![Code Climate](https://codeclimate.com/github/bikeath1337/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/bikeath1337/EvaporateJS)
+[![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
 ### File Upload API for AWS S3
 
