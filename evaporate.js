@@ -1051,7 +1051,7 @@
                         fileType: me.file.type,
                         lastModifiedDate: dateISOString(me.file.lastModifiedDate),
                         partSize: con.partSize,
-                        signParams: me.signParams,
+                        signParams: con.signParams,
                         createdAt: new Date().toISOString()
                     };
                 if (con.computeContentMd5 && s3Parts.length && typeof s3Parts[1].md5_digest !== 'undefined') {
@@ -1372,7 +1372,7 @@
                     url = [con.signerUrl, '?to_sign=', stringToSignMethod(authRequester), '&datetime=', authRequester.dateString].join(''),
                     warnMsg;
 
-                var signParams = makeSignParamsObject(me.signParams);
+                var signParams = makeSignParamsObject(con.signParams);
                 for (var param in signParams) {
                     if (!signParams.hasOwnProperty(param)) { continue; }
                     url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
@@ -1419,7 +1419,7 @@
                 };
 
                 xhr.open('GET', url);
-                var signHeaders = makeSignParamsObject(me.signHeaders);
+                var signHeaders = makeSignParamsObject(con.signHeaders);
                 for (var header in signHeaders) {
                     if (!signHeaders.hasOwnProperty(header)) { continue; }
                     xhr.setRequestHeader(header, signHeaders[header])
@@ -1437,8 +1437,8 @@
                     InvocationType: 'RequestResponse',
                     Payload: JSON.stringify({
                         to_sign: makeStringToSign(authRequester),
-                        sign_params: makeSignParamsObject(me.signParams),
-                        sign_headers: makeSignParamsObject(me.signHeaders)
+                        sign_params: makeSignParamsObject(con.signParams),
+                        sign_headers: makeSignParamsObject(con.signHeaders)
                     })
                 }, function (err, data) {
                     if (err) {
