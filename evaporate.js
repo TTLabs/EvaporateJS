@@ -1419,7 +1419,7 @@
                 };
 
                 xhr.open('GET', url);
-                var signHeaders = makeSignParamsObject(me.signHeaders);
+                var signHeaders = makeSignParamsObject(con.signHeaders);
                 for (var header in signHeaders) {
                     if (!signHeaders.hasOwnProperty(header)) { continue; }
                     xhr.setRequestHeader(header, signHeaders[header])
@@ -1438,7 +1438,7 @@
                     Payload: JSON.stringify({
                         to_sign: makeStringToSign(authRequester),
                         sign_params: makeSignParamsObject(me.signParams),
-                        sign_headers: makeSignParamsObject(me.signHeaders)
+                        sign_headers: makeSignParamsObject(con.signHeaders)
                     })
                 }, function (err, data) {
                     if (err) {
