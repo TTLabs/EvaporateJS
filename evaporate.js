@@ -98,9 +98,9 @@
             typeof File === 'undefined' ||
             typeof Blob === 'undefined' ||
             typeof (
-            Blob.prototype['webkitSlice'] ||
-            Blob.prototype['mozSlice']||
-            Blob.prototype['slice']) === 'undefined' ||
+            Blob.prototype.webkitSlice ||
+            Blob.prototype.mozSlice ||
+            Blob.prototype.slice) === 'undefined' ||
             !!config.testUnsupported);
 
         if (!con.bucket) {
@@ -1101,10 +1101,10 @@
 
                 // check that the part sizes and bucket match, and if the file name of the upload
                 // matches if onlyRetryForSameFileName is true
-                return con.partSize === u.partSize
-                    && completedAt > HOURS_AGO
-                    && con.bucket === u.bucket
-                    && (con.onlyRetryForSameFileName ? me.name === u.awsKey : true);
+                return con.partSize === u.partSize &&
+                    completedAt > HOURS_AGO &&
+                    con.bucket === u.bucket &&
+                    (con.onlyRetryForSameFileName ? me.name === u.awsKey : true);
             }
 
             function backOffWait(attempts) {
@@ -1670,7 +1670,7 @@
             }
 
             function assignCurrentXhr(requester) {
-                return getBaseXhrObject(requester).currentXhr =  new XMLHttpRequest();
+                return getBaseXhrObject(requester).currentXhr = new XMLHttpRequest();
             }
 
             function clearCurrentXhr(requester) {
@@ -1770,7 +1770,7 @@
     }
 
     function getFilePart(file, start, end) {
-        var slicerFn = (file.slice ? 'slice' : (file['mozSlice'] ? 'mozSlice' : 'webkitSlice'));
+        var slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice'));
         // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
         return file[slicerFn](start, end);
     }
