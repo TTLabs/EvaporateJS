@@ -1,3 +1,13 @@
+# v1.5.2#
+
+## Enhancements ##
+- Issue #191: Adds initital test framework.
+- Improves the readme in response to user feedback.
+
+## Bug Fixes ##
+- Issue #203. Configuration options signParams and signHeaders were not
+properly propagated the as a result, were ignored.
+
 # v1.5.1#
 
 ## Bug Fixes ##
