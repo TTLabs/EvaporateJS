@@ -73,7 +73,7 @@
             awsRegion: null,
             awsSignatureVersion: '2',
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
-            signParams:{},
+            signParams: {},
             signHeaders: {},
             awsLambda: null,
             awsLambdaFunction: null,
@@ -386,13 +386,15 @@
             var me = this, s3Parts = [], partsOnS3 = [], partsToUpload = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
                 countInitiateAttempts = 0, countCompleteAttempts = 0,
                 partsInProcess = [], fileTotalBytesUploaded = 0;
-            extend(me,file);
+            extend(me, file);
 
 
             function evaporatingCnt(incr) {
                 evaporatingCount = Math.max(0, evaporatingCount + incr);
                 con.evaporateChanged(me, evaporatingCount);
             }
+
+            me.signParams = con.signParams;
 
             me.start = function () {
                 l.d('starting FileUpload ' + me.id);
@@ -1051,7 +1053,7 @@
                         fileType: me.file.type,
                         lastModifiedDate: dateISOString(me.file.lastModifiedDate),
                         partSize: con.partSize,
-                        signParams: me.signParams,
+                        signParams: con.signParams,
                         createdAt: new Date().toISOString()
                     };
                 if (con.computeContentMd5 && s3Parts.length && typeof s3Parts[1].md5_digest !== 'undefined') {
