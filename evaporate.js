@@ -164,7 +164,7 @@
                 }
 
                 return result;
-            })(),
+            }()),
             getItem: function (key) {
                 if (this.supported) {
                     return localStorage.getItem(key)
@@ -247,7 +247,7 @@
                 err = 'Missing attribute: name  ';
             } else if (fileConfig.encodeFilename) {
                 // correctly encode to an S3 object name, considering '/' and ' '
-                file.name = S3EncodedObjectName(file.name);
+                file.name = s3EncodedObjectName(file.name);
             }
 
             /*if (!(file.file instanceof File)){
@@ -352,7 +352,7 @@
             setTimeout(processQueue, 1);
         }
 
-        function S3EncodedObjectName(fileName) {
+        function s3EncodedObjectName(fileName) {
             var fileParts = fileName.split('/'),
                 encodedParts = [];
             fileParts.forEach(function (p) {
@@ -690,7 +690,7 @@
 
                 var part = s3Parts[partNumber];
                 if (part.currentXhr) {
-                    if (!!clearReadyStateCallback) {
+                    if (clearReadyStateCallback) {
                         part.currentXhr.onreadystatechange = function () {};
                     }
                     part.currentXhr.abort();
@@ -975,11 +975,11 @@
 
                     for (var i = 0; i < parts_len; i++) {
                         cp = uploadedParts[i];
-                        partSize = parseInt(nodeValue(cp, "Size"));
+                        partSize = parseInt(nodeValue(cp, "Size"), 10);
                         fileTotalBytesUploaded += partSize;
                         partsOnS3.push({
                             eTag: nodeValue(cp, "ETag"),
-                            partNumber: parseInt(nodeValue(cp, "PartNumber")),
+                            partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
                             size: partSize,
                             LastModified: nodeValue(cp, "LastModified")
                         });
@@ -1400,17 +1400,14 @@
                               authRequester.onGotAuth();
                             }
                         } else {
-                            warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
-                            l.w(warnMsg);
-                            me.warn(warnMsg);
-                            clearCurrentXhr(authRequester);
-                            authRequester.onFailedAuth(xhr);
+                            xhr.onerror("readyState=4")
                         }
                     }
                 };
 
-                xhr.onerror = function () {
-                    warnMsg = 'failed to get authorization (onerror) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
+                xhr.onerror = function (msg) {
+                    var srcMsg = msg || 'onerror';
+                    warnMsg = 'failed to get authorization (' + srcMsg + ') for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
                     l.w(warnMsg);
                     me.warn(warnMsg);
                     authRequester.onFailedAuth(xhr);
@@ -1795,4 +1792,4 @@
         window.Evaporate = Evaporate;
     }
 
-})();
+}());
