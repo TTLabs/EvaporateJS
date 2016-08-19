@@ -461,13 +461,14 @@
 
             function addPartToProcessing(part) {
                 partsInProcess.push(part.part);
+                evaporatingCnt(+1);
             }
 
             function removePartFromProcessing(part) {
                 removeAtIndex(partsInProcess, part.part);
                 removeAtIndex(partsToUpload, part.part);
                 evaporatingCnt(-1);
-                if (partsInProcess.length === 0 && me.status == PAUSING) {
+                if (partsInProcess.length === 0 && me.status === PAUSING) {
                     me.status = PAUSED;
                     me.paused();
                 }
@@ -577,7 +578,6 @@
                 part = s3Parts[partNumber];
                 part.status = EVAPORATING;
                 countUploadAttempts++;
-                evaporatingCnt(+1);
                 part.loadedBytesPrevious = null;
 
                 backOff = backOffWait(part.attempts++);
@@ -676,7 +676,7 @@
                 setupRequest(upload);
 
                 setTimeout(function () {
-                    if ([ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
+                    if (evaporatingCount < con.maxConcurrentParts && [ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
                         addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
@@ -691,11 +691,7 @@
                 var part = s3Parts[partNumber];
                 if (part.currentXhr) {
                     if (!!clearReadyStateCallback) {
-                        part.currentXhr.onreadystatechange = function () {
-                            if (part.currentXhr.readyState === 4) {
-                                evaporatingCnt(-1);
-                            }
-                        };
+                        part.currentXhr.onreadystatechange = function () {};
                     }
                     part.currentXhr.abort();
                     part.loadedBytes = 0;
