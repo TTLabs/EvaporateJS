@@ -1,3 +1,9 @@
+# v1.5.3#
+
+## Bug Fixes ##
+- Issue #205. SignatureDoesNotMatch for some parts, when
+`maxConcurrentParts > 1`.
+
 # v1.5.2#
 
 ## Enhancements ##
