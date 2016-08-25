@@ -1777,11 +1777,11 @@
 
     function getAwsResponse(xhr) {
         var oParser = new DOMParser(),
-            oDOM = oParser.parseFromString(xhr.responseText, "text/xml"),
+            oDOM = oParser.parseFromString(xhr.responseText, "text/html"),
             code = oDOM.getElementsByTagName("Code"),
             msg = oDOM.getElementsByTagName("Message");
-        code = code.length ? code[0].innerHTML : '';
-        msg = msg.length ? msg[0].innerHTML : '';
+        code = code && code.length ? code[0].innerHTML : '';
+        msg = msg && msg.length ? msg[0].innerHTML : '';
 
         return code.length ? {code: code, msg: msg} : {};
     }
