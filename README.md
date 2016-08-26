@@ -311,9 +311,25 @@ returns an integer representing the file id, otherwise, it returns a string erro
 
 * **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
 
-* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the `signerUrl`.
+* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the `signerUrl`. The
+value can be a function. For example:
 
-* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the `signerUrl`.
+```javascript
+signParams: {
+    vip: true,
+    username: function () { return user.name; }
+}
+```
+
+* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the `signerUrl`.The
+value can be a function. For example:
+
+```javascript
+signHeaders: {
+    xVip: 1,
+    x-user-name: function () { return user.name; }
+}
+```
 
 * **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
 represents the file whose upload is being started.
