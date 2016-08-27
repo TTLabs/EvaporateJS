@@ -604,6 +604,8 @@
                 };
 
                 upload.onErr = function (xhr, isOnError) {
+                    part.loadedBytes = 0;
+
                     removePartFromProcessing(part);
 
                     if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(me.status) > -1) {
@@ -630,7 +632,6 @@
                         abortUpload();
                     } else {
                         part.status = ERROR;
-                        part.loadedBytes = 0;
 
                         var awsResponse = getAwsResponse(xhr);
                         if (awsResponse.code) {
