@@ -70,7 +70,7 @@
             cryptoMd5Method: null,
             cryptoHexEncodedHash256: null,
             aws_key: null,
-            awsRegion: null,
+            awsRegion: 'us-east-1',
             awsSignatureVersion: '2',
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
             signParams: {},
@@ -192,13 +192,22 @@
             }
         };
 
-        var AWS_URL;
-        if (con.s3Acceleration) {
-            AWS_URL = ['https://', con.bucket, '.s3-accelerate.amazonaws.com'].join('');
-            con.cloudfront = true;
+        var url;
+        if (con.aws_url) {
+            url = [con.aws_url];
         } else {
-            AWS_URL = con.aws_url || ["https://", (con.cloudfront ? con.bucket + "." : ""), "s3.amazonaws.com"].join("");
+            if (con.s3Acceleration) {
+                url = ["https://", con.bucket, ".s3-accelerate"];
+                con.cloudfront = true;
+            } else {
+                url = ["https://", (con.cloudfront ? con.bucket + "." : ""), "s3"];
+                if (con.awsRegion !== "us-east-1") {
+                    url.push("-", con.awsRegion);
+                }
+            }
+            url.push(".amazonaws.com");
         }
+        var AWS_URL = url.join("");
         var AWS_HOST = uri(AWS_URL).hostname;
 
         var _d = new Date(),
