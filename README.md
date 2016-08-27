@@ -223,7 +223,8 @@ using AWS Signature Version 4, this URL must respond with the V4 signing key.
 
 * **aws_key**:  your aws key, for example 'AKIAIQC7JOOdsfsdf'
 
-* **bucket**:  the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'
+* **bucket**:  the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'. Note that
+    the `cloudfront` option will determine where the bucket name appears in the `aws_url`.
 
 and various configuration options:
 
@@ -234,11 +235,31 @@ and various configuration options:
 * **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
-* **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US Standard, you will need to change this to the correct endpoint from this list: http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region. For example, for 'Ireland' you would need 'https://s3-eu-west-1.amazonaws.com'.
+* **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
+    Standard, you will need to change this to the correct endpoint from the 
+    [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
+    
+    ##### How Evaporate Determines the Default AWS Url
+    
+    Evaporate will create a virutal host that includes the `bucket` when `cloudfront` is set when it creates
+    the default AWS url. Evaporate always creates a virtual host with S3 transfer acceleration enabled.
+    
+    1. With `s3Acceleration`: `https://<bucket>.s3-accelerate.amazonaws.com`.
+    2. When `awsRegion` is 'us-east-1': `https://s3.amazonaws.com`.
+    3. Otherwise, for any other value like 'eu-central-1': `https://s3-eu-central-1.amazonaws.com`.
+
+    To use a dualstack endpoint for the 'us-east-1' region, specify `aws_url` like so:
+    `https://s3.dualstack.us-east-1.amazonaws.com`.
+    
+    Note: If you specify your own `aws_url` as an S3 virtual host, then you must also explicitly set `cloudfront`.
 * **aws_key**: default=undefined, the AWS Account key to use. Required when `awsSignatureVersion` is `'4'`.
-* **awsRegion**: default=undefined, the AWS region to use, for example, 'us-east-1'. Required when `awsSignatureVersion` is `'4'`.
+* **awsRegion**: default='us-east-1', Required when `awsSignatureVersion` is `'4'`. When set, the awsRegion will help
+    determine the default aws_url to use. See notes above for `aws_url`.
 * **awsSignatureVersion**: default='2', Determines the AWS Signature signing process version to use. Set this option to `'4'` for Version 4 signatures.
-* **cloudfront**: default=false, whether to format upload urls to upload via CloudFront. Usually requires aws_url to be something other than the default
+* **cloudfront**: default=false, When `true`, Evaporate creates an S3
+    [virtual host](http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html) format `aws_url`. For example,
+    for `awsRegion` 'us-east-1', the bucket appears in the path `https://s3.amazonaws.com/<bucket>` by default but
+    with `cloudfront` set, as part of the host: `https://<bucket>.s3.amazonaws.com`.
 * **s3Acceleration**: default=false, whether to use [S3 Transfer Acceleration](http://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html).
 * **xhrWithCredentials**: default=false, set the XMLHttpRequest xhr object to use [credentials](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials).
 * **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
