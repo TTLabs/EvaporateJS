@@ -3,8 +3,6 @@ import chaiSinon from 'sinon-chai'
 import sinon from 'sinon'
 import test from 'ava'
 
-import document from './mock/document.mock'
-
 import Evaporate from '../evaporate'
 
 chai.use(chaiSinon)
@@ -24,9 +22,6 @@ const baseAddConfig = {
 
 test.before(() => {
   global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
-  global.Blob = ArrayBuffer
-  global.File = ArrayBuffer
-  global.document = document
 })
 
 test('should work', () => {
