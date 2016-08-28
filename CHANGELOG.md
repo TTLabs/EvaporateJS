@@ -1,8 +1,18 @@
 # v1.5.3#
 
+## Enhancements ##
+- Issue #202. Defaults AWS Region to us-east-1 and correctly sets
+the default AWS URL for non us-east-1 users.
+- Documents that the signParams and signHeaders object
+  can use functions.
+
 ## Bug Fixes ##
 - Issue #205. SignatureDoesNotMatch for some parts, when
 `maxConcurrentParts > 1`.
+- Issue #208. Addressed Internet Explorer compatibility issue with parsing
+XML error responses.
+- Issue #209. Addresses when the part uploaded byte count is reset when
+a part fails to upload and will be retried.
 
 # v1.5.2#
 
