@@ -216,18 +216,35 @@ $ dev_appserver.py app.yaml
 
 `var evaporate = new Evaporate(config)`
 
-Where `config` has 3 required properties:
+Where `config` minimally consists of `bucket` and `aws_key` and one of the
+following combinations of signing options:
 
-* **signerUrl**:  a url on your application server which will sign a string with your aws secret key. for example 'http://myserver.com/auth_upload'. When
-using AWS Signature Version 4, this URL must respond with the V4 signing key.
+1. A custom `signerUrl` that returns the signture or signing response required
+    for the specified `awsSignatureVersion`.
+2. A callback defined using `signResponseHandler`
+3. An AWS Lambda function enabled with `awsLambda` and `awsLambdaFunction`.
 
-* **aws_key**:  your aws key, for example 'AKIAIQC7JOOdsfsdf'
+`signerUrl` is not required if using signing methods 2 or 3. `signResponseHandler` can
+also be provided for additional processing of responses from `signerUrl`.
 
-* **bucket**:  the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'. Note that
+Available onfiguration options:
+
+* **bucket**: the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'. Note that
     the `cloudfront` option will determine where the bucket name appears in the `aws_url`.
+* **aws_key**: your AWS key, for example 'AKIAIQC7JOOdsfsdf'
+* **signerUrl**: a url on your application server which will sign the request according to your chosen AWS signature method (Version 2 or 4). For example
+    'http://myserver.com/auth_upload'. When using AWS Signature Version 4, this URL must respond with the V4 signing key. If you don't want to use
+    a signerURL and want to sign the request yourself, then you sign the request using `signReponseHandler`.
 
-and various configuration options:
+* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
+    set this option, Evaporate will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
+    The method signature is `function (response) { return 'computed signature'; }`.
+    
+    `signResponseHandler` can be used to further process the signature returned from the call to `signerUrl`.
 
+* **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
+    section "Using AWS Lambda to Sign Requests" below.
+* **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
 * **logging**: default=true, whether Evaporate outputs to the console.log  - should be `true` or `false`
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
@@ -284,12 +301,6 @@ and various configuration options:
     believes it is attempting to upload a file that already exists, it will perform a HEAD action on the object to verify its eTag. If this option
     is not set or if the cached eTag does not match the object's eTag, the file will be uploaded again. This option is only
     enabled if `computeContentMd5` is enabled.
-* **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
-    section "Using AWS Lambda to Sign Requests" below.
-* **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
-* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
-    set this option, Evaporate will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
-    The method signature is `function (response) { return 'computed signature'; }`.
 
 #### Evaporate#add()
 

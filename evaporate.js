@@ -103,6 +103,11 @@
             Blob.prototype.slice) === 'undefined' ||
             !!config.testUnsupported);
 
+        if (!con.signerUrl && typeof con.signResponseHandler !== 'function') {
+            l.e("Option signerUrl is required unless signResponseHandler is present.");
+            return;
+        }
+
         if (!con.bucket) {
             l.e("The AWS 'bucket' option must be present.");
             return;
@@ -1368,6 +1373,12 @@
 
                 if (con.awsLambda) {
                     return authorizedSignWithLambda(authRequester);
+                }
+
+                if (typeof con.signerUrl === 'undefined') {
+                    authRequester.auth = signResponse();
+                    authRequester.onGotAuth();
+                    return;
                 }
 
                 var xhr = assignCurrentXhr(authRequester),
