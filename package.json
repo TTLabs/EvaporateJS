@@ -7,7 +7,7 @@
     "example": "example"
   },
   "scripts": {
-    "test": "nyc ava -v test/evaporate.spec.js"
+    "test": "nyc ava -v test/*.spec.js"
   },
   "repository": {
     "type": "git",
