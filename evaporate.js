@@ -590,7 +590,7 @@
                 part.loadedBytesPrevious = null;
 
                 backOff = backOffWait(part.attempts++);
-                l.d('uploadPart #' + partNumber + '     will wait ' + backOff + 'ms to try');
+                l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before retrying');
 
                 upload = {
                     method: 'PUT',
@@ -645,7 +645,7 @@
                 upload.on200 = function (xhr) {
 
                     var eTag = xhr.getResponseHeader('ETag'), msg;
-                    l.d('uploadPart 200 response for part #' + partNumber + '     ETag: ' + eTag);
+                    l.d('uploadPart 200 response for part #', partNumber, 'ETag:', eTag);
                     if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
                         part.eTag = eTag;
                         part.status = COMPLETE;
@@ -654,9 +654,9 @@
                     } else {
                         part.status = ERROR;
                         part.loadedBytes = 0;
-                        msg = 'eTag matches MD5 of 0 length blob for part #' + partNumber  + '   Retrying part.';
+                        msg = ['eTag matches MD5 of 0 length blob for part #', partNumber, 'Retrying part.'];
                         l.w(msg);
-                        me.warn(msg);
+                        me.warn(msg.join(" "));
                     }
                     processPartsList();
                 };
@@ -667,7 +667,7 @@
 
                 upload.toSend = function () {
                     var slice = getFilePart(me.file, part.start, part.end);
-                    l.d('part # ' + partNumber + ' (bytes ' + part.start + ' -> ' + part.end + ')  reported length: ' + slice.size);
+                    l.d('part #', partNumber, '( bytes', part.start, '->', part.end, ')  reported length:', slice.size);
                     if (!part.isEmpty && slice.size === 0) { // issue #58
                         l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
                     }
@@ -675,9 +675,9 @@
                 };
 
                 upload.onFailedAuth = function () {
-                    var msg = 'onFailedAuth for uploadPart #' + partNumber + '.   Will set status to ERROR';
+                    var msg = ['onFailedAuth for uploadPart #', partNumber, '- Will set status to ERROR'];
                     l.w(msg);
-                    me.warn(msg);
+                    me.warn(msg.join(" "));
                     part.status = ERROR;
                     part.loadedBytes = 0;
                     processPartsList();
@@ -817,7 +817,7 @@
 
                     var md5_digest = con.cryptoMd5Method.call(this, this.result);
 
-                    l.d(['part #', part.part, ' MD5 digest is ', md5_digest].join(''));
+                    l.d('part #', part.part, 'MD5 digest is', md5_digest);
                     part.md5_digest = md5_digest;
 
                     if (part.part === 1) {
@@ -944,8 +944,9 @@
 
             function getUploadParts(partNumberMarker) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
 
-                l.d('getUploadParts() for uploadId starting at part #', partNumberMarker);
-                me.info('getUploadParts() for uploadId starting at part #', partNumberMarker);
+                var msg = ['getUploadParts() for uploadId starting at part #', partNumberMarker];
+                l.d.apply(null, msg);
+                me.info(msg.join(" "));
 
                 var list = {
                     method: 'GET',
@@ -1291,14 +1292,14 @@
 
                     var xhr = assignCurrentXhr(requester);
 
-                    var payload = requester.getPayload();
-                    var url = AWS_URL + requester.path;
+                    var payload = requester.getPayload(),
+                        url = AWS_URL + requester.path,
+                        all_headers = {},
+                        status_success = requester.successStatus || 200;
+
                     if (requester.query_string) {
                         url += requester.query_string;
                     }
-                    var all_headers = {};
-                    var status_success = requester.successStatus || 200;
-
                     extend(all_headers, requester.not_signed_headers);
                     extend(all_headers, requester.x_amz_headers);
 
@@ -1332,14 +1333,10 @@
 
                             if (payload) {
                                 // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-                                l.d('  ### ' + payload.size);
+                                l.d('  ###', payload.size);
                             }
                             clearCurrentXhr(requester);
-                            if (xhr.status === status_success) {
-                                requester.on200(xhr);
-                            } else {
-                                requester.onErr(xhr);
-                            }
+                            requester[xhr.status === status_success ? 'on200' : 'onErr'](xhr);
                         }
                     };
 
@@ -1377,8 +1374,7 @@
                 }
 
                 var xhr = assignCurrentXhr(authRequester),
-                    url = [con.signerUrl, '?to_sign=', stringToSignMethod(authRequester), '&datetime=', authRequester.dateString].join(''),
-                    warnMsg;
+                    url = [con.signerUrl, '?to_sign=', stringToSignMethod(authRequester), '&datetime=', authRequester.dateString].join('');
 
                 var signParams = makeSignParamsObject(me.signParams);
                 for (var param in signParams) {
@@ -1394,33 +1390,26 @@
 
                     if (xhr.readyState === 4) {
 
+                        var calledFrom = "readyState===4";
                         if (xhr.status === 200) {
                             var payload = signResponse(xhr.response);
 
                             if (con.awsSignatureVersion === '2' &&  payload.length !== 28) {
-                                warnMsg = 'failed to get authorization (readyState=4) for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
-                                l.w(warnMsg);
-                                me.warn(warnMsg);
-                                clearCurrentXhr(authRequester);
-                                authRequester.onFailedAuth(xhr);
+                                warnMsg(calledFrom, true);
                             } else {
-                              l.d('authorizedSend got signature for step: \'' + authRequester.step + '\'    sig: ' + payload);
+                              l.d('authorizedSend got signature for step:', authRequester.step, '- signature:', payload);
                               authRequester.auth = payload;
                               clearCurrentXhr(authRequester);
                               authRequester.onGotAuth();
                             }
                         } else {
-                            xhr.onerror("readyState=4")
+                            xhr.onerror(calledFrom)
                         }
                     }
                 };
 
                 xhr.onerror = function (msg) {
-                    var srcMsg = msg || 'onerror';
-                    warnMsg = 'failed to get authorization (' + srcMsg + ') for ' + authRequester.step + '.  xhr.status: ' + xhr.status + '.  xhr.response: ' + xhr.response;
-                    l.w(warnMsg);
-                    me.warn(warnMsg);
-                    authRequester.onFailedAuth(xhr);
+                    warnMsg(msg || 'onerror', false);
                 };
 
                 xhr.open('GET', url);
@@ -1434,6 +1423,16 @@
                     me.beforeSigner(xhr, url);
                 }
                 xhr.send();
+
+                function warnMsg(srcMsg, clearXhr) {
+                    var a = ['failed to get authorization (', srcMsg, ') for', authRequester.step, '-  xhr.status:', xhr.status, '.-  xhr.response:', xhr.response];
+                    l.w.apply(null, a);
+                    me.warn(a.joing(" "));
+                    if (clearXhr) {
+                        clearCurrentXhr(authRequester, true);
+                    }
+                    authRequester.onFailedAuth(xhr);
+                }
             }
 
             function authorizedSignWithLambda(authRequester) {
