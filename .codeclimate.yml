@@ -12,11 +12,11 @@ engines:
       - php
   eslint:
     enabled: true
-     exclude_fingerprints:
-        # Complexity of closure EvaporateJS
-        - 45b312c6fbfa974e43be1533a0971213
-        # assignment in return for 1 line method
-        - 8499a50a63a4af2e254ca72df30a329b
+    exclude_fingerprints:
+       # Complexity of closure EvaporateJS
+       - 45b312c6fbfa974e43be1533a0971213
+       # assignment in return for 1 line method
+       - 8499a50a63a4af2e254ca72df30a329b
   fixme:
     enabled: true
   radon:
