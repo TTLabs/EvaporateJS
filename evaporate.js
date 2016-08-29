@@ -975,7 +975,7 @@
                 };
 
                 list.on200 = function (xhr) {
-                    me.info(['uploadId', me.uploadId, 'is not complete. Fetching parts from part marker=', partNumberMarker].join(''));
+                    me.info('uploadId', me.uploadId, 'is not complete. Fetching parts from part marker', partNumberMarker);
                     var oDOM = parseXml(xhr.responseText),
                         listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
                         isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
@@ -995,8 +995,6 @@
                             LastModified: nodeValue(cp, "LastModified")
                         });
                     }
-
-                    oDOM = uploadedParts = null; // We don't need these potentially large objects any longer
 
                     if (isTruncated) {
                         var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
@@ -1191,12 +1189,11 @@
                 progressTotalInterval = setInterval(function () {
 
                     var totalBytesLoaded = 0;
-// TODO: Improve this
-                    s3Parts.forEach(function (part) {
-                        totalBytesLoaded += part.loadedBytes;
-                    });
+                    for (var i = 1; i < s3Parts.length; i++) {
+                        totalBytesLoaded += s3Parts[i].loadedBytes;
+                    }
 
-                    me.progress(totalBytesLoaded/me.sizeBytes);
+                    me.progress(totalBytesLoaded / me.sizeBytes);
                 }, con.progressIntervalMS);
             }
 
@@ -1427,7 +1424,7 @@
                 function warnMsg(srcMsg, clearXhr) {
                     var a = ['failed to get authorization (', srcMsg, ') for', authRequester.step, '-  xhr.status:', xhr.status, '.-  xhr.response:', xhr.response];
                     l.w.apply(null, a);
-                    me.warn(a.joing(" "));
+                    me.warn(a.join(" "));
                     if (clearXhr) {
                         clearCurrentXhr(authRequester, true);
                     }
