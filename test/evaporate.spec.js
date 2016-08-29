@@ -250,7 +250,7 @@ test.cb('should correctly upload a small file', (t) => {
 
   const _handleUploadStart = sinon.spy()
 
-  const _handleUploadComplete = (response, uploadKey) => {
+  const _handleUploadComplete = (xhr, uploadKey) => {
     expect(_handleUploadStart).to.have.been.called
     expect(uploadKey).to.equal(AWS_UPLOAD_KEY)
     t.end()
