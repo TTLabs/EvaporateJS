@@ -290,6 +290,7 @@ and various configuration options:
 * **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
     set this option, Evaporate will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
     The method signature is `function (response) { return 'computed signature'; }`.
+* **skipSignerRequest**: default=false, set to true to skip authorizing the requests with Evaporate's mechanism. Instead, provide a **signResponseHandler** method that will return a signature in any way you might need. If set to true, you can pass an empty string to **signerUrl**.
 
 #### Evaporate#add()
 

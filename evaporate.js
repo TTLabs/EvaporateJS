@@ -80,6 +80,7 @@
             maxFileSize: null,
             signResponseHandler: null,
             xhrWithCredentials: false,
+            skipSignerRequest: false,
             // undocumented
             testUnsupported: false,
             simulateStalling: false,
@@ -1356,9 +1357,19 @@
                     };
             }
 
+            // skip Evaporate's signing request
+            // see issue #197 https://git.io/v6Aa2
+            function skipAuthorizedSend(authRequester) {
+              authRequester.auth = signResponse();
+              authRequester.onGotAuth();
+            }
 
             //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
             function authorizedSend(authRequester) {
+                if (con.skipSignerRequest) {
+                  skipAuthorizedSend(authRequester)
+                  return;
+                }
 
                 l.d('authorizedSend() ' + authRequester.step);
                 if (hasCurrentXhr(authRequester)) {
