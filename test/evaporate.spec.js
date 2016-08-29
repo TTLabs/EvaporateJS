@@ -1,27 +1,72 @@
-import chai from 'chai'
+import chai, { expect } from 'chai'
 import chaiSinon from 'sinon-chai'
 import sinon from 'sinon'
 import test from 'ava'
 
 import Evaporate from '../evaporate'
 
+import initResponse from './fixtures/init-response'
+import completeResponse from './fixtures/complete-response'
+
 chai.use(chaiSinon)
-const expect = chai.expect
+
+// consts
+
+const CONTENT_TYPE_XML = { 'Content-Type': 'text/xml' }
+const CONTENT_TYPE_TEXT = { 'Content-Type': 'text/plain' }
+
+const AWS_BUCKET = 'bucket'
+const AWS_UPLOAD_KEY = 'tests'
 
 const baseConfig = {
   signerUrl: 'http://what.ever/sign',
   aws_key: 'testkey',
-  bucket: 'testbaket',
+  bucket: AWS_BUCKET,
   logging: false
 }
 
 const baseAddConfig = {
-  name: 'testname',
-  file: 'testfile'
+  name: AWS_UPLOAD_KEY,
+  file: new File({
+    path: '/tmp/file',
+    size: 50
+  })
 }
 
+let server
+
 test.before(() => {
-  global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
+  sinon.xhr.supportsCORS = true
+  server = sinon.fakeServer.create({
+    respondImmediately: true
+  })
+
+  server.respondWith('POST', /^.*\?uploads.*$/, (xhr) => {
+    xhr.respond(200, CONTENT_TYPE_XML, initResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
+  })
+  server.respondWith('PUT', /^.*$/, (xhr) => {
+    xhr.respond(200)
+  })
+
+  server.respondWith('POST', /.*\?uploadId.*$/, (xhr) => {
+    xhr.respond(200, CONTENT_TYPE_XML, completeResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
+  })
+
+  server.respondWith('GET', /\/sign.*$/, (xhr) => {
+    const payload = Array(29).join()
+    xhr.respond(200, CONTENT_TYPE_TEXT, payload)
+  })
+
+  server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
+    xhr.respond(204)
+  })
+
+  global.XMLHttpRequest = sinon.fakeServer.xhr
+  global.setTimeout = (fc) => fc()
+})
+
+test.after(() => {
+  server.restore()
 })
 
 test('should work', () => {
@@ -196,4 +241,29 @@ test('should call a callback on resume()', () => {
 
   expect(config.paused).to.have.been.called
   expect(config.resumed).to.have.been.called
+})
+
+// actual requests
+
+test.cb('should correctly upload a small file', (t) => {
+  const evaporate = new Evaporate(baseConfig)
+
+  const _handleUploadStart = sinon.spy()
+
+  const _handleUploadComplete = (response, uploadKey) => {
+    expect(_handleUploadStart).to.have.been.called
+    expect(uploadKey).to.equal(AWS_UPLOAD_KEY)
+    t.end()
+  }
+  const _handleUploadError = (err) => {
+    t.fail(err)
+  }
+
+  const config = Object.assign({}, baseAddConfig, {
+    started: _handleUploadStart,
+    complete: _handleUploadComplete.bind(this),
+    error: _handleUploadError.bind(this)
+  })
+
+  evaporate.add(config)
 })
