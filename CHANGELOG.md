@@ -1,3 +1,10 @@
+# v1.5.4#
+
+## Enhancements ##
+- Issue #197. Allows signerUrl to be optional so that developers can
+  leverage AWSLambda or signResponseHandler functions to sign
+  requests.
+
 # v1.5.3#
 
 ## Enhancements ##
