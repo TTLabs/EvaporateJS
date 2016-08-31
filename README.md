@@ -301,6 +301,25 @@ Available onfiguration options:
     believes it is attempting to upload a file that already exists, it will perform a HEAD action on the object to verify its eTag. If this option
     is not set or if the cached eTag does not match the object's eTag, the file will be uploaded again. This option is only
     enabled if `computeContentMd5` is enabled.
+* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the `signerUrl`. The
+value can be a function. For example:
+
+```javascript
+signParams: {
+    vip: true,
+    username: function () { return user.name; }
+}
+```
+
+* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the `signerUrl`.The
+value can be a function. For example:
+
+```javascript
+signHeaders: {
+    xVip: 1,
+    x-user-name: function () { return user.name; }
+}
+```
 
 #### Evaporate#add()
 
@@ -312,7 +331,41 @@ Available onfiguration options:
 * **file**: _File_. The reference to the JavaScript [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
   object to upload.
 
-`overrideOptions`, when present, will override th Evaporate global configuration options for the added file only. 
+And a number of optional parameters:
+
+* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
+
+* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
+
+* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
+represents the file whose upload is being started.
+
+* **paused**: _function(upload_id)_. a function that will be called when the file upload is completely paused (all
+in-progress parts are aborted or completed). The upload id represents the file whose upload has been paused.
+
+* **resumed**: _function(upload_id)_. a function that will be called when the file upload resumes.
+
+* **pausing**: _function(upload_id)_. a function that will be called when the file upload has been asked to pause
+after all in-progress parts are completed. The upload id represents the file whose upload has been requested
+to pause.
+
+* **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
+
+* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
+    Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
+    the object already exists on S3.
+
+* **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
+
+* **warn**: _function(msg)_. a function that will be called on a potentially recoverable error, and will be retried (e.g. part upload).
+
+* **error**: _function(msg)_. a function that will be called on an irrecoverable error.
+
+* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
+
+* **contentType**: _String_. the content type (MIME type) the file will have
+
+`overrideOptions`, an object, when present, will override th Evaporate global configuration options for the added file only. 
 With the exception of the following options, all other Evaporate configuration options can be overridden:
  
 - `maxConcurrentParts`
@@ -336,59 +389,6 @@ Returns a unique upload id for the file. This id can be used in the
 The `.add()` method returns the Evaporate id of the upload to process. Use this id to abort or cancel
 an upload. The id is also passed as a parameter to the `started()` callback. If the file validation passes, this method
 returns an integer representing the file id, otherwise, it returns a string error message.
-
-`config` has a number of optional parameters:
-
-* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
-
-* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
-
-* **signParams**: _Object_. an object of key/value pairs that will be passed to _all_ calls to the `signerUrl`. The
-value can be a function. For example:
-
-```javascript
-signParams: {
-    vip: true,
-    username: function () { return user.name; }
-}
-```
-
-* **signHeaders**: _Object_. an object of key/value pairs that will be passed as headers to _all_ calls to the `signerUrl`.The
-value can be a function. For example:
-
-```javascript
-signHeaders: {
-    xVip: 1,
-    x-user-name: function () { return user.name; }
-}
-```
-
-* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
-represents the file whose upload is being started.
-
-* **paused**: _function(upload_id)_. a function that will be called when the file upload is completely paused (all
-in-progress parts are aborted or completed). The upload id represents the file whose upload has been paused.
-
-* **resumed**: _function(upload_id)_. a function that will be called when the file upload resumes.
-
-* **pausing**: _function(upload_id)_. a function that will be called when the file upload has been asked to pause
-after all in-progress parts are completed. The upload id represents the file whose upload has been requested
-to pause.
-
-* **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
-
-* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
-    Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
-    the object already exists on S3.
-* **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
-
-* **warn**: _function(msg)_. a function that will be called on a potentially recoverable error, and will be retried (e.g. part upload).
-
-* **error**: _function(msg)_. a function that will be called on an irrecoverable error.
-
-* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
-
-* **contentType**: _String_. the content type (MIME type) the file will have
 
 #### Evaporate#pause()
 
