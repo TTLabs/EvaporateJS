@@ -1,3 +1,11 @@
+# v1.5.5#
+
+## Bug Fixes ##
+- Issue #214. Uploads on IE were failing because IE does not add a leading
+slash to a file path. This has been fixed.
+- Issue #222. Object key names with parentheses were not being correctly
+encoded, resulting in signature mismatches.
+
 # v1.5.4#
 
 ## Enhancements ##
