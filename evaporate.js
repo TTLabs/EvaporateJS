@@ -611,8 +611,6 @@
                 upload.onErr = function (xhr, isOnError) {
                     part.loadedBytes = 0;
 
-                    removePartFromProcessing(part);
-
                     if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(me.status) > -1) {
                         return;
                     }
@@ -630,6 +628,8 @@
                     hasErrored = true;
 
                     if (xhr.status === 404) {
+                        removePartFromProcessing(part);
+
                         var errMsg = '404 error resulted in abortion of both this part and the entire file.';
                         l.w(errMsg + ' Server response: ' + xhr.response);
                         me.error(errMsg);
