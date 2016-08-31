@@ -1773,7 +1773,8 @@
         return {
             protocol: p.protocol, // => "http:"
             hostname: p.hostname, // => "example.com"
-            pathname: p.pathname, // => "/pathname/"
+            // IE omits the leading slash, so add it if it's missing
+            pathname: p.pathname.replace(/(^\/?)/,"/"), // => "/pathname/"
             port: p.port, // => "3000"
             search: (p.search[0] === '?') ? p.search.substr(1) : p.search, // => "search=test"
             hash: p.hash, // => "#hash"
