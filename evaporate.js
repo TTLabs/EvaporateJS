@@ -695,6 +695,8 @@
                         addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
+                    } else {
+                        part.status = PENDING;
                     }
                 }, backOff);
 
