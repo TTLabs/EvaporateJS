@@ -480,8 +480,12 @@
 
             function removePartFromProcessing(part) {
                 removeAtIndex(partsInProcess, part.part);
-                removeAtIndex(partsToUpload, part.part);
                 evaporatingCnt(-1);
+            }
+
+            function retirePartFromProcessing(part) {
+                removeAtIndex(partsToUpload, part.part);
+                removePartFromProcessing(part);
                 if (partsInProcess.length === 0 && me.status === PAUSING) {
                     me.status = PAUSED;
                     me.paused();
@@ -628,7 +632,7 @@
                     hasErrored = true;
 
                     if (xhr.status === 404) {
-                        removePartFromProcessing(part);
+                        retirePartFromProcessing(part);
 
                         var errMsg = '404 error resulted in abortion of both this part and the entire file.';
                         l.w(errMsg + ' Server response: ' + xhr.response);
@@ -655,7 +659,7 @@
                         part.eTag = eTag;
                         part.status = COMPLETE;
 
-                        removePartFromProcessing(part);
+                        retirePartFromProcessing(part);
                     } else {
                         part.status = ERROR;
                         part.loadedBytes = 0;
