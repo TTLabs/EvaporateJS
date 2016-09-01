@@ -1375,14 +1375,9 @@
                     return authorizedSignWithLambda(authRequester);
                 }
 
-                if (typeof con.signerUrl === 'undefined') {
-                    authRequester.auth = signResponse();
-                    authRequester.onGotAuth();
-                    return;
-                }
-
                 var xhr = assignCurrentXhr(authRequester),
-                    url = [con.signerUrl, '?to_sign=', stringToSignMethod(authRequester), '&datetime=', authRequester.dateString].join('');
+                    stringToSign = stringToSignMethod(authRequester),
+                    url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
 
                 var signParams = makeSignParamsObject(me.signParams);
                 for (var param in signParams) {
@@ -1392,6 +1387,13 @@
 
                 if (con.xhrWithCredentials) {
                     xhr.withCredentials = true;
+                }
+
+                if (typeof con.signerUrl === 'undefined') {
+                    authRequester.auth = signResponse(null, stringToSign);
+                    clearCurrentXhr(authRequester);
+                    authRequester.onGotAuth();
+                    return;
                 }
 
                 xhr.onreadystatechange = function () {
@@ -1469,9 +1471,9 @@
                 return encodeURIComponent(con.awsSignatureVersion === '4' ? stringToSignV4(request) : makeStringToSign(request));
             }
 
-            function signResponse(payload) {
+            function signResponse(payload, stringToSign) {
                 if (typeof con.signResponseHandler === 'function') {
-                    payload = con.signResponseHandler(payload) || payload;
+                    payload = con.signResponseHandler(payload, stringToSign) || payload;
                 }
 
                 return payload;
