@@ -615,38 +615,40 @@
                 upload.onErr = function (xhr, isOnError) {
                     part.loadedBytes = 0;
 
+                    part.status = ERROR;
+
                     if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(me.status) > -1) {
                         return;
                     }
-
-                    var msg = 'problem uploading part #' + partNumber + ',   http status: ' + xhr.status +
-                        ',   hasErrored: ' + !!hasErrored + ',   part status: ' + part.status +
-                        ',   readyState: ' + xhr.readyState + (isOnError ? ',   isOnError' : '');
-
-                    l.w(msg);
-                    me.warn(msg);
-
-                    if (hasErrored) {
-                        return;
-                    }
-                    hasErrored = true;
 
                     if (xhr.status === 404) {
                         retirePartFromProcessing(part);
 
                         var errMsg = '404 error resulted in abortion of both this part and the entire file.';
-                        l.w(errMsg + ' Server response: ' + xhr.response);
+                        l.w(errMsg,' Server response: ', xhr.response);
                         me.error(errMsg);
                         part.status = ABORTED;
                         abortUpload();
                     } else {
-                        part.status = ERROR;
+                        var msg = 'problem uploading part #' + partNumber + ',   http status: ' + xhr.status +
+                            ',   hasErrored: ' + !!hasErrored + ',   part status: ' + part.status +
+                            ',   readyState: ' + xhr.readyState + (isOnError ? ',   isOnError' : '');
+
+                        l.w(msg);
+                        me.warn(msg);
 
                         var awsResponse = getAwsResponse(xhr);
                         if (awsResponse.code) {
                             l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
                         }
+
+                        removePartFromProcessing(part);
                         processPartsList();
+
+                        if (hasErrored) {
+                            return;
+                        }
+                        hasErrored = true;
                     }
                     xhr.abort();
                 };
@@ -1440,7 +1442,7 @@
 
                 function warnMsg(srcMsg, clearXhr) {
                     var a = ['failed to get authorization (', srcMsg, ') for', authRequester.step, '-  xhr.status:', xhr.status, '.-  xhr.response:', xhr.response];
-                    l.w.apply(null, a);
+                    l.w(a);
                     me.warn(a.join(" "));
                     if (clearXhr) {
                         clearCurrentXhr(authRequester, true);
