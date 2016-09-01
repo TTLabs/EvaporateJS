@@ -950,7 +950,7 @@
             function getUploadParts(partNumberMarker) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
 
                 var msg = ['getUploadParts() for uploadId starting at part #', partNumberMarker];
-                l.d.apply(null, msg);
+                l.d(msg);
                 me.info(msg.join(" "));
 
                 var list = {
