@@ -1,4 +1,4 @@
-/*Copyright (c) 2014, TT Labs, Inc.
+/*Copyright (c) 2016, TT Labs, Inc.
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -594,7 +594,6 @@
                 var backOff, hasErrored, upload, part;
 
                 part = s3Parts[partNumber];
-                part.status = EVAPORATING;
                 countUploadAttempts++;
                 part.loadedBytesPrevious = null;
 
@@ -698,11 +697,10 @@
 
                 setTimeout(function () {
                     if (evaporatingCount < con.maxConcurrentParts && [ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
+                        part.status = EVAPORATING;
                         addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
-                    } else {
-                        part.status = PENDING;
                     }
                 }, backOff);
 
