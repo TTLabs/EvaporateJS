@@ -523,5 +523,5 @@ var evaporate = new Evaporate({
 
 ## License
 
-EvaporateJS is licensed under the BSD 3-Caluse License
+EvaporateJS is licensed under the BSD 3-Clause License
 http://opensource.org/licenses/BSD-3-Clause
