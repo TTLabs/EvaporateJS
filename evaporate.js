@@ -1401,12 +1401,12 @@ l.e('NOT UPLOADING PART!!!!')
                         if (xhr.status === 200) {
                             var payload = signResponse(xhr.response);
 
+                            clearCurrentXhr(authRequester);
                             if (con.awsSignatureVersion === '2' &&  payload.length !== 28) {
-                                warnMsg(calledFrom, true);
+                                warnMsg(calledFrom);
                             } else {
                               l.d('authorizedSend got signature for step:', authRequester.step, '- signature:', payload);
                               authRequester.auth = payload;
-                              clearCurrentXhr(authRequester);
                               authRequester.onGotAuth();
                             }
                         } else {
@@ -1416,7 +1416,7 @@ l.e('NOT UPLOADING PART!!!!')
                 };
 
                 xhr.onerror = function (msg) {
-                    warnMsg(msg || 'onerror', false);
+                    warnMsg(msg || 'onerror');
                 };
 
                 xhr.open('GET', url);
@@ -1431,13 +1431,10 @@ l.e('NOT UPLOADING PART!!!!')
                 }
                 xhr.send();
 
-                function warnMsg(srcMsg, clearXhr) {
+                function warnMsg(srcMsg) {
                     var a = ['failed to get authorization (', srcMsg, ') for', authRequester.step, '-  xhr.status:', xhr.status, '.-  xhr.response:', xhr.response];
                     l.w(a);
                     me.warn(a.join(" "));
-                    if (clearXhr) {
-                        clearCurrentXhr(authRequester, true);
-                    }
                     authRequester.onFailedAuth(xhr);
                 }
             }
