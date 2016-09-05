@@ -1140,7 +1140,7 @@
             }
 
             function processPartsList() {
-                var finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info,
+                var stati = [], bytesLoaded = [],
                     limit = con.maxConcurrentParts - evaporatingCount;
 
                 if (limit === 0) {
@@ -1152,10 +1152,8 @@
                     return;
                 }
                 for (var i = 0; i < partsToUpload.length; i++) {
-                    finished = false;
                     var part = s3Parts[partsToUpload[i]];
                     if (con.computeContentMd5 && part.md5_digest === null) {
-
                         return; // MD5 Digest isn't ready yet
                     }
                     stati.push(part.status);
@@ -1163,12 +1161,8 @@
                         bytesLoaded.push(part.loadedBytes);
                         continue;
                     }
-                    if (evaporatingCount < con.maxConcurrentParts) {
-                        if (partsInProcess.indexOf(part.part) === -1) {
-                            uploadPart(part.part);
-                        } else {
-l.e('NOT UPLOADING PART!!!!')
-                        }
+                    if (evaporatingCount < con.maxConcurrentParts && partsInProcess.indexOf(part.part) === -1) {
+                        uploadPart(part.part);
                     }
                     limit -= 1;
                     if (limit === 0) {
@@ -1177,16 +1171,14 @@ l.e('NOT UPLOADING PART!!!!')
                     }
                 }
 
+                var info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
+                l.d('processPartsList(): ', info);
 
-                info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
-                l.d('processPartsList()  anyPartHasErrored: ' + anyPartHasErrored, info);
-
-                if (countUploadAttempts >= (s3Parts.length - 1) || anyPartHasErrored) {
+                if (countUploadAttempts >= (s3Parts.length - 1)) {
                     me.info('part stati:', info);
                 }
-                // s3Parts.length is always 1 greater than the actually number of parts, because AWS part numbers start at 1, not 0, so for a 3 part upload, the parts array is: [undefined, object, object, object], which has length 4.
 
-                if (finished) {
+                if (partsToUpload.length === 0) {
                     completeUpload();
                 }
             }
