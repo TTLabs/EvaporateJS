@@ -565,6 +565,8 @@
 
                     xhr.abort();
 
+                    clearCurrentXhr(initiate);
+
                     setTimeout(function () {
                         if (me.status !== ABORTED && me.status !== CANCELED) {
                             me.status = originalStatus;
@@ -645,15 +647,19 @@
                             l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
                         }
 
-                        removePartFromProcessing(part);
-                        processPartsList();
+                        xhr.abort();
+
+                        clearCurrentXhr(upload);
+
+                        removePartFromProcessing(part.part);
+                        setTimeout(processPartsList, 100);
 
                         if (hasErrored) {
                             return;
                         }
                         hasErrored = true;
                     }
-                    xhr.abort();
+
                 };
 
                 upload.on200 = function (xhr) {
@@ -1234,6 +1240,9 @@
                             setTimeout(function () {
                                 me.info('part #' + partIdx, ' stalled. will abort.', part.loadedBytesPrevious, part.loadedBytes);
                                 abortPart(partIdx);
+                                part.status = PENDING;
+                                removePartFromProcessing(partIdx);
+                                setTimeout(processPartsList, 100);
                             },0);
                         }
 
