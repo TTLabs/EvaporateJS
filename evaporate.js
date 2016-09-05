@@ -1150,7 +1150,6 @@
                     limit = con.maxConcurrentParts - evaporatingCount;
 
                 if (limit === 0) {
-                    l.d('No slots available to upload.')
                     return;
                 }
                 if (me.status !== EVAPORATING) {
@@ -1172,7 +1171,6 @@
                     }
                     limit -= 1;
                     if (limit === 0) {
-                        l.e('break limit === 0')
                         break;
                     }
                 }
