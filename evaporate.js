@@ -474,18 +474,21 @@
             };
 
             function addPartToProcessing(part) {
-                partsInProcess.push(part.part);
-                evaporatingCnt(+1);
+                if (partsInProcess.indexOf(part.part) === -1) {
+                    partsInProcess.push(part.part);
+                    evaporatingCnt(+1);
+                }
             }
 
-            function removePartFromProcessing(part) {
-                removeAtIndex(partsInProcess, part.part);
-                evaporatingCnt(-1);
+            function removePartFromProcessing(partIdx) {
+                if (removeAtIndex(partsInProcess, partIdx)) {
+                    evaporatingCnt(-1);
+                }
             }
 
             function retirePartFromProcessing(part) {
                 removeAtIndex(partsToUpload, part.part);
-                removePartFromProcessing(part);
+                removePartFromProcessing(part.part);
                 if (partsInProcess.length === 0 && me.status === PAUSING) {
                     me.status = PAUSED;
                     me.paused();
@@ -496,6 +499,7 @@
                 var idx = a.indexOf(i);
                 if (idx > -1) {
                     a.splice(idx, 1);
+                    return true;
                 }
             }
 
@@ -668,7 +672,7 @@
                         l.w(msg);
                         me.warn(msg.join(" "));
                     }
-                    processPartsList();
+                    setTimeout(processPartsList, 100);
                 };
 
                 upload.onProgress = function (evt) {
@@ -690,14 +694,15 @@
                     me.warn(msg.join(" "));
                     part.status = ERROR;
                     part.loadedBytes = 0;
-                    processPartsList();
+                    setTimeout(processPartsList, 100);
                 };
 
                 setupRequest(upload);
 
                 setTimeout(function () {
-                    if (evaporatingCount < con.maxConcurrentParts && [ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
+                    if ([ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
                         part.status = EVAPORATING;
+                        clearCurrentXhr(upload);
                         addPartToProcessing(part);
                         authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
@@ -840,7 +845,7 @@
                     numDigestsProcessed += 1;
 
                     if (evaporatingCount < con.maxConcurrentParts) {
-                        processPartsList();
+                        setTimeout(processPartsList, 100);
                     }
 
                     if (numDigestsProcessed === numParts) {
@@ -870,7 +875,7 @@
                         } else { // We already calculated the first part's md5_digest
                             part.md5_digest = me.firstMd5Digest;
                             createUploadFile();
-                            processPartsList();
+                            setTimeout(processPartsList, 100);
                         }
                     }
                 }
@@ -977,7 +982,7 @@
                         removeUploadFile();
                         monitorProgress();
                         makeParts();
-                        processPartsList();
+                        setTimeout(processPartsList, 100);
                     } else {
                         var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
                         l.w(msg, getAwsResponse(xhr));
@@ -1011,7 +1016,6 @@
                         var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
                         getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
                     } else {
-                        makeParts();
                         partsOnS3.forEach(function (cp) {
                             uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
                             uploadedPart.eTag = cp.eTag;
@@ -1022,6 +1026,7 @@
                             uploadedPart.md5_digest = 'n/a';
                             s3Parts[cp.partNumber] = uploadedPart;
                         });
+                        makeParts();
                         monitorProgress();
                         processFileParts();
                     }
@@ -1135,47 +1140,40 @@
             }
 
             function processPartsList() {
+                var finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info,
+                    limit = con.maxConcurrentParts - evaporatingCount;
 
-                var finished = true, anyPartHasErrored = false, stati = [], bytesLoaded = [], info;
-
+                if (limit === 0) {
+                    l.d('No slots available to upload.')
+                    return;
+                }
                 if (me.status !== EVAPORATING) {
                     me.info('will not process parts list, as not currently evaporating');
                     return;
                 }
                 for (var i = 0; i < partsToUpload.length; i++) {
+                    finished = false;
                     var part = s3Parts[partsToUpload[i]];
                     if (con.computeContentMd5 && part.md5_digest === null) {
 
                         return; // MD5 Digest isn't ready yet
                     }
-                    var requiresUpload = false;
                     stati.push(part.status);
-                    switch (part.status) {
-
-                        case EVAPORATING:
-                            finished = false;
-                            bytesLoaded.push(part.loadedBytes);
-                            break;
-
-                        case ERROR:
-                            anyPartHasErrored = true;
-                            requiresUpload = true;
-                            break;
-
-                        case PENDING:
-                            requiresUpload = true;
-                            break;
-
-                        default:
-                            break;
+                    if (part.status === EVAPORATING) {
+                        bytesLoaded.push(part.loadedBytes);
+                        continue;
                     }
-                    if (requiresUpload) {
-                        finished = false;
-                        if (evaporatingCount < con.maxConcurrentParts) {
+                    if (evaporatingCount < con.maxConcurrentParts) {
+                        if (partsInProcess.indexOf(part.part) === -1) {
                             uploadPart(part.part);
                         } else {
-                            return; // We might as well stop iterating because we're out of concurrent part slots
+l.e('NOT UPLOADING PART!!!!')
                         }
+                    }
+                    limit -= 1;
+                    if (limit === 0) {
+                        l.e('break limit === 0')
+                        break;
                     }
                 }
 
