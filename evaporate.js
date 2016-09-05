@@ -1223,13 +1223,8 @@ l.e('NOT UPLOADING PART!!!!')
 
                         var part = s3Parts[partIdx],
                             healthy;
-                        if (part.status !== EVAPORATING) {
-                            l.d(partIdx, 'not evaporating ');
-                            return;
-                        }
 
                         if (part.loadedBytesPrevious === null) {
-                            l.d(partIdx,'no previous ');
                             part.loadedBytesPrevious = part.loadedBytes;
                             return;
                         }
