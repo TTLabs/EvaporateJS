@@ -600,12 +600,6 @@
                 var backOff, hasErrored, upload, part;
 
                 part = s3Parts[partNumber];
-                countUploadAttempts++;
-                part.loadedBytesPrevious = null;
-
-                backOff = backOffWait(part.attempts++);
-                l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before',
-                    part.attempts === 1 ? 'submitting' : 'retrying');
 
                 upload = {
                     method: 'PUT',
@@ -718,9 +712,18 @@
 
                 setupRequest(upload);
 
+                backOff = backOffWait(part.attempts);
+                l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before',
+                    part.attempts === 0 ? 'submitting' : 'retrying');
+
                 setTimeout(function () {
                     if ([ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
                         part.status = EVAPORATING;
+                        part.attempts += 1;
+                        part.loadedBytesPrevious = null;
+
+                        countUploadAttempts += 1;
+
                         clearCurrentXhr(upload);
                         addPartToProcessing(part);
                         authorizedSend(upload);
