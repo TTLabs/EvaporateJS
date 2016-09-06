@@ -656,7 +656,7 @@
 
                         if (!isOnError) {
                             removePartFromProcessing(part.part);
-                            setTimeout(processPartsList, 100);
+                            processPartsAsync();
                         }
 
                         if (hasErrored) {
@@ -685,7 +685,7 @@
                         l.w(msg);
                         me.warn(msg.join(" "));
                     }
-                    setTimeout(processPartsList, 100);
+                    processPartsAsync();
                 };
 
                 upload.onProgress = function (evt) {
@@ -707,7 +707,7 @@
                     me.warn(msg.join(" "));
                     part.status = ERROR;
                     part.loadedBytes = 0;
-                    setTimeout(processPartsList, 100);
+                    processPartsAsync();
                 };
 
                 setupRequest(upload);
@@ -867,7 +867,7 @@
                     numDigestsProcessed += 1;
 
                     if (evaporatingCount < con.maxConcurrentParts) {
-                        setTimeout(processPartsList, 100);
+                        processPartsAsync();
                     }
 
                     if (numDigestsProcessed === numParts) {
@@ -897,7 +897,7 @@
                         } else { // We already calculated the first part's md5_digest
                             part.md5_digest = me.firstMd5Digest;
                             createUploadFile();
-                            setTimeout(processPartsList, 100);
+                            processPartsAsync();
                         }
                     }
                 }
@@ -1004,7 +1004,7 @@
                         removeUploadFile();
                         monitorProgress();
                         makeParts();
-                        setTimeout(processPartsList, 100);
+                        processPartsAsync();
                     } else {
                         var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
                         l.w(msg, getAwsResponse(xhr));
@@ -1161,6 +1161,10 @@
                 );
             }
 
+            function processPartsAsync() {
+                setTimeout(processPartsList, 100);
+            }
+
             function processPartsList() {
                 var stati = [], bytesLoaded = [],
                     limit = con.maxConcurrentParts - evaporatingCount;
@@ -1256,7 +1260,7 @@
                                 abortPart(partIdx);
                                 part.status = PENDING;
                                 removePartFromProcessing(partIdx);
-                                setTimeout(processPartsList, 100);
+                                processPartsAsync();
                             },0);
                         }
 
