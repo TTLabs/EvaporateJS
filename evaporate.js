@@ -604,7 +604,8 @@
                 part.loadedBytesPrevious = null;
 
                 backOff = backOffWait(part.attempts++);
-                l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before retrying');
+                l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before',
+                    part.attempts === 1 ? 'submitting' : 'retrying');
 
                 upload = {
                     method: 'PUT',
@@ -617,11 +618,19 @@
                     part: part
                 };
 
+                upload.canSend = function () {
+                    if (!part.active) {
+                        part.active = true;
+                        return true;
+                    }
+                };
+
                 upload.onErr = function (xhr, isOnError) {
                     part.loadedBytes = 0;
 
                     part.status = ERROR;
 
+                    part.active = false;
                     if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(me.status) > -1) {
                         return;
                     }
@@ -651,8 +660,10 @@
 
                         clearCurrentXhr(upload);
 
-                        removePartFromProcessing(part.part);
-                        setTimeout(processPartsList, 100);
+                        if (!isOnError) {
+                            removePartFromProcessing(part.part);
+                            setTimeout(processPartsList, 100);
+                        }
 
                         if (hasErrored) {
                             return;
@@ -665,6 +676,8 @@
                 upload.on200 = function (xhr) {
 
                     var eTag = xhr.getResponseHeader('ETag'), msg;
+                    part.active = false;
+
                     l.d('uploadPart 200 response for part #', partNumber, 'ETag:', eTag);
                     if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
                         part.eTag = eTag;
@@ -1350,7 +1363,9 @@
                             requester.onProgress(evt);
                         };
                     }
-                    xhr.send(payload);
+                    if (requester.canSend ? requester.canSend() : true) {
+                        xhr.send(payload);
+                    }
                 };
 
                 requester.onFailedAuth = requester.onFailedAuth || function (xhr) {
