@@ -677,6 +677,7 @@
                         part.eTag = eTag;
                         part.status = COMPLETE;
 
+                        partsOnS3.push(part);
                         retirePartFromProcessing(part);
                     } else {
                         part.status = ERROR;
@@ -1162,7 +1163,13 @@
             }
 
             function processPartsAsync() {
-                setTimeout(processPartsList, 100);
+                setTimeout(function () {
+                    if (s3Parts.length -1 === partsOnS3.length) {
+                        completeUpload();
+                    } else {
+                        processPartsList();
+                    }
+                }, 100);
             }
 
             function processPartsList() {
@@ -1200,10 +1207,6 @@
 
                 if (countUploadAttempts >= (s3Parts.length - 1)) {
                     me.info('part stati:', info);
-                }
-
-                if (partsToUpload.length === 0) {
-                    completeUpload();
                 }
             }
 
