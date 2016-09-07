@@ -69,7 +69,7 @@
       for (var i = 0; i < files.length; i++) {
          callback_methods = callbacks(files[i], i);
 
-         file_id = _e_.add({
+         var file_id = _e_.add({
                     name: files[i].name,
                     file: files[i],
                     started: callback_methods.started,
@@ -113,7 +113,8 @@
 
       var progress_clock = $('<div class="progress-clock"/>'),
               clock,
-              progress;
+              progress,
+              file_id;
 
       $('#progress-container')
               .append(progress_clock);
@@ -170,7 +171,8 @@
             progress = progressValue;
             clock.animate(progressValue);
          },
-         started: function (file_id) {
+         started: function (fid) {
+            file_id = fid;
             pause.show();
             resume.hide();
             progress_clock.addClass('evaporating');
