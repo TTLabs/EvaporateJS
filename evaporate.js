@@ -905,6 +905,9 @@
                             createUploadFile();
                             processPartsAsync();
                         }
+                    } else {
+                        // Resumed
+                        processPartsAsync();
                     }
                 }
                 if (completed === s3Parts.length) {
@@ -992,6 +995,8 @@
                 l.d(msg);
                 me.info(msg.join(" "));
 
+                partsOnS3 = [];
+
                 var list = {
                     method: 'GET',
                     path: getPath() + '?uploadId=' + me.uploadId,
@@ -1024,7 +1029,6 @@
                         listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
                         isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
                         uploadedParts = oDOM.getElementsByTagName("Part"),
-                        uploadedPart,
                         parts_len = uploadedParts.length,
                         cp, partSize;
 
@@ -1044,17 +1048,18 @@
                         var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
                         getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
                     } else {
-                        partsOnS3.forEach(function (cp) {
-                            uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
-                            uploadedPart.eTag = cp.eTag;
-                            uploadedPart.attempts = 1;
-                            uploadedPart.loadedBytes = cp.size;
-                            uploadedPart.loadedBytesPrevious = cp.size;
-                            uploadedPart.finishedUploadingAt = cp.LastModified;
-                            uploadedPart.md5_digest = 'n/a';
-                            s3Parts[cp.partNumber] = uploadedPart;
-                        });
-                        makeParts();
+                        if (s3Parts.length === 0) {
+                            partsOnS3.forEach(function (cp) {
+                                var uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
+                                uploadedPart.eTag = cp.eTag;
+                                uploadedPart.attempts = 1;
+                                uploadedPart.loadedBytes = cp.size;
+                                uploadedPart.loadedBytesPrevious = cp.size;
+                                uploadedPart.finishedUploadingAt = cp.LastModified;
+                                s3Parts[cp.partNumber] = uploadedPart;
+                            });
+                            makeParts();
+                        }
                         monitorProgress();
                         processFileParts();
                     }
