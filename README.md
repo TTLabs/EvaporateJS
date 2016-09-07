@@ -249,7 +249,7 @@ Available onfiguration options:
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
-* **maxRetryBackoffSecs**: default=20, the maximum number of seconds to wait between retries 
+* **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
