@@ -1169,7 +1169,7 @@
 
             function processPartsAsync() {
                 setTimeout(function () {
-                    if (s3Parts.length -1 === partsOnS3.length) {
+                    if (s3Parts.length - 1 === partsOnS3.length) {
                         completeUpload();
                     } else {
                         processPartsList();
