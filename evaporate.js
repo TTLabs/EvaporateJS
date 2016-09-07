@@ -43,6 +43,11 @@
             'awsSignatureVersion',
             'evaporateChanged'
         ];
+        var PARTS_MONITOR_INTERVALS = {
+                online: 2 * 60 * 1000, // 2 minutes
+                offline: 20 * 1000 // 20 seconds
+            },
+            partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
 
         var _ = this;
         var files = [],
@@ -1202,6 +1207,23 @@
                     }
                 }
 
+                var monitorPartsInterval = 0;
+                if (!bytesLoaded.length) {
+                    // we're probably offline or in a very bad state
+                    l.w('processPartsList() No bytes loaded for any parts. We may be offline.')
+                    if (partsMonitorInterval === PARTS_MONITOR_INTERVALS.online) {
+                        monitorPartsInterval = PARTS_MONITOR_INTERVALS.offline;
+                    }
+                } else if (partsMonitorInterval === PARTS_MONITOR_INTERVALS.offline) {
+                    l.d('processPartsList() Back online.')
+                    monitorPartsInterval = PARTS_MONITOR_INTERVALS.online;
+                }
+
+                if (monitorPartsInterval) {
+                    partsMonitorInterval = monitorPartsInterval;
+                    monitorPartsProgress();
+                }
+
                 var info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
                 l.d('processPartsList(): ', info);
 
@@ -1269,7 +1291,7 @@
 
                         part.loadedBytesPrevious = part.loadedBytes;
                     });
-                },2 * 60 * 1000);
+                }, partsMonitorInterval);
             }
 
             function monitorProgress() {
