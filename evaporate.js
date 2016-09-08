@@ -707,7 +707,7 @@
                     return slice;
                 };
 
-                upload.onFailedAuth = function () {
+                upload.onFailedAuth = function (xhr) {
                     var msg = ['onFailedAuth for uploadPart #', partNumber, '- Will set status to ERROR'];
                     l.w(msg);
                     me.warn(msg.join(" "));
@@ -905,9 +905,6 @@
                             createUploadFile();
                             processPartsAsync();
                         }
-                    } else {
-                        // Resumed
-                        processPartsAsync();
                     }
                 }
                 if (completed === s3Parts.length) {
@@ -1173,13 +1170,11 @@
             }
 
             function processPartsAsync() {
-                setTimeout(function () {
-                    if (s3Parts.length - 1 === partsOnS3.length) {
-                        completeUpload();
-                    } else {
-                        processPartsList();
-                    }
-                }, 100);
+                if (s3Parts.length - 1 === partsOnS3.length) {
+                    completeUpload();
+                } else {
+                    processPartsList();
+                }
             }
 
             function processPartsList() {
