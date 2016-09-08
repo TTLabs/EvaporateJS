@@ -1207,21 +1207,15 @@
                     }
                 }
 
-                var monitorPartsInterval = 0;
                 if (!bytesLoaded.length) {
                     // we're probably offline or in a very bad state
                     l.w('processPartsList() No bytes loaded for any parts. We may be offline.')
                     if (partsMonitorInterval === PARTS_MONITOR_INTERVALS.online) {
-                        monitorPartsInterval = PARTS_MONITOR_INTERVALS.offline;
+                        partsMonitorInterval = PARTS_MONITOR_INTERVALS.offline;
                     }
                 } else if (partsMonitorInterval === PARTS_MONITOR_INTERVALS.offline) {
                     l.d('processPartsList() Back online.')
-                    monitorPartsInterval = PARTS_MONITOR_INTERVALS.online;
-                }
-
-                if (monitorPartsInterval) {
-                    partsMonitorInterval = monitorPartsInterval;
-                    monitorPartsProgress();
+                    partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
                 }
 
                 var info = stati.toString() + ' // bytesLoaded: ' + bytesLoaded.toString();
