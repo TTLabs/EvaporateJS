@@ -1,3 +1,8 @@
+# v1.5.6#
+
+## Bug Fixes ##
+- Issues #227, 223. Addresses all known concurrency issues
+
 # v1.5.5#
 
 ## Bug Fixes ##
