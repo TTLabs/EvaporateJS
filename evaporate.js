@@ -717,8 +717,6 @@
                     processPartsAsync();
                 };
 
-                setupRequest(upload);
-
                 backOff = backOffWait(part.attempts);
                 l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before',
                     part.attempts === 0 ? 'submitting' : 'retrying');
@@ -733,6 +731,8 @@
                             part.loadedBytesPrevious = null;
 
                             countUploadAttempts += 1;
+
+                            setupRequest(upload);
 
                             clearCurrentXhr(upload);
                             addPartToProcessing(part);
