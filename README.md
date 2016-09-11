@@ -23,9 +23,11 @@ Major features include:
 - Ability to pause and resume downloads at will
 
 #### Browser Compatibility
-EvaporteJS requires browsers that [support](http://caniuse.com/#feat=fileapi) the JavaScript File API, which includes
-the `FileReader` object. The MD5 Digest support requires that FileReader support the `readAsArrayBuffer` method. For
-details, look at the `supported` property of the `Evaporate` object.
+Any browser that supports the JavaScript [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
+should be compatible. The File API, includes the `FileReader` object that
+Evaporate uses to calculate MD5 checksums through the `readAsArrayBuffer`
+method. Refer to this [list of browsers that support the File API](http://caniuse.com/#feat=fileapi).
+Evaporate does not invoke the `File` constructor.
 
 ## Authors
 
@@ -235,6 +237,11 @@ Available onfiguration options:
 * **signerUrl**: a url on your application server which will sign the request according to your chosen AWS signature method (Version 2 or 4). For example
     'http://myserver.com/auth_upload'. When using AWS Signature Version 4, this URL must respond with the V4 signing key. If you don't want to use
     a signerURL and want to sign the request yourself, then you sign the request using `signReponseHandler`.
+* **computeContentMd5**: default=false, whether to compute and send an
+    MD5 digest for each part for verification by AWS S3. This
+    option defaults to `false` for backward compatibility; however, **new
+    applications of Evaporate should _always_ enable this to assure
+    that uploaded files are exact copies of the source (copy fidelity)**.
 
 * **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
     set this option, Evaporate will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
@@ -281,7 +288,6 @@ Available onfiguration options:
 * **xhrWithCredentials**: default=false, set the XMLHttpRequest xhr object to use [credentials](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials).
 * **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
     RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74.
-* **computeContentMd5**: default=false, whether to compute and send an MD5 digest for each part for verification by AWS S3.,
 * **cryptoMd5Method**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part
     payload to encode. If you are using:
@@ -417,7 +423,7 @@ passed. The `.resumed` callback is invoked when a file upload resumes.
 
 #### Evaporate#supported
 
-A _Boolean_ that indicates whether the browser supports Evaporate.
+A _Boolean_ that indicates whether the browser supports Evaporate.  
 
 ### Important Usage Notes
 
