@@ -339,7 +339,7 @@ signHeaders: {
 
 And a number of optional parameters:
 
-* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
+* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**, **xAmzHeadersAtCancel**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, the complete POST or the abort DELETE to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all four would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
 
 * **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
 

@@ -347,7 +347,8 @@
                 xAmzHeadersAtInitiate: {},
                 notSignedHeadersAtInitiate: {},
                 xAmzHeadersAtUpload: {},
-                xAmzHeadersAtComplete: {}
+                xAmzHeadersAtComplete: {},
+                xAmzHeadersAtCancel: {}
             }, file, {
                 id: id,
                 status: PENDING,
@@ -914,6 +915,7 @@
                     method: 'DELETE',
                     path: getPath() + '?uploadId=' + me.uploadId,
                     step: 'abort',
+                    x_amz_headers: me.xAmzHeadersAtCancel,
                     successStatus: 204
                 };
 
