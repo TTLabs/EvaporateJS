@@ -1194,12 +1194,12 @@
 
                 if (!bytesLoaded.length) {
                     // we're probably offline or in a very bad state
-                    l.w('processPartsList() No bytes loaded for any parts. We may be offline.')
+                    l.w('processPartsList() No bytes loaded for any parts. We may be offline.');
                     if (partsMonitorInterval === PARTS_MONITOR_INTERVALS.online) {
                         partsMonitorInterval = PARTS_MONITOR_INTERVALS.offline;
                     }
                 } else if (partsMonitorInterval === PARTS_MONITOR_INTERVALS.offline) {
-                    l.d('processPartsList() Back online.')
+                    l.d('processPartsList() Back online.');
                     partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
                 }
 
