@@ -1718,21 +1718,19 @@
 
 
         function extend(obj1, obj2, obj3) {
-            obj1 = typeof obj1 === 'undefined' ? {} : obj1;
-
-            if (typeof obj3 === 'object') {
-                for (var key in obj3) {
-                    if (obj3.hasOwnProperty(key)) {
-                        obj2[key] = obj3[key];
+            function ext(target, source) {
+                if (typeof source !== 'object') { return; }
+                for (var key in source) {
+                    if (source.hasOwnProperty(key)) {
+                        target[key] = source[key];
                     }
                 }
             }
 
-            for (var key2 in obj2) {
-                if (obj2.hasOwnProperty(key2)) {
-                    obj1[key2] = obj2[key2];
-                }
-            }
+            obj1 = obj1 || {};
+            ext(obj2, obj3);
+            ext(obj1, obj2);
+
             return obj1;
         }
 
