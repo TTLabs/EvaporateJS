@@ -92,11 +92,11 @@
             evaporateChanged: function () {}
         }, config);
 
-        if (console && console.log) {
-            l = console;
+        if (typeof window !== 'undefined' && window.console) {
+            l = window.console;
             l.d = l.log;
-            l.w = console.warn ? l.warn : l.d;
-            l.e = console.error ? l.error : l.d;
+            l.w = window.console.warn ? l.warn : l.d;
+            l.e = window.console.error ? l.error : l.d;
         }
 
         this.supported = !(
@@ -1814,7 +1814,10 @@
 
     function getFilePart(file, start, end) {
         var slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice'));
-        // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end). As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
+        // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the
+        // 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end).
+        // As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See
+        // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
         return file[slicerFn](start, end);
     }
 
