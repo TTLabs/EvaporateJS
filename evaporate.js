@@ -1722,12 +1722,16 @@
 
             if (typeof obj3 === 'object') {
                 for (var key in obj3) {
-                    obj2[key] = obj3[key];
+                    if (obj3.hasOwnProperty(key)) {
+                        obj2[key] = obj3[key];
+                    }
                 }
             }
 
             for (var key2 in obj2) {
-                obj1[key2] = obj2[key2];
+                if (obj2.hasOwnProperty(key2)) {
+                    obj1[key2] = obj2[key2];
+                }
             }
             return obj1;
         }
