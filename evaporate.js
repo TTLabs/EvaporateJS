@@ -954,6 +954,8 @@
                         l.w(msg, getAwsResponse(xhr));
                         me.error(msg);
                     }
+                    evaporatingCount = 0;
+                    con.evaporateChanged(me, evaporatingCount)
                 };
 
                 list.on200 = function (xhr) {
