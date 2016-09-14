@@ -193,7 +193,10 @@ test('should cancel() two uploads with correct id', () => {
 })
 
 test('should call a callback on cancel()', () => {
-  const evaporate = new Evaporate(baseConfig)
+  const evapConfig = Object.assign({}, baseConfig, {
+    evaporateChanged: sinon.spy()
+  })
+  const evaporate = new Evaporate(evapConfig)
   const config = Object.assign({}, baseAddConfig, {
     cancelled: sinon.spy()
   })
@@ -202,6 +205,11 @@ test('should call a callback on cancel()', () => {
 
   expect(result).to.be.ok
   expect(config.cancelled).to.have.been.called
+
+  expect(evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
+  expect(evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
+  expect(evapConfig.evaporateChanged.thirdCall.args[1]).to.eql(0)
+  expect(evapConfig.evaporateChanged).to.have.been.calledThrice
 })
 
 test('should call a callback on pause()', () => {
