@@ -337,6 +337,11 @@ signHeaders: {
 * **file**: _File_. The reference to the JavaScript [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
   object to upload.
 
+  The `upload_id` identifies the file in Evaporate. If the upload_id is an `Integer`, Evaporate is processing the file. If
+  the `upload_id` is a `String`, that represents an error message. In such a case, Evaporate will not upload the file. For
+  example, if the file size violates the `maxFileSize` option, the method will return "File size too large.
+  Maximum size allowed is {maxFileSize}".
+
 And a number of optional parameters:
 
 * **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
