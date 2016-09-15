@@ -679,6 +679,7 @@
                         msg = ['eTag matches MD5 of 0 length blob for part #', partNumber, 'Retrying part.'].join(" ");
                         l.w(msg);
                         me.warn(msg);
+                        removePartFromProcessing(part.part)
                     }
                     processPartsToUpload();
                 };
