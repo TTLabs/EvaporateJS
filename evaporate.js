@@ -749,6 +749,7 @@
 
                 l.d('completeUpload');
                 me.info('will attempt to complete upload');
+                stopMonitorProgress();
 
                 var completeDoc = [],
                     originalStatus = me.status,
@@ -788,7 +789,6 @@
                         if (me.status !== ABORTED && me.status !== CANCELED) {
                             me.status = originalStatus;
                             completeUpload();
-                            monitorProgress();
                         }
                     }, backOffWait(countCompleteAttempts++));
                 };
