@@ -712,21 +712,22 @@
                     part.attempts === 0 ? 'submitting' : 'retrying');
 
                 setTimeout(function () {
-                    if ([ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1) {
-                        if (partsInProcess.indexOf(part.part) === -1) {
-                            part.status = EVAPORATING;
-                            part.attempts += 1;
-                            part.loadedBytesPrevious = null;
+                    if (part.status !== COMPLETE &&
+                        [ABORTED, PAUSED, CANCELED].indexOf(me.status) === -1 &&
+                        partsInProcess.indexOf(part.part) === -1) {
 
-                            countUploadAttempts += 1;
+                        part.status = EVAPORATING;
+                        part.attempts += 1;
+                        part.loadedBytesPrevious = null;
 
-                            setupRequest(upload);
+                        countUploadAttempts += 1;
 
-                            clearCurrentXhr(upload);
-                            addPartToProcessing(part);
-                            authorizedSend(upload);
-                            l.d('upload #', partNumber, upload);
-                        }
+                        setupRequest(upload);
+
+                        clearCurrentXhr(upload);
+                        addPartToProcessing(part);
+                        authorizedSend(upload);
+                        l.d('upload #', partNumber, upload);
                     }
                 }, backOff);
 
