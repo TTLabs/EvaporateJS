@@ -913,8 +913,7 @@
                 var abort = {
                     method: 'DELETE',
                     path: getPath() + '?uploadId=' + me.uploadId,
-                    step: 'abort',
-                    successStatus: 204
+                    step: 'abort'
                 };
 
                 abort.onErr = function () {
@@ -1316,12 +1315,15 @@
                         return;
                     }
 
+                    function success_status(xhr) {
+                        return xhr.status >= 200 && xhr.status <= 299;
+                    }
+
                     var xhr = assignCurrentXhr(requester);
 
                     var payload = requester.getPayload(),
                         url = AWS_URL + requester.path,
-                        all_headers = {},
-                        status_success = requester.successStatus || 200;
+                        all_headers = {};
 
                     if (requester.query_string) {
                         url += requester.query_string;
@@ -1363,7 +1365,12 @@
                                 l.d('  ###', payload.size);
                             }
                             clearCurrentXhr(requester);
-                            requester[xhr.status === status_success ? 'on200' : 'onErr'](xhr);
+                            requester[success_status(xhr) ? 'on200' : 'onErr'](xhr);
+
+                            if (xhr.status === 0) {
+                                xhr.onreadystatechange = function () {};
+                                xhr.abort();
+                            }
                         }
                     };
 
