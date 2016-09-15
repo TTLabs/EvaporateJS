@@ -626,7 +626,7 @@
                     if (xhr.status === 404) {
                         retirePartFromProcessing(part);
 
-                        var errMsg = '404 error resulted in abortion of both this part and the entire file.';
+                        var errMsg = '404 error on part PUT. The part and the file will abort.';
                         l.w(errMsg,' Server response: ', xhr.response);
                         me.error(errMsg);
                         part.status = ABORTED;
