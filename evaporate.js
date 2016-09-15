@@ -1364,19 +1364,20 @@
                                 // Need to refer to the payload to keep it from being GC'd...sad.
                                 l.d('  ###', payload.size);
                             }
-                            clearCurrentXhr(requester);
                             requester[success_status(xhr) ? 'on200' : 'onErr'](xhr);
 
                             if (xhr.status === 0) {
                                 xhr.onreadystatechange = function () {};
                                 xhr.abort();
                             }
+
+                            clearCurrentXhr(requester);
                         }
                     };
 
                     xhr.onerror = function () {
-                        clearCurrentXhr(requester);
                         requester.onErr(xhr, true);
+                        clearCurrentXhr(requester);
                     };
 
                     if (typeof requester.onProgress === 'function') {
