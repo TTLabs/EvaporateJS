@@ -35,4 +35,4 @@ ratings:
   - "**.rb"
 exclude_paths:
 - test/
-- "example/assets/progressbar-1.0.1.min.js"
+- "example/assets/*"
