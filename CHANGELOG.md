@@ -1,3 +1,12 @@
+# v1.5.7#
+
+## Bug Fixes ##
+- Issue #242, canceling an upload did not probably clear internal state,
+  causing other uploads to fail silently.
+- Issue #241, after being offline for a period of time, and returing
+  back online, evaporate did not correctly keep track of internal state,
+  causing unnecessary traffic and triggering unpredictable XHR responses.
+
 # v1.5.6#
 
 ## Bug Fixes ##
