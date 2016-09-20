@@ -1414,6 +1414,13 @@
                     stringToSign = stringToSignMethod(authRequester),
                     url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
 
+                if (typeof con.signerUrl === 'undefined') {
+                    authRequester.auth = signResponse(null, stringToSign, authRequester.dateString);
+                    clearCurrentXhr(authRequester);
+                    authRequester.onGotAuth();
+                    return;
+                }
+
                 var signParams = makeSignParamsObject(me.signParams);
                 for (var param in signParams) {
                     if (!signParams.hasOwnProperty(param)) { continue; }
@@ -1422,13 +1429,6 @@
 
                 if (con.xhrWithCredentials) {
                     xhr.withCredentials = true;
-                }
-
-                if (typeof con.signerUrl === 'undefined') {
-                    authRequester.auth = signResponse(null, stringToSign);
-                    clearCurrentXhr(authRequester);
-                    authRequester.onGotAuth();
-                    return;
                 }
 
                 xhr.onreadystatechange = function () {
