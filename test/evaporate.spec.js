@@ -251,6 +251,19 @@ test('should call a callback on resume()', () => {
   expect(config.resumed).to.have.been.called
 })
 
+test('should call signResponseHandler() with the correct number of parameters', () => {
+  const evapConfig = Object.assign({}, baseConfig, {
+    signerUrl: undefined,
+    signResponseHandler: sinon.spy()
+  })
+
+  const evaporate = new Evaporate(evapConfig)
+
+  evaporate.add(baseAddConfig)
+
+  expect(evapConfig.signResponseHandler.firstCall.args.length).to.eql(3)
+})
+
 // actual requests
 
 test.cb('should correctly upload a small file', (t) => {
