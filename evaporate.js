@@ -1502,9 +1502,9 @@
                 return encodeURIComponent(con.awsSignatureVersion === '4' ? stringToSignV4(request) : makeStringToSign(request));
             }
 
-            function signResponse(payload, stringToSign) {
+            function signResponse(payload, stringToSign, signatureDateTime) {
                 if (typeof con.signResponseHandler === 'function') {
-                    payload = con.signResponseHandler(payload, stringToSign) || payload;
+                    payload = con.signResponseHandler(payload, stringToSign, signatureDateTime) || payload;
                 }
 
                 return payload;
