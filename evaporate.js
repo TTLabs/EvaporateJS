@@ -346,6 +346,7 @@
                 error: function () {},
                 xAmzHeadersAtInitiate: {},
                 notSignedHeadersAtInitiate: {},
+                xAmzHeadersCommon: null,
                 xAmzHeadersAtUpload: {},
                 xAmzHeadersAtComplete: {}
             }, file, {
@@ -607,7 +608,7 @@
                     method: 'PUT',
                     path: getPath() + '?partNumber=' + partNumber + '&uploadId=' + me.uploadId,
                     step: 'upload #' + partNumber,
-                    x_amz_headers: me.xAmzHeadersAtUpload,
+                    x_amz_headers: me.xAmzHeadersCommon || me.xAmzHeadersAtUpload,
                     md5_digest: part.md5_digest,
                     contentSha256: "UNSIGNED-PAYLOAD",
                     attempts: part.attempts,
@@ -768,7 +769,7 @@
                     method: 'POST',
                     contentType: 'application/xml; charset=UTF-8',
                     path: getPath() + '?uploadId=' + me.uploadId,
-                    x_amz_headers: me.xAmzHeadersAtComplete,
+                    x_amz_headers: me.xAmzHeadersCommon || me.xAmzHeadersAtComplete,
                     step: 'complete'
                 };
 
@@ -817,6 +818,7 @@
                 var head_object = {
                     method: 'HEAD',
                     path: getPath(),
+                    x_amz_headers: me.xAmzHeadersCommon,
                     step: 'head_object'
                 };
 
@@ -915,6 +917,7 @@
                 var abort = {
                     method: 'DELETE',
                     path: getPath() + '?uploadId=' + me.uploadId,
+                    x_amz_headers: me.xAmzHeadersCommon,
                     step: 'abort'
                 };
 
@@ -941,6 +944,7 @@
                 var list = {
                     method: 'GET',
                     path: getPath() + '?uploadId=' + me.uploadId,
+                    x_amz_headers: me.xAmzHeadersCommon,
                     step: 'list'
                 };
 
@@ -988,6 +992,7 @@
                     method: 'GET',
                     path: getPath() + '?uploadId=' + me.uploadId,
                     query_string: "&part-number-marker=" + partNumberMarker,
+                    x_amz_headers: me.xAmzHeadersCommon,
                     step: 'get upload parts'
                 };
 

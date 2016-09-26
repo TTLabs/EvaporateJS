@@ -60,6 +60,7 @@ test.before(() => {
   })
 
   server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
+    requestHeaders.cancel = xhr.requestHeaders
     xhr.respond(204)
   })
 
@@ -71,7 +72,7 @@ test.after(() => {
   server.restore()
 })
 
-test('should pass custom headers', () => {
+test('should pass custom xAmzHeaders', () => {
   const evaporate = new Evaporate(baseConfig)
   const addConfig = Object.assign({}, baseAddConfig, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
@@ -84,4 +85,69 @@ test('should pass custom headers', () => {
   expect(requestHeaders.initiate['x-custom-header']).to.eql('peanuts')
   expect(requestHeaders.upload['x-custom-header']).to.eql('phooey')
   expect(requestHeaders.complete['x-custom-header']).to.eql('eindelijk')
+})
+
+test('should pass custom xAmzHeadersCommon headers', () => {
+  const evaporate = new Evaporate(baseConfig)
+  const addConfig = Object.assign({}, baseAddConfig, {
+    xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
+    xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
+  })
+
+  evaporate.add(addConfig)
+
+  expect(requestHeaders.initiate['x-custom-header']).to.eql('peanuts')
+  expect(requestHeaders.upload['x-custom-header']).to.eql('phooey')
+  expect(requestHeaders.complete['x-custom-header']).to.eql('phooey')
+})
+
+test('should pass custom xAmzHeadersCommon headers that override legacy options', () => {
+  const evaporate = new Evaporate(baseConfig)
+  const addConfig = Object.assign({}, baseAddConfig, {
+    xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
+    xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
+    xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
+  })
+
+  evaporate.add(addConfig)
+
+  expect(requestHeaders.upload['x-custom-header1']).to.eql(undefined)
+  expect(requestHeaders.upload['x-custom-header3']).to.eql('phooey')
+  expect(requestHeaders.complete['x-custom-header2']).to.eql(undefined)
+  expect(requestHeaders.complete['x-custom-header3']).to.eql('phooey')
+})
+
+test('should pass custom xAmzHeadersCommon headers that do not apply to initiate', () => {
+  const evaporate = new Evaporate(baseConfig)
+  const addConfig = Object.assign({}, baseAddConfig, {
+    xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
+    xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
+  })
+
+  evaporate.add(addConfig)
+
+  expect(requestHeaders.initiate['x-custom-header']).to.eql('peanuts')
+})
+
+test('should pass custom xAmzHeaders header to cancel/abort', () => {
+  const evaporate = new Evaporate(baseConfig)
+
+  const addConfig = Object.assign({}, baseAddConfig, {
+    xAmzHeadersCommon: { 'x-custom-header': 'stopped' },
+    started: function () { evaporate.cancel(upload_id); }
+  })
+
+  const upload_id = evaporate.add(addConfig)
+  evaporate.cancel(upload_id)
+
+  expect(requestHeaders.cancel['x-custom-header']).to.eql('stopped')
+})
+
+test.skip('should pass custom xAmzHeaders header to checkforParts (cancel/abort)', () => {
+})
+
+test.skip('should pass custom xAmzHeaders header to headObject', () => {
+})
+
+test.skip('should pass custom xAmzHeaders header to getUploadParts (Resume)', () => {
 })

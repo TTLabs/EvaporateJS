@@ -344,9 +344,23 @@ signHeaders: {
 
 And a number of optional parameters:
 
-* **xAmzHeadersAtInitiate**, **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be added to the initiate POST, the upload PUTS, or the complete POST to S3 (respectively) and should be signed by the aws secret key. An example for initiate would be `{'x-amz-acl':'public-read'}` and for all three would be `{'x-amz-security-token':'the-long-session-token'}` which is needed when using temporary security credentials (IAM roles).
+* **xAmzHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should
+  be added to the initiate multipart upload POST request. For example, some customers need to delcare an ACL like so:
+  `{'x-amz-acl': 'public-read'}`.
 
-* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be added to the initiate POST to S3 (not added to the part PUTS, or the complete POST). An example would be `{'Cache-Control':'max-age=3600'}`
+* **notSignedHeadersAtInitiate**: _Object_. an object of key/value pairs that represents the headers that should be
+  added to the initiate request but should not be included in the signing request. For example, a caching directive
+  like this `{'Cache-Control': 'max-age=3600'}` should be excluded.
+
+* **xAmzHeadersAtUpload**, **xAmzHeadersAtComplete**: _Object_. an object of key/value
+  pairs that represents the x-amz-... headers that should be added to the upload PUTS and the complete POST request
+  respectively. For example, `{'x-amz-security-token':'the-long-session-token'}` is needed when using temporary security
+  credentials (IAM roles). If all AWS requests (excluding the initiate request) use the same headers, then
+  prefer using the `xAmzHeadersCommon` option.
+
+* **xAmzHeadersCommon**: _Object_. an object of key/value pairs that represents the x-amz-... headers that should be
+  added to all AWS requests other than the initiate request. `xAmzHeadersAtUpload` and `xAmzHeadersAtComplete` do
+  not need to be specified if `xAmzHeadersCommon` satisfies the AWS header requirements.
 
 * **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
 represents the file whose upload is being started.
