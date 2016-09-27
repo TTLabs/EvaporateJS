@@ -1,3 +1,17 @@
+# v1.5.8#
+
+## Enhancements ##
+- Issue #231. Enahances the custom `signResponseHandler` method signature
+  to include the stringToSign and dateString that are passed to the remote
+  `signerUrl`.
+- Issue #232. Adds new option `xAmzHeadersCommon` for specifying xAms
+  headers for all AWS S3 requests.
+- Improves test coverage further.
+
+## Bug Fixes ##
+- Issue #232, applies `xAmzHeadersCommon` to all AWS S3 requests that
+  previously were lacking them.
+
 # v1.5.7#
 
 ## Bug Fixes ##
