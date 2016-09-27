@@ -32,7 +32,11 @@ const baseAddConfig = {
 }
 
 let server,
-    requestHeaders = {}
+    requestHeaders
+
+test.beforeEach(() => {
+  requestHeaders = {}
+})
 
 test.before(() => {
   sinon.xhr.supportsCORS = true
