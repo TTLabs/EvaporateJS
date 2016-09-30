@@ -945,35 +945,34 @@
                     step: 'list'
                 };
 
-                list.onErr = function (xhr) {
-                    if (xhr.status === 404) {
-                        // Success! Parts are not found because the uploadid has been cleared
-                        removeUploadFile();
-                        me.info('upload canceled');
-                        fileTotalBytesUploaded = 0;
-                    } else {
-                        var msg = 'Error listing parts.';
-                        l.w(msg, getAwsResponse(xhr));
-                        me.error(msg);
-                    }
-                    evaporatingCount = 0;
-                    con.evaporateChanged(me, evaporatingCount)
-                };
+                var success = function (xhr) {
+                        var oDOM = parseXml(xhr.responseText);
+                        var domParts = oDOM.getElementsByTagName("Part");
+                        if (domParts.length) { // Some parts are still uploading
+                            l.d('Parts still found after abort...waiting.');
+                            setTimeout(function () { abortUpload(); }, 1000);
+                        } else {
+                            fileTotalBytesUploaded = 0;
+                            me.info('upload canceled');
+                        }
+                    },
+                    error = function (xhr) {
+                        if (xhr.status === 404) {
+                            // Success! Parts are not found because the uploadid has been cleared
+                            removeUploadFile();
+                            me.info('upload canceled');
+                            fileTotalBytesUploaded = 0;
+                        } else {
+                            var msg = 'Error listing parts.';
+                            l.w(msg, getAwsResponse(xhr));
+                            me.error(msg);
+                        }
+                        evaporatingCount = 0;
+                        con.evaporateChanged(me, evaporatingCount)
+                    };
 
-                list.on200 = function (xhr) {
-                    var oDOM = parseXml(xhr.responseText);
-                    var domParts = oDOM.getElementsByTagName("Part");
-                    if (domParts.length) { // Some parts are still uploading
-                        l.d('Parts still found after abort...waiting.');
-                        setTimeout(function () { abortUpload(); }, 1000);
-                    } else {
-                        fileTotalBytesUploaded = 0;
-                        me.info('upload canceled');
-                    }
-                };
-
-                setupRequest(list);
-                authorizedSend(list);
+                sendRequestUsingPromise(list)
+                    .then(success, error);
             }
 
 
