@@ -398,7 +398,7 @@
 
         function FileUpload(file, con) {
             var me = this, s3Parts = [], partsOnS3 = [], partsToUpload = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
-                countInitiateAttempts = 0, countCompleteAttempts = 0,
+                countCompleteAttempts = 0,
                 partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me, file);
 
@@ -541,63 +541,63 @@
             }
 
             function initiateUpload(awsKey) { // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
-                var initiate = {
-                        method: 'POST',
-                        path: getPath() + '?uploads',
-                        step: 'initiate',
-                        x_amz_headers: me.xAmzHeadersAtInitiate,
-                        not_signed_headers: me.notSignedHeadersAtInitiate
+                var originalStatus = me.status,
+                    hasErrored,
+                    attempts = 0, // TODO: probably abstract this along with hasErrored
+                    success = function (xhr) {
+                        var match = xhr.response.match(/<UploadId>(.+)<\/UploadId>/);
+                        if (match && match[1]) {
+                            me.uploadId = match[1];
+                            me.awsKey = awsKey;
+                            l.d('requester success. got uploadId ', me.uploadId);
+                            makeParts();
+                            startFileProcessing();
+                        } else {
+                            error(xhr);
+                        }
                     },
-                    originalStatus = me.status,
-                    hasErrored;
+                    error = function (xhr) {
+                        if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
+                            return;
+                        }
+
+                        hasErrored = true;
+
+                        l.d('onInitiateError for FileUpload ', me.id);
+                        me.warn('Error initiating upload', getAwsResponse(xhr));
+                        setStatus(ERROR);
+
+                        xhr.abort();
+
+                        // TODO: We probably don't need the Xhr cache with promises
+                        // clearCurrentXhr(initiate);
+
+                        setTimeout(function () {
+                            if (me.status !== ABORTED && me.status !== CANCELED) {
+                                me.status = originalStatus;
+                                sendRequestUsingPromise(initiate)
+                                    .then(success, error);
+                            }
+                        }, backOffWait(attempts++));
+                    };
+
+                var initiate = {
+                    method: 'POST',
+                    path: getPath() + '?uploads',
+                    step: 'initiate',
+                    x_amz_headers: me.xAmzHeadersAtInitiate,
+                    not_signed_headers: me.notSignedHeadersAtInitiate
+                };
 
                 if (me.contentType) {
                     initiate.contentType = me.contentType;
                 }
 
-                initiate.onErr = function (xhr) {
-                    if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
-                        return;
-                    }
-
-                    hasErrored = true;
-
-                    l.d('onInitiateError for FileUpload ', me.id);
-                    me.warn('Error initiating upload', getAwsResponse(xhr));
-                    setStatus(ERROR);
-
-                    xhr.abort();
-
-                    clearCurrentXhr(initiate);
-
-                    setTimeout(function () {
-                        if (me.status !== ABORTED && me.status !== CANCELED) {
-                            me.status = originalStatus;
-                            initiateUpload(awsKey);
-                        }
-                    }, backOffWait(countInitiateAttempts++));
-                };
-
-                initiate.on200 = function (xhr) {
-
-                    var match = xhr.response.match(/<UploadId>(.+)<\/UploadId>/);
-                    if (match && match[1]) {
-                        me.uploadId = match[1];
-                        me.awsKey = awsKey;
-                        l.d('requester success. got uploadId ', me.uploadId);
-                        makeParts();
-                        startFileProcessing();
-                    } else {
-                        initiate.onErr(xhr);
-                    }
-                };
-
-                setupRequest(initiate);
-                authorizedSend(initiate);
-
                 monitorProgress();
-            }
 
+                sendRequestUsingPromise(initiate)
+                    .then(success, error);
+            }
 
             function uploadPart(partNumber) {  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
                 var backOff, hasErrored, upload, part;
