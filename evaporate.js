@@ -1397,15 +1397,19 @@
                 }
 
                 function authResolve(xhr) {
-                    var payload = signResponse(xhr.response);
-                    clearCurrentXhr(requester);
-                    if (con.awsSignatureVersion === '2' && payload.length !== 28) {
-                        warnMsg(xhr, 'payload.length !== 28');
-                        promise.reject(xhr);
+                    if (con.awsLambda) {
+                        authorizedSignWithLambda(requester);
                     } else {
-                        l.d('authorizedSend got signature for:', requester.step, '- signature:', payload);
-                        requester.auth = payload;
-                        sendSignedRequest();
+                        var payload = signResponse(xhr.response);
+                        clearCurrentXhr(requester);
+                        if (con.awsSignatureVersion === '2' && payload.length !== 28) {
+                            warnMsg(xhr, 'payload.length !== 28');
+                            promise.reject(xhr);
+                        } else {
+                            l.d('authorizedSend got signature for:', requester.step, '- signature:', payload);
+                            requester.auth = payload;
+                            sendSignedRequest();
+                        }
                     }
                 }
 
@@ -1551,11 +1555,6 @@
                 var promise = new Promise();
 
                 l.d('authorizedSend()', authRequester.step);
-
-                if (con.awsLambda) {
-                    // TODO: handle promise here?
-                    return authorizedSignWithLambda(authRequester);
-                }
 
                 var xhr = assignCurrentXhr(authRequester),
                     stringToSign = stringToSignMethod(authRequester),
