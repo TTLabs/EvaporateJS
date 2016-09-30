@@ -1289,6 +1289,146 @@
                 clearInterval(progressPartsInterval);
             }
 
+            function sendRequestUsingPromise(requester) {
+                var promise = new Promise();
+
+                requester.getPayload = function () {
+                    return requester.toSend ? requester.toSend() : null;
+                };
+
+                requester.getPayloadSha256Content = function () {
+                    var result = requester.contentSha256 || con.cryptoHexEncodedHash256(requester.getPayload() || '');
+                    l.d('getPayloadSha256Content', result);
+                    return result;
+                };
+
+                l.d('setupRequest()',requester);
+
+                var datetime = con.timeUrl ? new Date(new Date().getTime() + localTimeOffset) : new Date();
+                if (con.awsSignatureVersion === '4') {
+                    requester.dateString = datetime.toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
+                } else {
+                    requester.dateString = datetime.toUTCString();
+                }
+
+                requester.x_amz_headers = extend(requester.x_amz_headers, {
+                    'x-amz-date': requester.dateString
+                });
+
+                function sendSignedRequest() {
+
+                    // TODO: this doesn't deal with promises
+                    if (hasCurrentXhr(requester)) {
+                        var msg = ['onGotAuth() step #', requester.step, 'is already in progress. Returning.'].join(" ");
+                        l.d(msg);
+                        l.w(msg);
+                        return;
+                    }
+
+                    function success_status(xhr) {
+                        return xhr.status >= 200 && xhr.status <= 299;
+                    }
+
+                    var xhr = assignCurrentXhr(requester);
+
+                    var payload = requester.getPayload(),
+                        url = AWS_URL + requester.path,
+                        all_headers = {};
+
+                    if (requester.query_string) {
+                        url += requester.query_string;
+                    }
+                    extend(all_headers, requester.not_signed_headers);
+                    extend(all_headers, requester.x_amz_headers);
+
+                    if (con.simulateErrors && requester.attempts === 1 && requester.step === 'upload #3') {
+                        l.d('simulating error by POST part #3 to invalid url');
+                        url = 'https:///foo';
+                    }
+
+                    xhr.open(requester.method, url);
+                    xhr.setRequestHeader('Authorization', authorizationMethod(requester));
+
+                    for (var key in all_headers) {
+                        if (all_headers.hasOwnProperty(key)) {
+                            xhr.setRequestHeader(key, all_headers[key]);
+                        }
+                    }
+
+                    if (con.awsSignatureVersion === '4') {
+                        xhr.setRequestHeader("x-amz-content-sha256", requester.getPayloadSha256Content());
+                    }
+
+                    if (requester.contentType) {
+                        xhr.setRequestHeader('Content-Type', requester.contentType);
+                    }
+
+                    if (requester.md5_digest) {
+                        xhr.setRequestHeader('Content-MD5', requester.md5_digest);
+                    }
+                    xhr.onreadystatechange = function () {
+                        if (xhr.readyState === 4) {
+
+                            if (payload) {
+                                // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
+                                // Need to refer to the payload to keep it from being GC'd...sad.
+                                l.d('  ###', payload.size);
+                            }
+                            promise[success_status(xhr) ? 'resolve' : 'reject'](xhr);
+
+                            if (xhr.status === 0) {
+                                xhr.onreadystatechange = function () {};
+                                xhr.abort();
+                            }
+
+                            clearCurrentXhr(requester);
+                        }
+                    };
+
+                    xhr.onerror = function () {
+                        promise.reject(xhr, true);
+                        clearCurrentXhr(requester);
+                    };
+
+                    if (typeof requester.onProgress === 'function') {
+                        xhr.upload.onprogress = function (evt) {
+                            requester.onProgress(evt);
+                        };
+                    }
+                    xhr.send(payload);
+                }
+
+                function authResolve(xhr) {
+                    var payload = signResponse(xhr.response);
+                    clearCurrentXhr(requester);
+                    if (con.awsSignatureVersion === '2' && payload.length !== 28) {
+                        warnMsg(xhr, 'payload.length !== 28');
+                        promise.reject(xhr);
+                    } else {
+                        l.d('authorizedSend got signature for:', requester.step, '- signature:', payload);
+                        requester.auth = payload;
+                        sendSignedRequest();
+                    }
+                }
+
+                function authReject(xhr, msg) {
+                    me.error('Error onFailedAuth for step: ' + requester.step);
+                    warnMsg(xhr, msg || 'onerror');
+                    promise.reject(xhr);
+                }
+
+                function warnMsg(xhr, srcMsg) {
+                    var a = ['failed to get authorization (', srcMsg, ') for', requester.step, '-  xhr.status:', xhr.status, '.-  xhr.response:', xhr.response].join(" ");
+                    l.w(a);
+                    me.warn(a);
+                }
+
+                authorizedSendUsingPromise(requester)
+                    .then(authResolve, authReject);
+
+                return promise;
+            }
+
             function setupRequest(requester) {
                 requester.getPayload = function () {
                     return requester.toSend ? requester.toSend() : null;
@@ -1401,6 +1541,74 @@
                     };
             }
 
+
+            //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
+            function authorizedSendUsingPromise(authRequester) {
+                // TODO: Address use of Promise here
+                if (hasCurrentXhr(authRequester)) {
+                    l.w('authorizedSend() step', authRequester.step, 'is already in progress. Returning.');
+                    return;
+                }
+
+                var promise = new Promise();
+
+                l.d('authorizedSend()', authRequester.step);
+
+                if (con.awsLambda) {
+                    // TODO: handle promise here?
+                    return authorizedSignWithLambda(authRequester);
+                }
+
+                var xhr = assignCurrentXhr(authRequester),
+                    stringToSign = stringToSignMethod(authRequester),
+                    url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
+
+                if (typeof con.signerUrl === 'undefined') {
+                    authRequester.auth = signResponse(null, stringToSign, authRequester.dateString);
+                    clearCurrentXhr(authRequester);
+                    // TODO: Is this correct?
+                    return promise;
+                }
+
+                var signParams = makeSignParamsObject(me.signParams);
+                for (var param in signParams) {
+                    if (!signParams.hasOwnProperty(param)) { continue; }
+                    url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
+                }
+
+                if (con.xhrWithCredentials) {
+                    xhr.withCredentials = true;
+                }
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+
+                        if (xhr.status === 200) {
+                            promise.resolve(xhr);
+                        } else {
+                            promise.reject(xhr, 'readyState===4')
+                        }
+                    }
+                };
+
+                xhr.onerror = function (msg) {
+                    promise.reject(xhr, msg);
+                };
+
+                xhr.open('GET', url);
+                var signHeaders = makeSignParamsObject(con.signHeaders);
+                for (var header in signHeaders) {
+                    if (!signHeaders.hasOwnProperty(header)) { continue; }
+                    xhr.setRequestHeader(header, signHeaders[header])
+                }
+
+                if (typeof me.beforeSigner  === 'function') {
+                    me.beforeSigner(xhr, url);
+                }
+                xhr.send();
+
+                return promise;
+            }
 
             //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
             function authorizedSend(authRequester) {
