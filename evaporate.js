@@ -1543,16 +1543,14 @@
 
                 if (con.awsLambda) {
                     authorizedSignWithLambda(authRequester);
-                    promise.resolve(new XMLHttpRequest());
-                    return promise;
+                    return promise.resolve(new XMLHttpRequest());
                 }
 
                 var stringToSign = stringToSignMethod(authRequester);
 
                 if (typeof con.signerUrl === 'undefined') {
                     authRequester.auth = signResponse(null, stringToSign, authRequester.dateString);
-                    promise.resolve(new XMLHttpRequest());
-                    return promise;
+                    return promise.resolve(new XMLHttpRequest());
                 }
 
                 var xhr = assignCurrentXhr(authRequester),
