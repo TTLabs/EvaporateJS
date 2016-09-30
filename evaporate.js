@@ -398,7 +398,6 @@
 
         function FileUpload(file, con) {
             var me = this, s3Parts = [], partsOnS3 = [], partsToUpload = [], progressTotalInterval, progressPartsInterval, countUploadAttempts = 0,
-                countCompleteAttempts = 0,
                 partsInProcess = [], fileTotalBytesUploaded = 0;
             extend(me, file);
 
@@ -749,13 +748,43 @@
 
             function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
 
+                var completeDoc = [],
+                    originalStatus = me.status,
+                    hasErrored,
+                    attempts = 0, // TODO: probably abstract this along with hasErrored
+                    success = function (xhr) {
+                        var oDOM = parseXml(xhr.responseText),
+                            result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
+                        me.eTag = nodeValue(result, "ETag");
+                        me.complete(xhr, me.name);
+                        completeUploadFile();
+                    },
+                    error = function (xhr) {
+                        if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
+                            return;
+                        }
+
+                        hasErrored = true;
+
+                        var msg = 'Error completing upload.';
+                        l.w(msg, getAwsResponse(xhr));
+                        me.error(msg);
+                        setStatus(ERROR);
+
+                        xhr.abort();
+
+                        setTimeout(function () {
+                            if (me.status !== ABORTED && me.status !== CANCELED) {
+                                me.status = originalStatus;
+                                sendRequestUsingPromise(complete)
+                                    .then(success, error);
+                            }
+                        }, backOffWait(attempts++));
+                    };
+
                 l.d('completeUpload');
                 me.info('will attempt to complete upload');
                 stopMonitorProgress();
-
-                var completeDoc = [],
-                    originalStatus = me.status,
-                    hasErrored;
 
                 completeDoc.push('<CompleteMultipartUpload>');
                 s3Parts.forEach(function (part, partNumber) {
@@ -773,42 +802,12 @@
                     step: 'complete'
                 };
 
-                complete.onErr = function (xhr) {
-                    if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
-                        return;
-                    }
-
-                    hasErrored = true;
-
-                    var msg = 'Error completing upload.';
-                    l.w(msg, getAwsResponse(xhr));
-                    me.error(msg);
-                    setStatus(ERROR);
-
-                    xhr.abort();
-
-                    setTimeout(function () {
-                        if (me.status !== ABORTED && me.status !== CANCELED) {
-                            me.status = originalStatus;
-                            completeUpload();
-                        }
-                    }, backOffWait(countCompleteAttempts++));
-                };
-
-                complete.on200 = function (xhr) {
-                    var oDOM = parseXml(xhr.responseText),
-                        result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
-                    me.eTag = nodeValue(result, "ETag");
-                    me.complete(xhr, me.name);
-                    completeUploadFile();
-                };
-
                 complete.toSend = function () {
                     return completeDoc.join("");
                 };
 
-                setupRequest(complete);
-                authorizedSend(complete);
+                sendRequestUsingPromise(complete)
+                    .then(success, error);
             }
 
             function headObject(awsKey) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
