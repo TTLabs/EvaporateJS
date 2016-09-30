@@ -913,6 +913,16 @@
                     return;
                 }
 
+                var success = function () {
+                        setStatus(ABORTED);
+                        checkForParts();
+                    },
+                    error = function () {
+                        var msg = 'Error aborting upload.';
+                        l.w(msg);
+                        me.error(msg);
+                    };
+
                 var abort = {
                     method: 'DELETE',
                     path: getPath() + '?uploadId=' + me.uploadId,
@@ -920,19 +930,8 @@
                     step: 'abort'
                 };
 
-                abort.onErr = function () {
-                    var msg = 'Error aborting upload.';
-                    l.w(msg);
-                    me.error(msg);
-                };
-
-                abort.on200 = function () {
-                    setStatus(ABORTED);
-                    checkForParts();
-                };
-
-                setupRequest(abort);
-                authorizedSend(abort);
+                sendRequestUsingPromise(abort)
+                    .then(success, error);
             }
 
             function checkForParts() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
