@@ -568,8 +568,7 @@
 
                         xhr.abort();
 
-                        // TODO: We probably don't need the Xhr cache with promises
-                        // clearCurrentXhr(initiate);
+                        clearCurrentXhr(initiate);
 
                         setTimeout(function () {
                             if (me.status !== ABORTED && me.status !== CANCELED) {
@@ -1314,8 +1313,6 @@
                 });
 
                 function sendSignedRequest() {
-
-                    // TODO: this doesn't deal with promises
                     if (hasCurrentXhr(requester)) {
                         var msg = ['onGotAuth() step #', requester.step, 'is already in progress. Returning.'].join(" ");
                         l.d(msg);
@@ -1396,21 +1393,10 @@
                     xhr.send(payload);
                 }
 
-                function authResolve(xhr) {
-                    if (con.awsLambda) {
-                        authorizedSignWithLambda(requester);
-                    } else {
-                        var payload = signResponse(xhr.response);
-                        clearCurrentXhr(requester);
-                        if (con.awsSignatureVersion === '2' && payload.length !== 28) {
-                            warnMsg(xhr, 'payload.length !== 28');
-                            promise.reject(xhr);
-                        } else {
-                            l.d('authorizedSend got signature for:', requester.step, '- signature:', payload);
-                            requester.auth = payload;
-                            sendSignedRequest();
-                        }
-                    }
+                function authResolve() {
+                    clearCurrentXhr(requester);
+                    l.d('authorizedSend got signature for:', requester.step, '- signature:', requester.auth);
+                    sendSignedRequest();
                 }
 
                 function authReject(xhr, msg) {
@@ -1546,26 +1532,31 @@
 
             //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
             function authorizedSendUsingPromise(authRequester) {
-                // TODO: Address use of Promise here
+                var promise = new Promise();
+
                 if (hasCurrentXhr(authRequester)) {
                     l.w('authorizedSend() step', authRequester.step, 'is already in progress. Returning.');
-                    return;
+                    return promise;
                 }
-
-                var promise = new Promise();
 
                 l.d('authorizedSend()', authRequester.step);
 
-                var xhr = assignCurrentXhr(authRequester),
-                    stringToSign = stringToSignMethod(authRequester),
-                    url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
+                if (con.awsLambda) {
+                    authorizedSignWithLambda(authRequester);
+                    promise.resolve(new XMLHttpRequest());
+                    return promise;
+                }
+
+                var stringToSign = stringToSignMethod(authRequester);
 
                 if (typeof con.signerUrl === 'undefined') {
                     authRequester.auth = signResponse(null, stringToSign, authRequester.dateString);
-                    clearCurrentXhr(authRequester);
-                    // TODO: Is this correct?
+                    promise.resolve(new XMLHttpRequest());
                     return promise;
                 }
+
+                var xhr = assignCurrentXhr(authRequester),
+                    url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
 
                 var signParams = makeSignParamsObject(me.signParams);
                 for (var param in signParams) {
@@ -1581,6 +1572,13 @@
                     if (xhr.readyState === 4) {
 
                         if (xhr.status === 200) {
+                            var payload = signResponse(xhr.response);
+                            if (con.awsSignatureVersion === '2' && payload.length !== 28) {
+                                promise.reject(xhr, 'payload.length !== 28');
+                                return;
+                            } else {
+                                authRequester.auth = payload;
+                            }
                             promise.resolve(xhr);
                         } else {
                             promise.reject(xhr, 'readyState===4')
