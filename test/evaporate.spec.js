@@ -146,15 +146,25 @@ test('should add() two new uploads with correct config', () => {
   expect(id1).to.equal(1)
 })
 
-test.skip('should call a callback on successful add()', () => {
+test('should call a callback on successful add()', () => {
   const evaporate = new Evaporate(baseConfig)
-  const config = Object.assign({}, baseConfig, {
+  const config = Object.assign({}, baseAddConfig, {
     started: sinon.spy()
   })
-  const id = evaporate.add(baseAddConfig)
+  const id = evaporate.add(config)
 
   expect(config.started).to.have.been.called
   expect(config.started).to.have.been.calledWithExactly(id)
+})
+
+test('should call a complete callback()', () => {
+  const evaporate = new Evaporate(baseConfig)
+  const config = Object.assign({}, baseAddConfig, {
+    complete: sinon.spy()
+  })
+  evaporate.add(config)
+
+  expect(config.complete).to.have.been.called
 })
 
 // cancel
@@ -262,29 +272,4 @@ test('should call signResponseHandler() with the correct number of parameters', 
   evaporate.add(baseAddConfig)
 
   expect(evapConfig.signResponseHandler.firstCall.args.length).to.eql(3)
-})
-
-// actual requests
-
-test.cb('should correctly upload a small file', (t) => {
-  const evaporate = new Evaporate(baseConfig)
-
-  const _handleUploadStart = sinon.spy()
-
-  const _handleUploadComplete = (xhr, uploadKey) => {
-    expect(_handleUploadStart).to.have.been.called
-    expect(uploadKey).to.equal(AWS_UPLOAD_KEY)
-    t.end()
-  }
-  const _handleUploadError = (err) => {
-    t.fail(err)
-  }
-
-  const config = Object.assign({}, baseAddConfig, {
-    started: _handleUploadStart,
-    complete: _handleUploadComplete.bind(this),
-    error: _handleUploadError.bind(this)
-  })
-
-  evaporate.add(config)
 })
