@@ -1847,6 +1847,55 @@
         return code.length ? {code: code, msg: msg} : {};
     }
 
+    var Promise = function () {
+        this.state = undefined;
+        this.arguments = [];
+        this.onResolved = [];
+        this.onRejected = [];
+    };
+
+    Promise.prototype.then = function (onResolved, onRejected) {
+        if (typeof onResolved === 'function') {
+            this.onResolved.push(onResolved);
+
+            if (this.state === 1) {
+                onResolved.apply(this, this.arguments);
+            }
+        }
+
+        if (typeof onRejected === 'function') {
+            this.onRejected.push(onRejected);
+
+            if (this.state === 0) {
+                onRejected.apply(this, this.arguments);
+            }
+        }
+
+        return this;
+    };
+
+    Promise.prototype.state = undefined;
+    Promise.prototype.arguments = [];
+    Promise.prototype.onResolved = [];
+    Promise.prototype.onRejected = [];
+    Promise.setupStatus = function (state, method) {
+        return function () {
+            if (typeof this.state === 'undefined') {
+                this.state = state;
+                this.arguments = Array.prototype.slice.call(arguments);
+
+                var self = this;
+                this[method].forEach(function (f) {
+                    f.apply(this, self.arguments);
+                });
+            }
+            return this;
+        };
+    };
+
+    Promise.prototype.resolve = Promise.setupStatus(1, 'onResolved');
+    Promise.prototype.reject = Promise.setupStatus(0, 'onRejected');
+
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = Evaporate;
     } else if (typeof window !== 'undefined') {
