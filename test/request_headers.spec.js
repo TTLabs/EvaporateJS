@@ -6,7 +6,7 @@ import Evaporate from '../evaporate'
 
 import initResponse from './fixtures/init-response'
 import completeResponse from './fixtures/complete-response'
-import checkForPartsResponseNone from './fixtures/checkforparts-response-none'
+import checkForPartsResponseNone from './fixtures/listparts-response-none'
 
 
 // constants
