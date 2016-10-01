@@ -814,33 +814,31 @@
                 me.info('will attempt to verify existence of the file');
 
                 var head_object = {
-                    method: 'HEAD',
-                    path: getPath(),
-                    x_amz_headers: me.xAmzHeadersCommon,
-                    step: 'head_object'
-                };
-
-                head_object.onErr = function () {
-                    var msg = 'Error completing headObject. Will re-upload file.';
-                    l.w(msg);
-                    initiateUpload(awsKey);
-                };
-
-                head_object.on200 = function (xhr) {
-                    var eTag = xhr.getResponseHeader('Etag');
-                    if (eTag === me.eTag) {
-                        l.d('headObject found matching object on S3.');
-                        me.progress(1.0);
-                        me.complete(xhr, me.name);
-                        setStatus(COMPLETE);
-                    } else {
-                        l.d('headObject not found on S3.');
+                        method: 'HEAD',
+                        path: getPath(),
+                        x_amz_headers: me.xAmzHeadersCommon,
+                        step: 'head_object'
+                    },
+                    success = function (xhr) {
+                        var eTag = xhr.getResponseHeader('Etag');
+                        if (eTag === me.eTag) {
+                            l.d('headObject found matching object on S3.');
+                            me.progress(1.0);
+                            me.complete(xhr, me.name);
+                            setStatus(COMPLETE);
+                        } else {
+                            l.d('headObject not found on S3.');
+                            initiateUpload(awsKey);
+                        }
+                    },
+                    error = function () {
+                        var msg = 'Error completing headObject. Will re-upload file.';
+                        l.w(msg);
                         initiateUpload(awsKey);
-                    }
-                };
+                    };
 
-                setupRequest(head_object);
-                authorizedSend(head_object);
+                sendRequestUsingPromise(head_object)
+                    .then(success, error);
             }
 
             var numDigestsProcessed = 0,
@@ -996,64 +994,63 @@
                     list.path = [getPath(), '?uploadId=', me.uploadId, "&part-number-marker=" + partNumberMarker].join("");
                 }
 
-                list.onErr = function (xhr) {
-                    if (xhr.status === 404) {
-                        // Success! Upload is no longer recognized, so there is nothing to fetch
-                        me.info(['uploadId ', me.uploadId, ' does not exist.'].join(''));
-                        removeUploadFile();
-                        monitorProgress();
-                        makeParts();
-                        processPartsToUpload();
-                    } else {
-                        var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
-                        l.w(msg, getAwsResponse(xhr));
-                        me.error(msg);
-                    }
-                };
+                var success = function (xhr) {
+                        me.info('uploadId', me.uploadId, 'is not complete. Fetching parts from part marker', partNumberMarker);
+                        var oDOM = parseXml(xhr.responseText),
+                            listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
+                            isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
+                            uploadedParts = oDOM.getElementsByTagName("Part"),
+                            parts_len = uploadedParts.length,
+                            cp, partSize;
 
-                list.on200 = function (xhr) {
-                    me.info('uploadId', me.uploadId, 'is not complete. Fetching parts from part marker', partNumberMarker);
-                    var oDOM = parseXml(xhr.responseText),
-                        listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
-                        isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
-                        uploadedParts = oDOM.getElementsByTagName("Part"),
-                        parts_len = uploadedParts.length,
-                        cp, partSize;
+                        for (var i = 0; i < parts_len; i++) {
+                            cp = uploadedParts[i];
+                            partSize = parseInt(nodeValue(cp, "Size"), 10);
+                            fileTotalBytesUploaded += partSize;
+                            partsOnS3.push({
+                                eTag: nodeValue(cp, "ETag"),
+                                partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
+                                size: partSize,
+                                LastModified: nodeValue(cp, "LastModified")
+                            });
+                        }
 
-                    for (var i = 0; i < parts_len; i++) {
-                        cp = uploadedParts[i];
-                        partSize = parseInt(nodeValue(cp, "Size"), 10);
-                        fileTotalBytesUploaded += partSize;
-                        partsOnS3.push({
-                            eTag: nodeValue(cp, "ETag"),
-                            partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
-                            size: partSize,
-                            LastModified: nodeValue(cp, "LastModified")
-                        });
-                    }
+                        if (isTruncated) {
+                            var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
+                            getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
+                        } else {
+                            partsOnS3.forEach(function (cp) {
+                                var uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
+                                uploadedPart.eTag = cp.eTag;
+                                uploadedPart.attempts = 1;
+                                uploadedPart.loadedBytes = cp.size;
+                                uploadedPart.loadedBytesPrevious = cp.size;
+                                uploadedPart.finishedUploadingAt = cp.LastModified;
+                                s3Parts[cp.partNumber] = uploadedPart;
+                            });
+                            makeParts();
+                            monitorProgress();
+                            startFileProcessing();
+                        }
+                        listPartsResult = null;  // We don't need these potentially large object any longer
+                    },
+                    error = function (xhr) {
+                        if (xhr.status === 404) {
+                            // Success! Upload is no longer recognized, so there is nothing to fetch
+                            me.info(['uploadId ', me.uploadId, ' does not exist.'].join(''));
+                            removeUploadFile();
+                            monitorProgress();
+                            makeParts();
+                            processPartsToUpload();
+                        } else {
+                            var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
+                            l.w(msg, getAwsResponse(xhr));
+                            me.error(msg);
+                        }
+                    };
 
-                    if (isTruncated) {
-                        var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
-                        getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
-                    } else {
-                        partsOnS3.forEach(function (cp) {
-                            var uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
-                            uploadedPart.eTag = cp.eTag;
-                            uploadedPart.attempts = 1;
-                            uploadedPart.loadedBytes = cp.size;
-                            uploadedPart.loadedBytesPrevious = cp.size;
-                            uploadedPart.finishedUploadingAt = cp.LastModified;
-                            s3Parts[cp.partNumber] = uploadedPart;
-                        });
-                        makeParts();
-                        monitorProgress();
-                        startFileProcessing();
-                    }
-                    listPartsResult = null;  // We don't need these potentially large object any longer
-                };
-
-                setupRequest(list);
-                authorizedSend(list);
+                sendRequestUsingPromise(list)
+                    .then(success, error);
             }
 
             function makeParts() {
