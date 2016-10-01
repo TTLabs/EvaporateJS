@@ -539,11 +539,60 @@
                 processPartsToUpload();
             }
 
-            function initiateUpload(awsKey) { // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
+            function retryManager(request) {
                 var originalStatus = me.status,
-                    hasErrored,
-                    attempts = 0, // TODO: probably abstract this along with hasErrored
-                    success = function (xhr) {
+                    attempts = 0,
+                    maxRetries = request.maxRetries > -1 ? request.maxRetries : undefined;
+
+                var defaultRetriesExcededHandler = function () {
+                        var msg = 'Max number of retries exceeded. Stopping.';
+                        l.e(msg);
+                        me.error(msg);
+                    },
+                    retryRequest = function () {
+                        setTimeout(function () {
+                            if ([ABORTED, CANCELED].indexOf(me.status) === -1) {
+                                me.status = originalStatus;
+                                sendRequestUsingPromise(request)
+                                    .then(request.success, request.error || defaultErrorHandler);
+                            }
+                        }, backOffWait(attempts++));
+                    },
+                    defaultErrorHandler = function (xhr) {
+                        if (me.status === ABORTED || me.status === CANCELED) {
+                            return;
+                        }
+
+                        var awsResponse = getAwsResponse(xhr);
+                        l.w('Request error', request.step, 'attempt', attempts, 'ID', me.id, 'AwsResponse:', awsResponse);
+                        me.warn('Error initiating upload', awsResponse);
+                        setStatus(ERROR);
+
+                        xhr.abort();
+
+                        var retriesExceeded = typeof maxRetries !== 'undefined' && maxRetries > attempts;
+                        if (retriesExceeded) {
+                            var retryExceededAction = request.retriesExcededHandler || defaultRetriesExcededHandler;
+                            retryExceededAction();
+                        } else {
+                            var canRetryAction = request.canRetryAction || function () { return true; };
+                            if (canRetryAction()) {
+                                retryRequest();
+                            }
+                        }
+                    };
+
+                return sendRequestUsingPromise(request)
+                    .then(request.success, request.error || defaultErrorHandler);
+            }
+            function initiateUpload(awsKey) { // see: http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadInitiate.html
+                var initiate = {
+                    method: 'POST',
+                    path: getPath() + '?uploads',
+                    step: 'initiate',
+                    x_amz_headers: me.xAmzHeadersAtInitiate,
+                    not_signed_headers: me.notSignedHeadersAtInitiate,
+                    success: function (xhr) {
                         var match = xhr.response.match(/<UploadId>(.+)<\/UploadId>/);
                         if (match && match[1]) {
                             me.uploadId = match[1];
@@ -552,39 +601,12 @@
                             makeParts();
                             startFileProcessing();
                         } else {
-                            error(xhr);
+                            var msg = ['Unrecoverable arror. Could not parse initiate response:', xhr.response].join(' ');
+                            l.e(msg);
+                            me.error(msg);
+                            abortUpload();
                         }
-                    },
-                    error = function (xhr) {
-                        if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
-                            return;
-                        }
-
-                        hasErrored = true;
-
-                        l.d('onInitiateError for FileUpload ', me.id);
-                        me.warn('Error initiating upload', getAwsResponse(xhr));
-                        setStatus(ERROR);
-
-                        xhr.abort();
-
-                        clearCurrentXhr(initiate);
-
-                        setTimeout(function () {
-                            if (me.status !== ABORTED && me.status !== CANCELED) {
-                                me.status = originalStatus;
-                                sendRequestUsingPromise(initiate)
-                                    .then(success, error);
-                            }
-                        }, backOffWait(attempts++));
-                    };
-
-                var initiate = {
-                    method: 'POST',
-                    path: getPath() + '?uploads',
-                    step: 'initiate',
-                    x_amz_headers: me.xAmzHeadersAtInitiate,
-                    not_signed_headers: me.notSignedHeadersAtInitiate
+                    }
                 };
 
                 if (me.contentType) {
@@ -593,27 +615,13 @@
 
                 monitorProgress();
 
-                sendRequestUsingPromise(initiate)
-                    .then(success, error);
+                return retryManager(initiate);
             }
 
             function uploadPart(partNumber) {  //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadUploadPart.html
-                var backOff, hasErrored, upload, part;
+                var part = s3Parts[partNumber];
 
-                part = s3Parts[partNumber];
-
-                upload = {
-                    method: 'PUT',
-                    path: getPath() + '?partNumber=' + partNumber + '&uploadId=' + me.uploadId,
-                    step: 'upload #' + partNumber,
-                    x_amz_headers: me.xAmzHeadersCommon || me.xAmzHeadersAtUpload,
-                    md5_digest: part.md5_digest,
-                    contentSha256: "UNSIGNED-PAYLOAD",
-                    attempts: part.attempts,
-                    part: part
-                };
-
-                upload.onErr = function (xhr, isOnError) {
+                function partErrorHandler(xhr) {
                     part.loadedBytes = 0;
 
                     part.status = ERROR;
@@ -626,14 +634,13 @@
                         retirePartFromProcessing(part);
 
                         var errMsg = '404 error on part PUT. The part and the file will abort.';
-                        l.w(errMsg,' Server response: ', xhr.response);
+                        l.w(errMsg,' Server response:', xhr.response);
                         me.error(errMsg);
                         part.status = ABORTED;
                         abortUpload();
                     } else {
                         var msg = 'problem uploading part #' + partNumber + ',   http status: ' + xhr.status +
-                            ',   hasErrored: ' + !!hasErrored + ',   part status: ' + part.status +
-                            ',   readyState: ' + xhr.readyState + (isOnError ? ',   isOnError' : '');
+                            ',   part status: ' + part.status + ',   readyState: ' + xhr.readyState;
 
                         l.w(msg);
                         me.warn(msg);
@@ -645,68 +652,54 @@
 
                         xhr.abort();
 
-                        clearCurrentXhr(upload);
+                        removePartFromProcessing(part.part);
+                        processPartsToUpload();
+                    }
+                }
 
-                        if (!isOnError) {
-                            removePartFromProcessing(part.part);
+                var upload = {
+                    method: 'PUT',
+                    path: getPath() + '?partNumber=' + partNumber + '&uploadId=' + me.uploadId,
+                    step: 'upload #' + partNumber,
+                    x_amz_headers: me.xAmzHeadersCommon || me.xAmzHeadersAtUpload,
+                    md5_digest: part.md5_digest,
+                    contentSha256: "UNSIGNED-PAYLOAD",
+                    attempts: part.attempts,
+                    part: part,
+                    onProgress: function (evt) {
+                        part.loadedBytes = evt.loaded;
+                    },
+                    toSend: function () {
+                        var slice = getFilePart(me.file, part.start, part.end);
+                        l.d('part #', partNumber, '( bytes', part.start, '->', part.end, ')  reported length:', slice.size);
+                        if (!part.isEmpty && slice.size === 0) { // issue #58
+                            l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
+                        }
+                        return slice;
+                    },
+                    success: function (xhr) {
+                        var eTag = xhr.getResponseHeader('ETag'), msg;
+
+                        l.d('uploadPart 200 response for part #', partNumber, 'ETag:', eTag);
+                        if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
+                            part.eTag = eTag;
+                            part.status = COMPLETE;
+
+                            partsOnS3.push(part);
+                            fileTotalBytesUploaded += part.loadedBytes;
+                            retirePartFromProcessing(part);
                             processPartsToUpload();
+                        } else {
+                            msg = ['eTag matches MD5 of 0 length blob for part #', partNumber, 'Retrying part.'].join(" ");
+                            l.w(msg);
+                            me.warn(msg);
+                            partErrorHandler(xhr);
                         }
-
-                        if (hasErrored) {
-                            return;
-                        }
-                        hasErrored = true;
-                    }
-
+                    },
+                    error: partErrorHandler
                 };
 
-                upload.on200 = function (xhr) {
-
-                    var eTag = xhr.getResponseHeader('ETag'), msg;
-
-                    l.d('uploadPart 200 response for part #', partNumber, 'ETag:', eTag);
-                    if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
-                        part.eTag = eTag;
-                        part.status = COMPLETE;
-
-                        partsOnS3.push(part);
-                        fileTotalBytesUploaded += part.loadedBytes;
-                        retirePartFromProcessing(part);
-                    } else {
-                        part.status = ERROR;
-                        part.loadedBytes = 0;
-                        msg = ['eTag matches MD5 of 0 length blob for part #', partNumber, 'Retrying part.'].join(" ");
-                        l.w(msg);
-                        me.warn(msg);
-                        removePartFromProcessing(part.part)
-                    }
-                    processPartsToUpload();
-                };
-
-                upload.onProgress = function (evt) {
-                    part.loadedBytes = evt.loaded;
-                };
-
-                upload.toSend = function () {
-                    var slice = getFilePart(me.file, part.start, part.end);
-                    l.d('part #', partNumber, '( bytes', part.start, '->', part.end, ')  reported length:', slice.size);
-                    if (!part.isEmpty && slice.size === 0) { // issue #58
-                        l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
-                    }
-                    return slice;
-                };
-
-                upload.onFailedAuth = function () {
-                    var msg = ['onFailedAuth for uploadPart #', partNumber, '- Will set status to ERROR'].join(" ");
-                    l.w(msg);
-                    me.warn(msg);
-                    part.status = ERROR;
-                    part.loadedBytes = 0;
-                    removePartFromProcessing(partNumber);
-                    processPartsToUpload();
-                };
-
-                backOff = backOffWait(part.attempts);
+                var backOff = backOffWait(part.attempts);
                 l.d('uploadPart #', partNumber, '- will wait', backOff, 'ms before',
                     part.attempts === 0 ? 'submitting' : 'retrying');
 
@@ -721,12 +714,10 @@
 
                         countUploadAttempts += 1;
 
-                        setupRequest(upload);
-
-                        clearCurrentXhr(upload);
-                        addPartToProcessing(part);
-                        authorizedSend(upload);
                         l.d('upload #', partNumber, upload);
+                        addPartToProcessing(part);
+                        sendRequestUsingPromise(upload)
+                            .then(upload.success, upload.error);
                     }
                 }, backOff);
 
@@ -747,39 +738,7 @@
 
             function completeUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
 
-                var completeDoc = [],
-                    originalStatus = me.status,
-                    hasErrored,
-                    attempts = 0, // TODO: probably abstract this along with hasErrored
-                    success = function (xhr) {
-                        var oDOM = parseXml(xhr.responseText),
-                            result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
-                        me.eTag = nodeValue(result, "ETag");
-                        me.complete(xhr, me.name);
-                        completeUploadFile();
-                    },
-                    error = function (xhr) {
-                        if (hasErrored || me.status === ABORTED || me.status === CANCELED) {
-                            return;
-                        }
-
-                        hasErrored = true;
-
-                        var msg = 'Error completing upload.';
-                        l.w(msg, getAwsResponse(xhr));
-                        me.error(msg);
-                        setStatus(ERROR);
-
-                        xhr.abort();
-
-                        setTimeout(function () {
-                            if (me.status !== ABORTED && me.status !== CANCELED) {
-                                me.status = originalStatus;
-                                sendRequestUsingPromise(complete)
-                                    .then(success, error);
-                            }
-                        }, backOffWait(attempts++));
-                    };
+                var completeDoc = [];
 
                 l.d('completeUpload');
                 me.info('will attempt to complete upload');
@@ -798,15 +757,20 @@
                     contentType: 'application/xml; charset=UTF-8',
                     path: getPath() + '?uploadId=' + me.uploadId,
                     x_amz_headers: me.xAmzHeadersCommon || me.xAmzHeadersAtComplete,
-                    step: 'complete'
+                    step: 'complete',
+                    toSend: function () {
+                        return completeDoc.join("");
+                    },
+                    success: function (xhr) {
+                        var oDOM = parseXml(xhr.responseText),
+                            result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
+                        me.eTag = nodeValue(result, "ETag");
+                        me.complete(xhr, me.name);
+                        completeUploadFile();
+                    }
                 };
 
-                complete.toSend = function () {
-                    return completeDoc.join("");
-                };
-
-                sendRequestUsingPromise(complete)
-                    .then(success, error);
+                return retryManager(complete);
             }
 
             function headObject(awsKey) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -817,28 +781,28 @@
                         method: 'HEAD',
                         path: getPath(),
                         x_amz_headers: me.xAmzHeadersCommon,
-                        step: 'head_object'
-                    },
-                    success = function (xhr) {
-                        var eTag = xhr.getResponseHeader('Etag');
-                        if (eTag === me.eTag) {
-                            l.d('headObject found matching object on S3.');
-                            me.progress(1.0);
-                            me.complete(xhr, me.name);
-                            setStatus(COMPLETE);
-                        } else {
-                            l.d('headObject not found on S3.');
+                        step: 'head_object',
+                        success: function (xhr) {
+                            var eTag = xhr.getResponseHeader('Etag');
+                            if (eTag === me.eTag) {
+                                l.d('headObject found matching object on S3.');
+                                me.progress(1.0);
+                                me.complete(xhr, me.name);
+                                setStatus(COMPLETE);
+                            } else {
+                                l.d('headObject not found on S3.');
+                                initiateUpload(awsKey);
+                            }
+                        },
+                        maxRetries: 2,
+                        retriesExcededHandler: function () {
+                            var msg = 'Max retries exceeding trying ot HEAD Object. Will re-upload file.';
+                            l.w(msg);
                             initiateUpload(awsKey);
                         }
-                    },
-                    error = function () {
-                        var msg = 'Error completing headObject. Will re-upload file.';
-                        l.w(msg);
-                        initiateUpload(awsKey);
                     };
 
-                sendRequestUsingPromise(head_object)
-                    .then(success, error);
+                return retryManager(head_object);
             }
 
             var numDigestsProcessed = 0,
@@ -899,7 +863,6 @@
             }
 
             function abortUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
-
                 l.d('abortUpload');
                 me.info('will attempt to abort the upload');
 
@@ -910,25 +873,24 @@
                     return;
                 }
 
-                var success = function () {
-                        setStatus(ABORTED);
-                        checkForParts();
-                    },
-                    error = function () {
-                        var msg = 'Error aborting upload.';
-                        l.w(msg);
-                        me.error(msg);
-                    };
-
                 var abort = {
                     method: 'DELETE',
                     path: getPath() + '?uploadId=' + me.uploadId,
                     x_amz_headers: me.xAmzHeadersCommon,
-                    step: 'abort'
+                    step: 'abort',
+                    success: function () {
+                        setStatus(ABORTED);
+                        checkForParts();
+                    },
+                    maxRetries: 2,
+                    retriesExcededHandler: function () {
+                        var msg = 'Max retries exceeding trying to delete the upload.';
+                        l.w(msg);
+                        me.error(msg);
+                    }
                 };
 
-                sendRequestUsingPromise(abort)
-                    .then(success, error);
+                return retryManager(abort);
             }
 
             function checkForParts() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
@@ -940,39 +902,39 @@
                     method: 'GET',
                     path: getPath() + '?uploadId=' + me.uploadId,
                     x_amz_headers: me.xAmzHeadersCommon,
-                    step: 'list'
-                };
-
-                var success = function (xhr) {
-                        var oDOM = parseXml(xhr.responseText);
-                        var domParts = oDOM.getElementsByTagName("Part");
-                        if (domParts.length) { // Some parts are still uploading
-                            l.d('Parts still found after abort...waiting.');
-                            setTimeout(function () { abortUpload(); }, 1000);
-                        } else {
-                            fileTotalBytesUploaded = 0;
-                            me.info('upload canceled');
-                        }
-                    },
-                    error = function (xhr) {
+                    step: 'list',
+                    notFoundSuccess: true,
+                    success: function (xhr) {
                         if (xhr.status === 404) {
                             // Success! Parts are not found because the uploadid has been cleared
+                            setStatus(ABORTED);
                             removeUploadFile();
                             me.info('upload canceled');
                             fileTotalBytesUploaded = 0;
                         } else {
-                            var msg = 'Error listing parts.';
-                            l.w(msg, getAwsResponse(xhr));
-                            me.error(msg);
+                            var oDOM = parseXml(xhr.responseText);
+                            var domParts = oDOM.getElementsByTagName("Part");
+                            if (domParts.length) { // Some parts are still uploading
+                                l.d('Parts still found after abort...waiting.');
+                                setTimeout(function () { abortUpload(); }, 1000);
+                            } else {
+                                fileTotalBytesUploaded = 0;
+                                me.info('upload canceled');
+                            }
                         }
+                    },
+                    maxRetries: 2,
+                    error: function (xhr) {
+                        var msg = 'Error listing parts.';
+                        l.w(msg, getAwsResponse(xhr));
+                        me.error(msg);
                         evaporatingCount = 0;
                         con.evaporateChanged(me, evaporatingCount)
-                    };
+                    }
+                };
 
-                sendRequestUsingPromise(list)
-                    .then(success, error);
+                return retryManager(list);
             }
-
 
             function getUploadParts(partNumberMarker) { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
 
@@ -987,70 +949,62 @@
                     path: getPath() + '?uploadId=' + me.uploadId,
                     query_string: "&part-number-marker=" + partNumberMarker,
                     x_amz_headers: me.xAmzHeadersCommon,
-                    step: 'get upload parts'
+                    step: 'get upload parts',
+                    notFoundSuccess: true,
+                    success: function (xhr) {
+                        if (xhr.status === 404) {
+                            // Success! Upload is no longer recognized, so there is nothing to fetch
+                            me.info(['uploadId ', me.uploadId, ' does not exist.'].join(''));
+                            removeUploadFile();
+                        } else {
+                            me.info('uploadId', me.uploadId, 'is not complete. Fetching parts from part marker', partNumberMarker);
+                            var oDOM = parseXml(xhr.responseText),
+                                listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
+                                isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
+                                uploadedParts = oDOM.getElementsByTagName("Part"),
+                                parts_len = uploadedParts.length,
+                                cp, partSize;
+
+                            for (var i = 0; i < parts_len; i++) {
+                                cp = uploadedParts[i];
+                                partSize = parseInt(nodeValue(cp, "Size"), 10);
+                                fileTotalBytesUploaded += partSize;
+                                partsOnS3.push({
+                                    eTag: nodeValue(cp, "ETag"),
+                                    partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
+                                    size: partSize,
+                                    LastModified: nodeValue(cp, "LastModified")
+                                });
+                            }
+
+                            if (isTruncated) {
+                                var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
+                                listPartsResult = null;  // We don't need these potentially large object any longer
+                                getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
+                                return;
+                            } else {
+                                partsOnS3.forEach(function (cp) {
+                                    var uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
+                                    uploadedPart.eTag = cp.eTag;
+                                    uploadedPart.attempts = 1;
+                                    uploadedPart.loadedBytes = cp.size;
+                                    uploadedPart.loadedBytesPrevious = cp.size;
+                                    uploadedPart.finishedUploadingAt = cp.LastModified;
+                                    s3Parts[cp.partNumber] = uploadedPart;
+                                });
+                            }
+                            makeParts();
+                            monitorProgress();
+                            startFileProcessing();
+                        }
+                    }
                 };
 
                 if (con.awsSignatureVersion === '4') {
                     list.path = [getPath(), '?uploadId=', me.uploadId, "&part-number-marker=" + partNumberMarker].join("");
                 }
 
-                var success = function (xhr) {
-                        me.info('uploadId', me.uploadId, 'is not complete. Fetching parts from part marker', partNumberMarker);
-                        var oDOM = parseXml(xhr.responseText),
-                            listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
-                            isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
-                            uploadedParts = oDOM.getElementsByTagName("Part"),
-                            parts_len = uploadedParts.length,
-                            cp, partSize;
-
-                        for (var i = 0; i < parts_len; i++) {
-                            cp = uploadedParts[i];
-                            partSize = parseInt(nodeValue(cp, "Size"), 10);
-                            fileTotalBytesUploaded += partSize;
-                            partsOnS3.push({
-                                eTag: nodeValue(cp, "ETag"),
-                                partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
-                                size: partSize,
-                                LastModified: nodeValue(cp, "LastModified")
-                            });
-                        }
-
-                        if (isTruncated) {
-                            var nextPartNumberMarker = nodeValue(listPartsResult, "NextPartNumberMarker");
-                            getUploadParts(nextPartNumberMarker); // let's fetch the next set of parts
-                        } else {
-                            partsOnS3.forEach(function (cp) {
-                                var uploadedPart = makePart(cp.partNumber, COMPLETE, cp.size);
-                                uploadedPart.eTag = cp.eTag;
-                                uploadedPart.attempts = 1;
-                                uploadedPart.loadedBytes = cp.size;
-                                uploadedPart.loadedBytesPrevious = cp.size;
-                                uploadedPart.finishedUploadingAt = cp.LastModified;
-                                s3Parts[cp.partNumber] = uploadedPart;
-                            });
-                            makeParts();
-                            monitorProgress();
-                            startFileProcessing();
-                        }
-                        listPartsResult = null;  // We don't need these potentially large object any longer
-                    },
-                    error = function (xhr) {
-                        if (xhr.status === 404) {
-                            // Success! Upload is no longer recognized, so there is nothing to fetch
-                            me.info(['uploadId ', me.uploadId, ' does not exist.'].join(''));
-                            removeUploadFile();
-                            monitorProgress();
-                            makeParts();
-                            processPartsToUpload();
-                        } else {
-                            var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
-                            l.w(msg, getAwsResponse(xhr));
-                            me.error(msg);
-                        }
-                    };
-
-                sendRequestUsingPromise(list)
-                    .then(success, error);
+                return retryManager(list);
             }
 
             function makeParts() {
@@ -1309,15 +1263,9 @@
                 });
 
                 function sendSignedRequest() {
-                    if (hasCurrentXhr(requester)) {
-                        var msg = ['onGotAuth() step #', requester.step, 'is already in progress. Returning.'].join(" ");
-                        l.d(msg);
-                        l.w(msg);
-                        return;
-                    }
 
                     function success_status(xhr) {
-                        return xhr.status >= 200 && xhr.status <= 299;
+                        return (xhr.status >= 200 && xhr.status <= 299) || (requester.notFoundSuccess && xhr.status === 404);
                     }
 
                     var xhr = assignCurrentXhr(requester);
@@ -1365,20 +1313,15 @@
                                 // Need to refer to the payload to keep it from being GC'd...sad.
                                 l.d('  ###', payload.size);
                             }
-                            promise[success_status(xhr) ? 'resolve' : 'reject'](xhr);
 
-                            if (xhr.status === 0) {
-                                xhr.onreadystatechange = function () {};
-                                xhr.abort();
+                            if (success_status(xhr)) {
+                                promise.resolve(xhr);
                             }
-
-                            clearCurrentXhr(requester);
                         }
                     };
 
                     xhr.onerror = function () {
-                        promise.reject(xhr, true);
-                        clearCurrentXhr(requester);
+                        promise.reject(xhr);
                     };
 
                     if (typeof requester.onProgress === 'function') {
@@ -1390,14 +1333,13 @@
                 }
 
                 function authResolve() {
-                    clearCurrentXhr(requester);
                     l.d('authorizedSend got signature for:', requester.step, '- signature:', requester.auth);
                     sendSignedRequest();
                 }
 
-                function authReject(xhr, msg) {
+                function authReject(xhr) {
                     me.error('Error onFailedAuth for step: ' + requester.step);
-                    warnMsg(xhr, msg || 'onerror');
+                    warnMsg(xhr, 'Authorization request error');
                     promise.reject(xhr);
                 }
 
@@ -1413,133 +1355,15 @@
                 return promise;
             }
 
-            function setupRequest(requester) {
-                requester.getPayload = function () {
-                    return requester.toSend ? requester.toSend() : null;
-                };
-
-                requester.getPayloadSha256Content = function () {
-                    var result = requester.contentSha256 || con.cryptoHexEncodedHash256(requester.getPayload() || '');
-                    l.d('getPayloadSha256Content', result);
-                    return result;
-                };
-
-                l.d('setupRequest()',requester);
-
-                var datetime = con.timeUrl ? new Date(new Date().getTime() + localTimeOffset) : new Date();
-                if (con.awsSignatureVersion === '4') {
-                    requester.dateString = datetime.toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
-                } else {
-                    requester.dateString = datetime.toUTCString();
-                }
-
-                requester.x_amz_headers = extend(requester.x_amz_headers, {
-                    'x-amz-date': requester.dateString
-                });
-
-                requester.onGotAuth = function () {
-
-                    if (hasCurrentXhr(requester)) {
-                        var msg = ['onGotAuth() step #', requester.step, 'is already in progress. Returning.'].join(" ");
-                        l.d(msg);
-                        l.w(msg);
-                        return;
-                    }
-
-                    function success_status(xhr) {
-                        return xhr.status >= 200 && xhr.status <= 299;
-                    }
-
-                    var xhr = assignCurrentXhr(requester);
-
-                    var payload = requester.getPayload(),
-                        url = AWS_URL + requester.path,
-                        all_headers = {};
-
-                    if (requester.query_string) {
-                        url += requester.query_string;
-                    }
-                    extend(all_headers, requester.not_signed_headers);
-                    extend(all_headers, requester.x_amz_headers);
-
-                    if (con.simulateErrors && requester.attempts === 1 && requester.step === 'upload #3') {
-                        l.d('simulating error by POST part #3 to invalid url');
-                        url = 'https:///foo';
-                    }
-
-                    xhr.open(requester.method, url);
-                    xhr.setRequestHeader('Authorization', authorizationMethod(requester));
-
-                    for (var key in all_headers) {
-                        if (all_headers.hasOwnProperty(key)) {
-                            xhr.setRequestHeader(key, all_headers[key]);
-                        }
-                    }
-
-                    if (con.awsSignatureVersion === '4') {
-                        xhr.setRequestHeader("x-amz-content-sha256", requester.getPayloadSha256Content());
-                    }
-
-                    if (requester.contentType) {
-                        xhr.setRequestHeader('Content-Type', requester.contentType);
-                    }
-
-                    if (requester.md5_digest) {
-                        xhr.setRequestHeader('Content-MD5', requester.md5_digest);
-                    }
-                    xhr.onreadystatechange = function () {
-                        if (xhr.readyState === 4) {
-
-                            if (payload) {
-                                // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-                                // Need to refer to the payload to keep it from being GC'd...sad.
-                                l.d('  ###', payload.size);
-                            }
-                            requester[success_status(xhr) ? 'on200' : 'onErr'](xhr);
-
-                            if (xhr.status === 0) {
-                                xhr.onreadystatechange = function () {};
-                                xhr.abort();
-                            }
-
-                            clearCurrentXhr(requester);
-                        }
-                    };
-
-                    xhr.onerror = function () {
-                        requester.onErr(xhr, true);
-                        clearCurrentXhr(requester);
-                    };
-
-                    if (typeof requester.onProgress === 'function') {
-                        xhr.upload.onprogress = function (evt) {
-                            requester.onProgress(evt);
-                        };
-                    }
-                    xhr.send(payload);
-                };
-
-                requester.onFailedAuth = requester.onFailedAuth || function (xhr) {
-                        me.error('Error onFailedAuth for step: ' + requester.step);
-                        requester.onErr(xhr);
-                    };
-            }
-
-
             //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
             function authorizedSendUsingPromise(authRequester) {
                 var promise = new Promise();
 
-                if (hasCurrentXhr(authRequester)) {
-                    l.w('authorizedSend() step', authRequester.step, 'is already in progress. Returning.');
-                    return promise;
-                }
-
                 l.d('authorizedSend()', authRequester.step);
 
                 if (con.awsLambda) {
-                    authorizedSignWithLambda(authRequester);
-                    return promise.resolve(new XMLHttpRequest());
+                    authorizedSignWithLambda(authRequester, promise);
+                    return promise;
                 }
 
                 var stringToSign = stringToSignMethod(authRequester);
@@ -1568,20 +1392,21 @@
                         if (xhr.status === 200) {
                             var payload = signResponse(xhr.response);
                             if (con.awsSignatureVersion === '2' && payload.length !== 28) {
-                                promise.reject(xhr, 'payload.length !== 28');
+                                l.e('V2 Signature length !== 28');
+                                promise.reject(xhr);
                                 return;
                             } else {
                                 authRequester.auth = payload;
                             }
                             promise.resolve(xhr);
                         } else {
-                            promise.reject(xhr, 'readyState===4')
+                            promise.reject(xhr)
                         }
                     }
                 };
 
-                xhr.onerror = function (msg) {
-                    promise.reject(xhr, msg);
+                xhr.onerror = function () {
+                    promise.reject(xhr);
                 };
 
                 xhr.open('GET', url);
@@ -1599,86 +1424,7 @@
                 return promise;
             }
 
-            //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
-            function authorizedSend(authRequester) {
-                if (hasCurrentXhr(authRequester)) {
-                    l.w('authorizedSend() step', authRequester.step, 'is already in progress. Returning.');
-                    return;
-                }
-
-                l.d('authorizedSend()', authRequester.step);
-
-                if (con.awsLambda) {
-                    return authorizedSignWithLambda(authRequester);
-                }
-
-                var xhr = assignCurrentXhr(authRequester),
-                    stringToSign = stringToSignMethod(authRequester),
-                    url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
-
-                if (typeof con.signerUrl === 'undefined') {
-                    authRequester.auth = signResponse(null, stringToSign, authRequester.dateString);
-                    clearCurrentXhr(authRequester);
-                    authRequester.onGotAuth();
-                    return;
-                }
-
-                var signParams = makeSignParamsObject(me.signParams);
-                for (var param in signParams) {
-                    if (!signParams.hasOwnProperty(param)) { continue; }
-                    url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
-                }
-
-                if (con.xhrWithCredentials) {
-                    xhr.withCredentials = true;
-                }
-
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState === 4) {
-
-                        var calledFrom = "readyState===4";
-                        if (xhr.status === 200) {
-                            var payload = signResponse(xhr.response);
-
-                            clearCurrentXhr(authRequester);
-                            if (con.awsSignatureVersion === '2' &&  payload.length !== 28) {
-                                warnMsg(calledFrom);
-                            } else {
-                              l.d('authorizedSend got signature for:', authRequester.step, '- signature:', payload);
-                              authRequester.auth = payload;
-                              authRequester.onGotAuth();
-                            }
-                        } else {
-                            xhr.onerror(calledFrom);
-                        }
-                    }
-                };
-
-                xhr.onerror = function (msg) {
-                    warnMsg(msg || 'onerror');
-                };
-
-                xhr.open('GET', url);
-                var signHeaders = makeSignParamsObject(con.signHeaders);
-                for (var header in signHeaders) {
-                    if (!signHeaders.hasOwnProperty(header)) { continue; }
-                    xhr.setRequestHeader(header, signHeaders[header])
-                }
-
-                if (typeof me.beforeSigner  === 'function') {
-                    me.beforeSigner(xhr, url);
-                }
-                xhr.send();
-
-                function warnMsg(srcMsg) {
-                    var a = ['failed to get authorization (', srcMsg, ') for', authRequester.step, '-  xhr.status:', xhr.status, '.-  xhr.response:', xhr.response].join(" ");
-                    l.w(a);
-                    me.warn(a);
-                    authRequester.onFailedAuth(xhr);
-                }
-            }
-
-            function authorizedSignWithLambda(authRequester) {
+            function authorizedSignWithLambda(authRequester, promise) {
                 con.awsLambda.invoke({
                     FunctionName: con.awsLambdaFunction,
                     InvocationType: 'RequestResponse',
@@ -1692,11 +1438,11 @@
                         var warnMsg = 'failed to get authorization with lambda ' + err;
                         l.w(warnMsg);
                         me.warn(warnMsg);
-                        authRequester.onFailedAuth(err);
+                        promise.reject(new XMLHttpRequest());
                         return;
                     }
                     authRequester.auth = signResponse(JSON.parse(data.Payload));
-                    authRequester.onGotAuth();
+                    promise.resolve(new XMLHttpRequest());
                 });
             }
 
@@ -1917,19 +1663,10 @@
                 return (typeof requester.part === 'undefined') ? requester : requester.part;
             }
 
-            function hasCurrentXhr(requester) {
-                return !!getBaseXhrObject(requester).currentXhr;
-            }
-
             function assignCurrentXhr(requester) {
                 return getBaseXhrObject(requester).currentXhr = new XMLHttpRequest();
             }
-
-            function clearCurrentXhr(requester) {
-                delete getBaseXhrObject(requester).currentXhr;
-            }
         }
-
 
         function extend(obj1, obj2, obj3) {
             function ext(target, source) {
