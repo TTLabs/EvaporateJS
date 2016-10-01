@@ -60,7 +60,11 @@ test.before(() => {
   })
 
   server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
-    requestHeaders.checkForParts = xhr.requestHeaders
+    if (xhr.url.indexOf('&part-number-marker') > -1) {
+      requestHeaders.getUploadParts = xhr.requestHeaders
+    } else {
+      requestHeaders.checkForParts = xhr.requestHeaders
+    }
     xhr.respond(200, CONTENT_TYPE_XML, checkForPartsResponseNone(AWS_BUCKET, AWS_UPLOAD_KEY))
   })
 
@@ -72,6 +76,11 @@ test.before(() => {
   server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
     requestHeaders.cancel = xhr.requestHeaders
     xhr.respond(204)
+  })
+
+  server.respondWith('HEAD', /./, (xhr) => {
+    requestHeaders.head = xhr.requestHeaders
+    xhr.respond(200, '', '')
   })
 
   global.XMLHttpRequest = sinon.fakeServer.xhr
@@ -147,7 +156,7 @@ test('should pass custom xAmzHeaders header to checkforParts (cancel/abort)', ()
     uploadId = id;
   }
 
-  const _handleUploadCanceled = () => {
+  const _handleUploadComplete = () => {
     evaporate.cancel(uploadId)
     expect(requestHeaders.cancel['x-custom-header']).to.eql('stopped')
     expect(requestHeaders.checkForParts['x-custom-header']).to.eql('stopped')
@@ -155,7 +164,8 @@ test('should pass custom xAmzHeaders header to checkforParts (cancel/abort)', ()
 
   const config = Object.assign({}, baseAddConfig, {
     started: _handleUploadStarted,
-    cancelled: _handleUploadCanceled.bind(this)
+    complete: _handleUploadComplete.bind(this),
+    xAmzHeadersCommon: { 'x-custom-header': 'stopped' }
   })
 
   evaporate.add(config)
@@ -163,7 +173,27 @@ test('should pass custom xAmzHeaders header to checkforParts (cancel/abort)', ()
 })
 
 test.skip('should pass custom xAmzHeaders header to headObject', () => {
+  // testing this requires access to FileReader, which isn't available...
 })
 
-test.skip('should pass custom xAmzHeaders header to getUploadParts (Resume)', () => {
+test('should pass custom xAmzHeaders header to getUploadParts (Resume)', () => {
+  const evapConfig = Object.assign({}, baseConfig, {
+    allowS3ExistenceOptimization: true,
+    s3FileCacheHoursAgo: 24
+  })
+
+  const evaporate = new Evaporate(evapConfig)
+
+  // Upload the first time
+  evaporate.add(baseAddConfig)
+
+  const config = Object.assign({}, baseAddConfig, {
+    xAmzHeadersCommon: { 'x-custom-header': 'resumed' }
+  })
+
+  // Upload the second time to trigger getParts
+  requestHeaders = {};
+  evaporate.add(config)
+
+  expect(requestHeaders.getUploadParts['x-custom-header']).to.eql('resumed')
 })

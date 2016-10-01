@@ -79,9 +79,15 @@ test.before(() => {
   })
 
   server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
-    requests.push('check for parts');
-    var response = recheckForParts ? checkForPartsResponseSome(AWS_BUCKET, AWS_UPLOAD_KEY) : checkForPartsResponseNone(AWS_BUCKET, AWS_UPLOAD_KEY)
-    recheckForParts = false
+    var response;
+    if (xhr.url.indexOf('&part-number-marker') > -1) {
+      requests.push('get parts');
+      response = checkForPartsResponseNone(AWS_BUCKET, AWS_UPLOAD_KEY)
+    } else {
+      requests.push('check for parts');
+      response = recheckForParts ? checkForPartsResponseSome(AWS_BUCKET, AWS_UPLOAD_KEY) : checkForPartsResponseNone(AWS_BUCKET, AWS_UPLOAD_KEY)
+      recheckForParts = false
+    }
     xhr.respond(200, CONTENT_TYPE_XML, response)
   })
 
@@ -121,6 +127,36 @@ test.cb('make requests in the correct order for the common case', (t) => {
     complete: _handleUploadComplete.bind(this)
   })
 
+  evaporate.add(config)
+})
+
+test.cb('check for parts when re-uploading a cached file', (t) => {
+  const evapConfig = Object.assign({}, baseConfig, {
+    allowS3ExistenceOptimization: true,
+    s3FileCacheHoursAgo: 24
+  })
+
+  const evaporate = new Evaporate(evapConfig)
+
+  // Upload the first time
+  evaporate.add(baseAddConfig)
+
+  const _handleUploadStart = sinon.spy()
+
+  const _handleUploadComplete = (xhr, uploadKey) => {
+    expect(_handleUploadStart).to.have.been.called
+    expect(uploadKey).to.equal(AWS_UPLOAD_KEY)
+    expect(requests.join(',')).to.eql('sign,get parts,sign,put,sign,complete')
+    t.end()
+  }
+
+  const config = Object.assign({}, baseAddConfig, {
+    started: _handleUploadStart,
+    complete: _handleUploadComplete.bind(this)
+  })
+
+  // Upload the second time to trigger headObject
+  requests = [];
   evaporate.add(config)
 })
 
