@@ -514,12 +514,8 @@
             }
 
             function abortParts() {
-                var partList = [];
                 partsInProcess.forEach(function (i) {
-                    partList.push(i);
-                });
-                partList.forEach(function (i) {
-                    abortPart(i, true);
+                    abortPart(i);
                 });
                 monitorTotalProgress();
             }
@@ -724,15 +720,13 @@
                 part.uploader = upload;
             }
 
-            function abortPart(partNumber, clearReadyStateCallback) {
+            function abortPart(partNumber) {
 
                 var part = s3Parts[partNumber];
                 if (part.currentXhr) {
-                    if (clearReadyStateCallback) {
-                        part.currentXhr.onreadystatechange = function () {};
-                    }
                     part.currentXhr.abort();
                     part.loadedBytes = 0;
+                    part.status = ABORTED;
                 }
             }
 
@@ -865,7 +859,6 @@
             function abortUpload() { //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
                 l.d('abortUpload');
                 me.info('will attempt to abort the upload');
-
                 abortParts();
 
                 if(typeof me.uploadId === 'undefined') {
