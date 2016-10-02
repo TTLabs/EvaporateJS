@@ -151,56 +151,7 @@
             l = noOpLogger();
         }
 
-        var historyCache = {
-            supported: (function () {
-                var result = false;
-                if (typeof window !== 'undefined') {
-                    if (!('localStorage' in window)) {
-                        return result;
-                    }
-                } else {
-                    return result;
-                }
-
-                // Try to use storage (it might be disabled, e.g. user is in private mode)
-                try {
-                    localStorage.setItem('___test', 'OK');
-                    var test = localStorage.getItem('___test');
-                    localStorage.removeItem('___test');
-
-                    result = test === 'OK';
-                } catch (e) {
-                    return result;
-                }
-
-                return result;
-            }()),
-            getItem: function (key) {
-                if (this.supported) {
-                    return localStorage.getItem(key)
-                }
-            },
-            setItem: function (key, value) {
-                if (this.supported) {
-                    return localStorage.setItem(key, value);
-                }
-            },
-            clear: function () {
-                if (this.supported) {
-                    return localStorage.clear();
-                }
-            },
-            key: function (key) {
-                if (this.supported) {
-                    return localStorage.key(key);
-                }
-            },
-            removeItem: function (key) {
-                if (this.supported) {
-                    return localStorage.removeItem(key);
-                }
-            }
-        };
+        var historyCache = new EvaporateHistoryCache();
 
         var url;
         if (con.aws_url) {
@@ -360,6 +311,8 @@
             }), fileConfig));
             return id;
         }
+
+        _.historyCache = historyCache;
 
         function onFileUploadStatusChange() {
             l.d('onFileUploadStatusChange');
@@ -1847,10 +1800,46 @@
         return code.length ? {code: code, msg: msg} : {};
     }
 
+    var EvaporateHistoryCache = function () {
+        var result = false;
+
+        if (typeof window !== 'undefined') {
+            if ('localStorage' in window) {
+                try {
+                    localStorage.setItem('___test', 'OK');
+                    var test = localStorage.getItem('___test');
+                    localStorage.removeItem('___test');
+
+                    result = test === 'OK';
+                } catch (e) { }
+            }
+        }
+
+        if (result) {
+            this._cache = localStorage;
+        } else {
+            this._cache = {
+                getItem: function (key) { return this._cache[key]; },
+                setItem: function (key, value) { return this._cache[key] = value; },
+                removeItem: function (key) { return delete this._cache[key] },
+                _cache: {}
+            };
+        }
+    };
+    EvaporateHistoryCache.prototype._cache = undefined;
+    EvaporateHistoryCache.prototype.getItem = function (key) {
+        return this._cache.getItem(key)
+    };
+    EvaporateHistoryCache.prototype.setItem = function (key, value) {
+        return this._cache.setItem(key, value);
+    };
+    EvaporateHistoryCache.prototype.removeItem = function (key) {
+        return this._cache.removeItem(key);
+    };
+
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = Evaporate;
     } else if (typeof window !== 'undefined') {
         window.Evaporate = Evaporate;
     }
-
 }());
