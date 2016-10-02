@@ -431,8 +431,12 @@
                     initiateUpload(awsKey);
                 } else {
                     if (typeof me.eTag === 'undefined' || !me.firstMd5Digest) {
-                        // File with some parts on S3
-                        getUploadParts(0);
+                        if (fileTotalBytesUploaded > 0) {
+                            startFileProcessing(false);
+                        } else {
+                            // File with some parts on S3
+                            getUploadParts(0);
+                        }
                     } else {
                         // File fullly uploaded to S3 -- check signature of first part for extra assurance
                         var reader = new FileReader();
@@ -467,20 +471,17 @@
                     setStatus(PAUSED);
                     me.paused();
                 } else {
-                    if (me.status === ERROR) {
-                        me.statusBeforePause = me.status;
-                    } else {
-                        delete me.statusBeforePause;
-                    }
                     setStatus(PAUSING);
                     me.pausing();
                 }
             };
 
             me.resume = function () {
-                l.d('resuming FileUpload ', me.id);
-                setStatus(me.statusBeforePause || PENDING);
-                me.resumed();
+                if ([PAUSING, PAUSED].indexOf(me.status) > -1) {
+                    l.d('resuming FileUpload ', me.id);
+                    setStatus(PENDING);
+                    me.resumed();
+                }
             };
 
             function addPartToProcessing(part) {
@@ -537,8 +538,11 @@
                 abortUpload();
             }
 
-
-            function startFileProcessing() {
+            function startFileProcessing(createParts) {
+                if (createParts) {
+                    makeParts();
+                }
+                monitorProgress();
                 if (con.computeContentMd5 && me.file.size > 0) {
                     processPartsListWithMd5Digests();
                 } else {
