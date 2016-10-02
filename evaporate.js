@@ -905,23 +905,22 @@
                     step: 'list',
                     notFoundSuccess: true,
                     success: function (xhr) {
-                        if (xhr.status === 404) {
+                        if (xhr.status !== 404) {
                             // Success! Parts are not found because the uploadid has been cleared
-                            setStatus(ABORTED);
-                            removeUploadFile();
-                            me.info('upload canceled');
-                            fileTotalBytesUploaded = 0;
-                        } else {
                             var oDOM = parseXml(xhr.responseText);
                             var domParts = oDOM.getElementsByTagName("Part");
                             if (domParts.length) { // Some parts are still uploading
                                 l.d('Parts still found after abort...waiting.');
                                 setTimeout(function () { abortUpload(); }, 1000);
-                            } else {
-                                fileTotalBytesUploaded = 0;
-                                me.info('upload canceled');
+                                return;
                             }
                         }
+                        setStatus(ABORTED);
+                        evaporatingCount = 0;
+                        con.evaporateChanged(me, evaporatingCount)
+                        removeUploadFile();
+                        me.info('upload canceled');
+                        fileTotalBytesUploaded = 0;
                     },
                     maxRetries: 2,
                     error: function (xhr) {
