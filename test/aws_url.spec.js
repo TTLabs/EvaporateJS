@@ -27,7 +27,10 @@ const baseAddConfig = {
   name: AWS_UPLOAD_KEY,
   file: new File({
     path: '/tmp/file',
-    size: 50
+    size: 50,
+    maxRetryBackoffSecs: 0.1,
+    processMd5ThrottlingMs: 0,
+    abortCompletionThrottlingMs: 0
   })
 }
 
@@ -36,7 +39,7 @@ let server
 test.before(() => {
   sinon.xhr.supportsCORS = true
   server = sinon.fakeServer.create({
-    respondImmediately: true
+    autoRespond: true
   })
 
   server.respondWith('POST', /^.*\?uploads.*$/, (xhr) => {
@@ -60,7 +63,6 @@ test.before(() => {
   })
 
   global.XMLHttpRequest = sinon.fakeServer.xhr
-  global.setTimeout = (fc) => fc()
 })
 
 test.after(() => {

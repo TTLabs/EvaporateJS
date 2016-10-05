@@ -22,7 +22,10 @@ const baseConfig = {
   signerUrl: 'http://what.ever/sign',
   aws_key: 'testkey',
   bucket: AWS_BUCKET,
-  logging: false
+  logging: false,
+  maxRetryBackoffSecs: 0.1,
+  processMd5ThrottlingMs: 0,
+  abortCompletionThrottlingMs: 0
 }
 
 const baseAddConfig = {
@@ -37,9 +40,11 @@ let server
 
 test.before(() => {
   sinon.xhr.supportsCORS = true
+  global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
   server = sinon.fakeServer.create({
     respondImmediately: true
   })
+
 
   server.respondWith('POST', /^.*\?uploads.*$/, (xhr) => {
     xhr.respond(200, CONTENT_TYPE_XML, initResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
@@ -60,9 +65,10 @@ test.before(() => {
   server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
     xhr.respond(204)
   })
+})
 
-  global.XMLHttpRequest = sinon.fakeServer.xhr
-  global.setTimeout = (fc) => fc()
+test.beforeEach(() =>{
+  localStorage.removeItem('awsUploads')
 })
 
 test.after(() => {
@@ -146,12 +152,18 @@ test('should add() two new uploads with correct config', () => {
   expect(id1).to.equal(1)
 })
 
-test.skip('should call a callback on successful add()', () => {
+test('should call a callback on successful add()', async () => {
+  var deferred = defer();
+
   const evaporate = new Evaporate(baseConfig)
-  const config = Object.assign({}, baseConfig, {
-    started: sinon.spy()
+  const config = Object.assign({}, baseAddConfig, {
+    started: sinon.spy(function () {
+      deferred.resolve()
+    })
   })
-  const id = evaporate.add(baseAddConfig)
+  const id = evaporate.add(config)
+
+  await deferred.promise
 
   expect(config.started).to.have.been.called
   expect(config.started).to.have.been.calledWithExactly(id)
@@ -192,24 +204,36 @@ test('should cancel() two uploads with correct id', () => {
   expect(result1).to.be.ok
 })
 
-test('should call a callback on cancel()', () => {
+test.serial('should call a callback on cancel()', async () => {
+  var deferred = defer();
+
   const evapConfig = Object.assign({}, baseConfig, {
     evaporateChanged: sinon.spy()
   })
   const evaporate = new Evaporate(evapConfig)
   const config = Object.assign({}, baseAddConfig, {
-    cancelled: sinon.spy()
+    cancelled: sinon.spy(function () { deferred.resolve() }),
+    complete: function () { deferred.resolve() }
   })
   const id = evaporate.add(config)
+
+  await deferred.promise
+
+  deferred = defer();
+
   const result = evaporate.cancel(id)
+
+  await deferred.promise
 
   expect(result).to.be.ok
   expect(config.cancelled).to.have.been.called
 
+  expect(evapConfig.evaporateChanged).to.have.been.called
+  expect(evapConfig.evaporateChanged.callCount).to.equal(3)
+
   expect(evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
   expect(evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
   expect(evapConfig.evaporateChanged.thirdCall.args[1]).to.eql(0)
-  expect(evapConfig.evaporateChanged).to.have.been.calledThrice
 })
 
 test('should call a callback on pause()', () => {
@@ -251,40 +275,21 @@ test('should call a callback on resume()', () => {
   expect(config.resumed).to.have.been.called
 })
 
-test('should call signResponseHandler() with the correct number of parameters', () => {
+test('should call signResponseHandler() with the correct number of parameters', async () => {
+  var deferred = defer();
+
   const evapConfig = Object.assign({}, baseConfig, {
     signerUrl: undefined,
-    signResponseHandler: sinon.spy()
+    signResponseHandler: sinon.spy(function () {
+      deferred.resolve()
+      return 'abcd'})
   })
 
   const evaporate = new Evaporate(evapConfig)
 
   evaporate.add(baseAddConfig)
 
+  await deferred.promise
+
   expect(evapConfig.signResponseHandler.firstCall.args.length).to.eql(3)
-})
-
-// actual requests
-
-test.cb('should correctly upload a small file', (t) => {
-  const evaporate = new Evaporate(baseConfig)
-
-  const _handleUploadStart = sinon.spy()
-
-  const _handleUploadComplete = (xhr, uploadKey) => {
-    expect(_handleUploadStart).to.have.been.called
-    expect(uploadKey).to.equal(AWS_UPLOAD_KEY)
-    t.end()
-  }
-  const _handleUploadError = (err) => {
-    t.fail(err)
-  }
-
-  const config = Object.assign({}, baseAddConfig, {
-    started: _handleUploadStart,
-    complete: _handleUploadComplete.bind(this),
-    error: _handleUploadError.bind(this)
-  })
-
-  evaporate.add(config)
 })

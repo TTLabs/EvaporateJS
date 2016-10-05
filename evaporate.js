@@ -89,7 +89,9 @@
             testUnsupported: false,
             simulateStalling: false,
             simulateErrors: false,
-            evaporateChanged: function () {}
+            evaporateChanged: function () {},
+            processMd5ThrottlingMs: 1500,
+            abortCompletionThrottlingMs: 1000
         }, config);
 
         if (typeof window !== 'undefined' && window.console) {
@@ -876,7 +878,7 @@
                         l.d('All parts have MD5 digests');
                     }
 
-                    setTimeout(processPartsListWithMd5Digests, 1500);
+                    setTimeout(processPartsListWithMd5Digests, con.processMd5ThrottlingMs);
                 }
             }
 
@@ -895,7 +897,7 @@
                         } else { // We already calculated the first part's md5_digest
                             part.md5_digest = me.firstMd5Digest;
                             createUploadFile();
-                            setTimeout(processPartsListWithMd5Digests, 1500);
+                            setTimeout(processPartsListWithMd5Digests, con.processMd5ThrottlingMs);
                         }
                         break;
                     }
@@ -968,7 +970,7 @@
                     var domParts = oDOM.getElementsByTagName("Part");
                     if (domParts.length) { // Some parts are still uploading
                         l.d('Parts still found after abort...waiting.');
-                        setTimeout(function () { abortUpload(); }, 1000);
+                        setTimeout(function () { abortUpload(); }, con.abortCompletionThrottlingMs);
                     } else {
                         fileTotalBytesUploaded = 0;
                         me.info('upload canceled');
@@ -1482,6 +1484,7 @@
             }
 
             function authorizedSignWithLambda(authRequester) {
+                // TODO: This is an asynchronous method! -- Use promises
                 con.awsLambda.invoke({
                     FunctionName: con.awsLambdaFunction,
                     InvocationType: 'RequestResponse',
