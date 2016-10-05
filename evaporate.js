@@ -1482,6 +1482,7 @@
             }
 
             function authorizedSignWithLambda(authRequester) {
+                // TODO: This is an asynchronous method! -- Use promises
                 con.awsLambda.invoke({
                     FunctionName: con.awsLambdaFunction,
                     InvocationType: 'RequestResponse',
