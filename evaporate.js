@@ -415,6 +415,11 @@
             me.start = function () {
                 l.d('starting FileUpload', me.id);
                 me.started(me.id);
+
+                if (me.status === ABORTED) {
+                  return;
+                }
+
                 setStatus(EVAPORATING);
 
                 var awsKey = me.name;
