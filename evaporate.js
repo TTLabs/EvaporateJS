@@ -1011,7 +1011,7 @@
                         makeParts();
                         processPartsToUpload();
                     } else {
-                        var msg = 'Error listing parts for getUploadParts() starting at part # ' + partNumberMarker;
+                        var msg = 'Error listing parts for getUploadParts() starting at part # ' + (partNumberMarker + 1);
                         l.w(msg, getAwsResponse(xhr));
                         me.error(msg);
                     }
