@@ -25,7 +25,7 @@
 
     var Evaporate = function (config) {
 
-        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
+        var PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30, COMPLETING = 40, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"';
         var IMMUTABLE_OPTIONS = [
             'maxConcurrentParts',
             'logging',
@@ -1171,7 +1171,10 @@
 
             function processPartsToUpload() {
                 if (numParts === partsOnS3.length) {
-                    completeUpload();
+                    if ([COMPLETE, COMPLETING].indexOf(me.status) === -1) {
+                        me.status = COMPLETING;
+                        completeUpload();
+                    }
                     return;
                 }
 
