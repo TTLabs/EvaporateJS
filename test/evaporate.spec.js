@@ -150,12 +150,12 @@ test('should add() two new uploads with correct config', () => {
   expect(id1).to.equal(1)
 })
 
-test.skip('should call a callback on successful add()', () => {
+test('should call a callback on successful add()', () => {
   const evaporate = new Evaporate(baseConfig)
-  const config = Object.assign({}, baseConfig, {
+  const config = Object.assign({}, baseAddConfig, {
     started: sinon.spy()
   })
-  const id = evaporate.add(baseAddConfig)
+  const id = evaporate.add(config)
 
   expect(config.started).to.have.been.called
   expect(config.started).to.have.been.calledWithExactly(id)
@@ -196,24 +196,36 @@ test('should cancel() two uploads with correct id', () => {
   expect(result1).to.be.ok
 })
 
-test('should call a callback on cancel()', () => {
+test.serial('should call a callback on cancel()', async () => {
+  var deferred = defer();
+
   const evapConfig = Object.assign({}, baseConfig, {
     evaporateChanged: sinon.spy()
   })
   const evaporate = new Evaporate(evapConfig)
   const config = Object.assign({}, baseAddConfig, {
-    cancelled: sinon.spy()
+    cancelled: sinon.spy(function () { deferred.resolve() }),
+    complete: function () { deferred.resolve() }
   })
   const id = evaporate.add(config)
+
+  await deferred.promise
+
+  deferred = defer();
+
   const result = evaporate.cancel(id)
+
+  await deferred.promise
 
   expect(result).to.be.ok
   expect(config.cancelled).to.have.been.called
 
+  expect(evapConfig.evaporateChanged).to.have.been.called
+  expect(evapConfig.evaporateChanged.callCount).to.equal(3)
+
   expect(evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
   expect(evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
   expect(evapConfig.evaporateChanged.thirdCall.args[1]).to.eql(0)
-  expect(evapConfig.evaporateChanged).to.have.been.calledThrice
 })
 
 test('should call a callback on pause()', () => {
@@ -258,7 +270,7 @@ test('should call a callback on resume()', () => {
 test('should call signResponseHandler() with the correct number of parameters', () => {
   const evapConfig = Object.assign({}, baseConfig, {
     signerUrl: undefined,
-    signResponseHandler: sinon.spy()
+    signResponseHandler: sinon.spy(function () {return 'abcd'})
   })
 
   const evaporate = new Evaporate(evapConfig)
@@ -266,29 +278,4 @@ test('should call signResponseHandler() with the correct number of parameters', 
   evaporate.add(baseAddConfig)
 
   expect(evapConfig.signResponseHandler.firstCall.args.length).to.eql(3)
-})
-
-// actual requests
-
-test.cb('should correctly upload a small file', (t) => {
-  const evaporate = new Evaporate(baseConfig)
-
-  const _handleUploadStart = sinon.spy()
-
-  const _handleUploadComplete = (xhr, uploadKey) => {
-    expect(_handleUploadStart).to.have.been.called
-    expect(uploadKey).to.equal(AWS_UPLOAD_KEY)
-    t.end()
-  }
-  const _handleUploadError = (err) => {
-    t.fail(err)
-  }
-
-  const config = Object.assign({}, baseAddConfig, {
-    started: _handleUploadStart,
-    complete: _handleUploadComplete.bind(this),
-    error: _handleUploadError.bind(this)
-  })
-
-  evaporate.add(config)
 })
