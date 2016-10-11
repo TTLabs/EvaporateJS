@@ -65,6 +65,10 @@ test.before(() => {
   global.setTimeout = (fc) => fc()
 })
 
+test.beforeEach(() =>{
+  localStorage.removeItem('awsUploads')
+})
+
 test.after(() => {
   server.restore()
 })

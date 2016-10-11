@@ -20,3 +20,24 @@ File.prototype.slice = function (start = 0, end = null, contentType = '') {
 
 global.File = File
 global.Blob = File
+
+let FileReaderMock = function () {}
+FileReaderMock.prototype.onloadend = function () {}
+FileReaderMock.prototype.readAsArrayBuffer = function () { this.onloadend(); }
+
+global.FileReader = FileReaderMock;
+
+function LocalStorage() {
+  this.cache = {};
+  this.getItem = function (key) {
+    return this.cache[key];
+  };
+  this.setItem = function (key, value) {
+    return this.cache[key] = value;
+  };
+  this.removeItem = function (key) {
+    delete this.cache[key];
+  };
+}
+
+global.localStorage = new LocalStorage();
