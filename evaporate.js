@@ -577,8 +577,6 @@
                     me.warn('Error initiating upload', getAwsResponse(xhr));
                     setStatus(ERROR);
 
-                    xhr.abort();
-
                     clearCurrentXhr(initiate);
 
                     setTimeout(function () {
@@ -655,8 +653,6 @@
                         if (awsResponse.code) {
                             l.e('AWS Server response: code="' + awsResponse.code + '", message="' + awsResponse.msg + '"');
                         }
-
-                        xhr.abort();
 
                         clearCurrentXhr(upload);
 
@@ -795,8 +791,6 @@
                     l.w(msg, getAwsResponse(xhr));
                     me.error(msg);
                     setStatus(ERROR);
-
-                    xhr.abort();
 
                     setTimeout(function () {
                         if (me.status !== ABORTED && me.status !== CANCELED) {
@@ -1856,8 +1850,8 @@
             oDOM = oParser.parseFromString(xhr.responseText, "text/html"),
             code = oDOM.getElementsByTagName("Code"),
             msg = oDOM.getElementsByTagName("Message");
-        code = code && code.length ? code[0].innerHTML : '';
-        msg = msg && msg.length ? msg[0].innerHTML : '';
+        code = code && code.length ? (code[0].innerHTML || code[0].textContent) : '';
+        msg = msg && msg.length ? (msg[0].innerHTML || msg[0].textContent) : '';
 
         return code.length ? {code: code, msg: msg} : {};
     }
