@@ -41,3 +41,16 @@ function LocalStorage() {
 }
 
 global.localStorage = new LocalStorage();
+
+global.defer = function () {
+  var deferred, promise;
+  promise = new Promise(function(resolve, reject){
+    deferred = {resolve: resolve, reject: reject};
+  });
+
+  return {
+    resolve: deferred.resolve,
+    reject: deferred.reject,
+    promise: promise
+  }
+}
