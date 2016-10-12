@@ -33,15 +33,6 @@ const baseAddConfig = {
   })
 }
 
-const Parts5AddConfig = {
-  name: AWS_UPLOAD_KEY,
-  file: new File({
-    path: '/tmp/file',
-    size: 29690176,
-    name: 'tests_parts5'
-  })
-}
-
 let server,
     requestMap = {
       'GET:to_sign': 'sign',
@@ -56,6 +47,7 @@ function randomAwsKey() {
 }
 test.before(() => {
   sinon.xhr.supportsCORS = true
+  global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
   global.setTimeout = (fc) => fc()
   global.window = {
     localStorage: {},
@@ -64,10 +56,20 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
+  t.context.requestedAwsObjectKey = randomAwsKey()
+
+  t.context.baseAddConfig = {
+    name: t.context.requestedAwsObjectKey,
+    file: new File({
+      path: '/tmp/file',
+      size: 50,
+      name: randomAwsKey()
+    })
+  }
+
   t.context.server = sinon.fakeServer.create({
     respondImmediately: true
   })
-  global.XMLHttpRequest = sinon.fakeServer.xhr
 
   t.context.server.respondWith('GET', /\/sign.*$/, (xhr) => {
     const payload = Array(29).join()
@@ -105,7 +107,7 @@ test.beforeEach((t) => {
       delete addConfig.complete;
     }
 
-    t.context.config = Object.assign({}, baseAddConfig, addConfig, {
+    t.context.config = Object.assign({}, t.context.baseAddConfig, addConfig, {
       started: sinon.spy(function (id) {
         t.context.uploadId = id;
         if (typeof addConfig.user_started === "function")  {
@@ -120,9 +122,6 @@ test.beforeEach((t) => {
         t.context.deferred.resolve();
       })
     })
-
-    t.context.requestedAwsObjectKey = randomAwsKey()
-    t.context.config.name = t.context.requestedAwsObjectKey
 
     t.context.evaporate.add(t.context.config)
 
@@ -157,7 +156,6 @@ test.beforeEach((t) => {
 
   t.context.testCachedParts = async function (addConfig, maxGetParts, partNumberMarker) {
     const evapConfig = {
-      allowS3ExistenceOptimization: true,
       s3FileCacheHoursAgo: 24
     }
 
@@ -183,11 +181,11 @@ test.beforeEach((t) => {
     })
 
     const config = {
-      name: AWS_UPLOAD_KEY,
+      name: t.context.requestedAwsObjectKey,
       file: new File({
         path: '/tmp/file',
         size: 12000000,
-        name: 'tests'
+        name: randomAwsKey()
       }),
       started: sinon.spy(function () { }),
       pausing: sinon.spy(function () { }),
@@ -222,7 +220,7 @@ test.beforeEach((t) => {
       t.context.cancel();
     })
 
-    const config = Object.assign({}, baseAddConfig, {
+    const config = Object.assign({}, {
       started: sinon.spy(function () { }),
       cancelled: sinon.spy(function () {
           t.context.resolve();
@@ -247,8 +245,6 @@ test.beforeEach((t) => {
   t.context.resolve = function () {
     t.context.deferred.resolve()
   }
-
-  localStorage.removeItem('awsUploads')
 })
 
 test.afterEach((t) => {
@@ -267,56 +263,91 @@ test.serial('should upload a file', async (t) => {
 test.serial('should check for parts when re-uploading a cached file when getParts 404s', async (t) => {
   t.context.getPartsStatus = 404
 
-  await t.context.testCachedParts({}, 0)
+  await t.context.testCachedParts({
+    computeContentMd5: true,
+    cryptoMd5Method: function (data) {
+      return 'md5Checksum';
+    }
+  }, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
-  expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
       'sign,initiate,sign,PUT:partNumber=1,sign,complete,' +
       'sign,check for parts,sign,PUT:partNumber=1,sign,complete')
   expect(t.context.server.requests[7].status).to.equal(404)
 })
+test.todo('should check for parts when re-uploading a cached file when getParts 404s without md5Checksums')
 
 test.serial('should check for parts when re-uploading a cached file, when getParts returns none', async (t) => {
   t.context.getPartsStatus = 200
 
-  await t.context.testCachedParts({}, 0, 0)
+  await t.context.testCachedParts({
+    computeContentMd5: true,
+    cryptoMd5Method: function (data) {
+      return 'md5Checksum';
+    }
+  }, 0, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
-  expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
       'sign,initiate,sign,PUT:partNumber=1,sign,complete,' +
       'sign,check for parts,sign,PUT:partNumber=1,sign,complete')
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.server.requests[7].status).to.equal(200)
 })
+test.todo('should check for parts when re-uploading a cached file, when getParts returns none without md5Checksums')
 
 test.serial('should check for parts when re-uploading a cached file, when getParts is not truncated', async (t) => {
   t.context.getPartsStatus = 200
 
-  await t.context.testCachedParts({}, 1, 1)
+  await t.context.testCachedParts({
+    computeContentMd5: true,
+    cryptoMd5Method: function (data) {
+      return 'md5Checksum';
+    }
+  }, 1,1)
 
   expect(t.context.config.started.callCount).to.equal(1)
-  expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
       'sign,initiate,sign,PUT:partNumber=1,sign,complete,' +
       'sign,check for parts,sign,complete')
   expect(t.context.server.requests[7].status).to.equal(200)
 })
+test.todo('should check for parts when re-uploading a cached file, when getParts is not truncated without md5Checksums')
 
 // TODO: failing because get parts logic for truncated responses is broken
 test.serial.failing('should check for parts when re-uploading a cached file, when getParts is truncated', async (t) => {
   t.context.getPartsStatus = 200
 
-  await t.context.testCachedParts(Parts5AddConfig, 1, 0)
+  const Parts5AddConfig = {
+    name: t.context.requestedAwsObjectKey,
+    file: new File({
+      path: '/tmp/file',
+      size: 29690176,
+      name: randomAwsKey()
+    })
+  }
+
+  let addConfig = Object.assign({}, Parts5AddConfig, {
+    computeContentMd5: true,
+    cryptoMd5Method: function (data) {
+      return 'md5Checksum';
+    }
+  })
+
+  await t.context.testCachedParts(addConfig, 1, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
-  expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
       'sign,initiate,sign,PUT:partNumber=1,sign,PUT:partNumber=2,sign,PUT:partNumber=3,sign,PUT:partNumber=4,sign,PUT:partNumber=5,sign,complete,' +
       'sign,check for parts,sign,check for parts,sign,PUT:partNumber=3,sign,PUT:partNumber=4,sign,PUT:partNumber=5,' +
       'sign,complete')
   expect(t.context.server.requests[7].status).to.equal(200)
 })
+test.todo('should check for parts when re-uploading a cached file, when getParts is truncated without md5Checksums')
 
 // Default Setup: V2 signatures, Cancel
 // TODO: failing because the file does get uploaded
@@ -340,7 +371,7 @@ test.serial('should Cancel an upload', async (t) => {
 })
 
 // Default Setup: V2 signatures: Pause & Resume
-// TODO: failing because Evaporate calls complete() twice
+// TODO: failing because Evaporate doesn't call complete()
 test.serial.failing('should Start, friendly Pause and Resume an upload', async (t) => {
 
   await t.context.testPauseResume(false)
@@ -354,7 +385,7 @@ test.serial.failing('should Start, friendly Pause and Resume an upload', async (
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
-// TODO: failing because Evaporate calls complete() twice
+// TODO: failing because Evaporate doesn't call complete()
 test.serial.failing('should Start, force Pause and Resume an upload', async (t) => {
   await t.context.testPauseResume(true)
 
