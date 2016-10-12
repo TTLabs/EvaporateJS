@@ -430,7 +430,7 @@
                     // New File
                     initiateUpload(awsKey);
                 } else {
-                    if (typeof me.eTag === 'undefined' || !me.firstMd5Digest) {
+                    if (typeof me.eTag === 'undefined' || !me.firstMd5Digest || !con.computeContentMd5) {
                         if (fileTotalBytesUploaded > 0) {
                             startFileProcessing(false);
                         } else {
