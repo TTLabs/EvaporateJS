@@ -431,7 +431,7 @@
                     initiateUpload(awsKey);
                 } else {
                     if (typeof me.eTag === 'undefined' || !me.firstMd5Digest || !con.computeContentMd5) {
-                        if (fileTotalBytesUploaded > 0) {
+                        if (partsOnS3.length) {
                             startFileProcessing(false);
                         } else {
                             // File with some parts on S3

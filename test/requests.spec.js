@@ -404,7 +404,7 @@ test.serial.failing('should Start, friendly Pause and Resume an upload', async (
   expect(t.context.config.paused.callCount).to.equal(1)
   expect(t.context.config.resumed.callCount).to.equal(1)
 
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,check for parts,PUT:partNumber=2,complete')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
@@ -417,7 +417,7 @@ test.serial.failing('should Start, force Pause and Resume an upload', async (t) 
   expect(t.context.config.paused.callCount).to.equal(1)
   expect(t.context.config.resumed.callCount).to.equal(1)
 
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,check for parts,PUT:partNumber=2,complete')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
