@@ -35,7 +35,6 @@ const baseAddConfig = {
 
 let server,
     requestMap = {
-      'GET:to_sign': 'sign',
       'POST:uploads': 'initiate',
       'POST:uploadId': 'complete',
       'DELETE:uploadId': 'cancel',
@@ -125,16 +124,19 @@ test.beforeEach((t) => {
 
     var request_order = []
     t.context.server.requests.forEach(function (r) {
-      var x = r.url.split('?'),
-          y = x[1] ? x[1].split('&') : '',
-          z = y[0] ? y[0].split('=')[0] : y
-      if (z === 'partNumber') {
-            z += '='
-            z += y[0].split('=')[1]
-      }
+      // Ignore the signing requests
+      if (!r.url.match(/\/sign.*$/)) {
+        var x = r.url.split('?'),
+            y = x[1] ? x[1].split('&') : '',
+            z = y[0] ? y[0].split('=')[0] : y
+        if (z === 'partNumber') {
+          z += '='
+          z += y[0].split('=')[1]
+        }
 
-      var v = z ? r.method + ':' + z : r.method
-      request_order.push(requestMap[v] || v)
+        var v = z ? r.method + ':' + z : r.method
+        request_order.push(requestMap[v] || v)
+      }
     })
 
     t.context.request_order = request_order.join(',')
@@ -261,7 +263,7 @@ test.serial('should upload a file', async (t) => {
   await t.context.testCommon({})
 
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal('sign,initiate,sign,PUT:partNumber=1,sign,complete')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete')
 })
 
 // Default Setup: V2 signatures, with parts Cache
@@ -278,8 +280,8 @@ test.serial('should check for parts when re-uploading a cached file when getPart
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,complete,' +
-      'sign,check for parts,sign,PUT:partNumber=1,sign,complete')
+      'initiate,PUT:partNumber=1,complete,' +
+      'check for parts,PUT:partNumber=1,complete')
   expect(t.context.server.requests[7].status).to.equal(404)
 })
 test.todo('should check for parts when re-uploading a cached file when getParts 404s without md5Checksums')
@@ -296,8 +298,8 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,complete,' +
-      'sign,check for parts,sign,PUT:partNumber=1,sign,complete')
+      'initiate,PUT:partNumber=1,complete,' +
+      'check for parts,PUT:partNumber=1,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.server.requests[7].status).to.equal(200)
 })
@@ -316,8 +318,8 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,complete,' +
-      'sign,check for parts,sign,complete')
+      'initiate,PUT:partNumber=1,complete,' +
+      'check for parts,complete')
   expect(t.context.server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts is not truncated without md5Checksums')
@@ -347,9 +349,9 @@ test.serial.failing('should check for parts when re-uploading a cached file, whe
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,PUT:partNumber=2,sign,PUT:partNumber=3,sign,PUT:partNumber=4,sign,PUT:partNumber=5,sign,complete,' +
-      'sign,check for parts,sign,check for parts,sign,PUT:partNumber=3,sign,PUT:partNumber=4,sign,PUT:partNumber=5,' +
-      'sign,complete')
+      'initiate,PUT:partNumber=1,PUT:partNumber=2,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,complete,' +
+      'check for parts,check for parts,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,' +
+      'complete')
   expect(t.context.server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts is truncated without md5Checksums')
@@ -372,7 +374,7 @@ test.serial('should Cancel an upload', async (t) => {
 
   expect(t.context.config.started).to.have.been.calledOnce
   expect(t.context.config.cancelled).to.have.been.calledOnce
-  expect(t.context.request_order).to.equal('sign,initiate,sign,PUT:partNumber=1,sign,complete,sign,cancel,sign,check for parts')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete,cancel,check for parts')
 })
 
 // Default Setup: V2 signatures: Pause & Resume
@@ -386,7 +388,7 @@ test.serial.failing('should Start, friendly Pause and Resume an upload', async (
   expect(t.context.config.paused.callCount).to.equal(1)
   expect(t.context.config.resumed.callCount).to.equal(1)
 
-  expect(t.context.request_order).to.equal('sign,initiate,sign,PUT:partNumber=1,sign,check for parts,sign,PUT:partNumber=2,sign,complete')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,check for parts,PUT:partNumber=2,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
@@ -399,7 +401,7 @@ test.serial.failing('should Start, force Pause and Resume an upload', async (t) 
   expect(t.context.config.paused.callCount).to.equal(1)
   expect(t.context.config.resumed.callCount).to.equal(1)
 
-  expect(t.context.request_order).to.equal('sign,initiate,sign,PUT:partNumber=1,sign,check for parts,sign,PUT:partNumber=2,sign,complete')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,check for parts,PUT:partNumber=2,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
@@ -409,7 +411,7 @@ test.serial.failing('should re-use S3 object, if conditions are correct', async 
 
   expect(t.context.config.complete.callCount).to.equal(1)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,complete,sign,HEAD')
+      'initiate,PUT:partNumber=1,complete,HEAD')
   expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
 })
 
@@ -419,7 +421,7 @@ test.serial.failing('should not re-use S3 object, if the Etags do not match', as
 
   expect(t.context.config.complete.callCount).to.equal(1)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,complete,sign,HEAD,sign,initiate,sign,PUT:partNumber=1,sign,complete')
+      'initiate,PUT:partNumber=1,complete,HEAD,initiate,PUT:partNumber=1,complete')
   expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
 })
 
