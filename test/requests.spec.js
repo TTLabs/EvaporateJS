@@ -88,10 +88,6 @@ test.beforeEach((t) => {
     xhr.respond(204)
   })
 
-  t.context.server.respondWith('HEAD', /./, (xhr) => {
-    xhr.respond(200, {eTag: 'custom-eTag'}, '')
-  })
-
   t.context.testBase = async function (addConfig, evapConfig) {
     t.context.deferred = defer();
 
@@ -200,7 +196,7 @@ test.beforeEach((t) => {
     await t.context.testBase(config)
   }
 
-  t.context.testS3Reuse = async function (addConfig2) {
+  t.context.testS3Reuse = async function (addConfig2, headEtag) {
     const evapConfig = Object.assign({}, baseConfig, {
       allowS3ExistenceOptimization: true,
       s3FileCacheHoursAgo: 24,
@@ -208,10 +204,19 @@ test.beforeEach((t) => {
       cryptoMd5Method: function (data) { return 'md5Checksum'; }
     })
 
+    t.context.server.respondWith('HEAD', /./, (xhr) => {
+      xhr.respond(200, {eTag: headEtag || 'custom-eTag'}, '')
+    })
+
     // Upload the first time
     await t.context.testCommon({}, evapConfig)
+
+    addConfig2.name = randomAwsKey()
+
     // Upload the second time to trigger head
     await t.context.testCommon(addConfig2, evapConfig)
+
+    t.context.requestedAwsObjectKey = addConfig2.name
   }
 
   t.context.testCancel = async function (addConfig) {
@@ -400,13 +405,21 @@ test.serial.failing('should Start, force Pause and Resume an upload', async (t) 
 
 // TODO: failing because Evaporate calls complete() twice
 test.serial.failing('should re-use S3 object, if conditions are correct', async (t) => {
-  await t.context.testS3Reuse({})
+  await t.context.testS3Reuse({}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
 
   expect(t.context.config.complete.callCount).to.equal(1)
   expect(t.context.request_order).to.equal(
-      'sign,initiate,sign,PUT:partNumber=1,sign,complete,sign,HEAD,sign,' +
-      'initiate,sign,PUT:partNumber=1,sign,complete')
-  expect(t.context.completedAwsKey).to.not.equal('')
+      'sign,initiate,sign,PUT:partNumber=1,sign,complete,sign,HEAD')
+  expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
+})
+
+// TODO: failing because Evaporate calls complete() twice
+test.serial.failing('should not re-use S3 object, if the Etags do not match', async (t) => {
+  await t.context.testS3Reuse({}, '"mismatched"')
+
+  expect(t.context.config.complete.callCount).to.equal(1)
+  expect(t.context.request_order).to.equal(
+      'sign,initiate,sign,PUT:partNumber=1,sign,complete,sign,HEAD,sign,initiate,sign,PUT:partNumber=1,sign,complete')
   expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
 })
 
