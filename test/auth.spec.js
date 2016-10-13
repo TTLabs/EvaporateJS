@@ -20,7 +20,10 @@ const baseConfig = {
   signerUrl: 'http://what.ever/sign',
   aws_key: 'testkey',
   bucket: AWS_BUCKET,
-  logging: false
+  logging: false,
+  maxRetryBackoffSecs: 0.1,
+  processMd5ThrottlingMs: 0,
+  abortCompletionThrottlingMs: 0
 }
 
 const baseAddConfig = {
@@ -42,7 +45,7 @@ let server,
 test.before(() => {
   sinon.xhr.supportsCORS = true
   server = sinon.fakeServer.create({
-    respondImmediately: true
+    autoRespond: true
   })
 
   server.respondWith('GET', /\/signv4.*$/, (xhr) => {
@@ -79,7 +82,6 @@ test.before(() => {
   })
 
   global.XMLHttpRequest = sinon.fakeServer.xhr
-  global.setTimeout = (fc) => fc()
 
   global.window = {
    localStorage: {}
@@ -255,7 +257,8 @@ test.serial('should return error when ABORT fails', async () => {
   await testV2Authorization({}, 2)
 
   expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.,Error aborting upload.')
+  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+  expect(errMessages.join(',')).to.match(/Error aborting upload/)
 })
 
 test.serial('should return error when list parts fails', async () => {
@@ -264,7 +267,8 @@ test.serial('should return error when list parts fails', async () => {
   await testV2Authorization({}, 2)
 
   expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.,Error listing parts.')
+  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+  expect(errMessages.join(',')).to.match(/Error listing parts/)
 })
 
 test.serial('should return error when Abort fails after part upload failure (404)', async () => {
@@ -273,7 +277,8 @@ test.serial('should return error when Abort fails after part upload failure (404
   await testV2Authorization({}, 2)
 
   expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.,Error aborting upload.')
+  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+  expect(errMessages.join(',')).to.match(/Error aborting upload/)
 })
 
 test.serial('should return error when listParts fails in Abort after part upload failure (404)', async () => {
@@ -283,5 +288,6 @@ test.serial('should return error when listParts fails in Abort after part upload
   await testV2Authorization({}, 1)
 
   expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.,Error listing parts.')
+  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+  expect(errMessages.join(',')).to.match(/Error listing parts/)
 })
