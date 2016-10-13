@@ -66,24 +66,24 @@ test.beforeEach((t) => {
     })
   }
 
-  t.context.server = sinon.fakeServer.create({
+  server = sinon.fakeServer.create({
     respondImmediately: true
   })
 
-  t.context.server.respondWith('GET', /\/sign.*$/, (xhr) => {
+  server.respondWith('GET', /\/sign.*$/, (xhr) => {
     const payload = Array(29).join()
     xhr.respond(200, CONTENT_TYPE_TEXT, payload)
   })
 
-  t.context.server.respondWith('POST', /^.*\?uploads.*$/, (xhr) => {
+  server.respondWith('POST', /^.*\?uploads.*$/, (xhr) => {
     xhr.respond(200, CONTENT_TYPE_XML, initResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
   })
 
-  t.context.server.respondWith('POST', /.*\?uploadId.*$/, (xhr) => {
+  server.respondWith('POST', /.*\?uploadId.*$/, (xhr) => {
     xhr.respond(200, CONTENT_TYPE_XML, completeResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
   })
 
-  t.context.server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
+  server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
     xhr.respond(204)
   })
 
@@ -123,7 +123,7 @@ test.beforeEach((t) => {
     await t.context.deferred.promise
 
     var request_order = []
-    t.context.server.requests.forEach(function (r) {
+    server.requests.forEach(function (r) {
       // Ignore the signing requests
       if (!r.url.match(/\/sign.*$/)) {
         var x = r.url.split('?'),
@@ -144,7 +144,7 @@ test.beforeEach((t) => {
 
   t.context.testCommon = async function (addConfig, evapConfig) {
     if (!t.context.putResponseSet) {
-      t.context.server.respondWith('PUT', /^.*$/, (xhr) => {
+      server.respondWith('PUT', /^.*$/, (xhr) => {
         xhr.respond(200)
       })
       t.context.putResponseSet = true
@@ -157,7 +157,7 @@ test.beforeEach((t) => {
       s3FileCacheHoursAgo: 24
     }
 
-    t.context.server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
+    server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
       xhr.respond(t.context.getPartsStatus, CONTENT_TYPE_XML, getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, partNumberMarker++, maxGetParts))
 
     })
@@ -167,14 +167,14 @@ test.beforeEach((t) => {
   }
 
   t.context.testPauseResume = async function (force) {
-    t.context.server.respondWith('PUT', /^.*$/, (xhr) => {
+    server.respondWith('PUT', /^.*$/, (xhr) => {
       if (xhr.url.indexOf('partNumber=1') > -1) {
         t.context.pause();
       }
       xhr.respond(200)
     })
 
-    t.context.server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
+    server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
       xhr.respond(200, CONTENT_TYPE_XML, getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, 0, 0))
     })
 
@@ -206,7 +206,7 @@ test.beforeEach((t) => {
       cryptoMd5Method: function (data) { return 'md5Checksum'; }
     })
 
-    t.context.server.respondWith('HEAD', /./, (xhr) => {
+    server.respondWith('HEAD', /./, (xhr) => {
       xhr.respond(200, {eTag: headEtag || 'custom-eTag'}, '')
     })
 
@@ -222,7 +222,7 @@ test.beforeEach((t) => {
   }
 
   t.context.testCancel = async function (addConfig) {
-    t.context.server.respondWith('PUT', /^.*$/, (xhr) => {
+    server.respondWith('PUT', /^.*$/, (xhr) => {
       xhr.respond(200)
       t.context.cancel();
     })
@@ -254,8 +254,8 @@ test.beforeEach((t) => {
   }
 })
 
-test.afterEach((t) => {
-  t.context.server.restore()
+test.afterEach(() => {
+  server.restore()
 })
 
 // Default Setup: V2 signatures, No Cache
@@ -282,7 +282,7 @@ test.serial('should check for parts when re-uploading a cached file when getPart
   expect(t.context.request_order).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
       'check for parts,PUT:partNumber=1,complete')
-  expect(t.context.server.requests[7].status).to.equal(404)
+  expect(server.requests[7].status).to.equal(404)
 })
 test.todo('should check for parts when re-uploading a cached file when getParts 404s without md5Checksums')
 
@@ -301,7 +301,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
       'initiate,PUT:partNumber=1,complete,' +
       'check for parts,PUT:partNumber=1,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.server.requests[7].status).to.equal(200)
+  expect(server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts returns none without md5Checksums')
 
@@ -320,7 +320,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
   expect(t.context.request_order).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
       'check for parts,complete')
-  expect(t.context.server.requests[7].status).to.equal(200)
+  expect(server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts is not truncated without md5Checksums')
 
@@ -352,7 +352,7 @@ test.serial.failing('should check for parts when re-uploading a cached file, whe
       'initiate,PUT:partNumber=1,PUT:partNumber=2,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,complete,' +
       'check for parts,check for parts,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,' +
       'complete')
-  expect(t.context.server.requests[7].status).to.equal(200)
+  expect(server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts is truncated without md5Checksums')
 
@@ -433,15 +433,15 @@ test.serial('should pass custom xAmzHeaders on init, put and complete', async (t
     xAmzHeadersAtComplete: { 'x-custom-header': 'eindelijk' }
   })
 
-  let request = t.context.server.requests[1] // POST INIT
+  let request = server.requests[1] // POST INIT
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header']).to.equal('peanuts')
 
-  request = t.context.server.requests[3] // PUT UPLOAD
+  request = server.requests[3] // PUT UPLOAD
   expect(request.method).to.equal('PUT')
   expect(request.requestHeaders['x-custom-header']).to.equal('phooey')
 
-  request = t.context.server.requests[5] // POST COMPLETE
+  request = server.requests[5] // POST COMPLETE
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header']).to.equal('eindelijk')
 })
@@ -452,15 +452,15 @@ test.serial('should pass custom xAmzHeadersCommon headers on init, put and compl
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
 
-  let request = t.context.server.requests[1] // POST INIT
+  let request = server.requests[1] // POST INIT
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header']).to.equal('peanuts')
 
-  request = t.context.server.requests[3] // PUT UPLOAD
+  request = server.requests[3] // PUT UPLOAD
   expect(request.method).to.equal('PUT')
   expect(request.requestHeaders['x-custom-header']).to.equal('phooey')
 
-  request = t.context.server.requests[5] // POST COMPLETE
+  request = server.requests[5] // POST COMPLETE
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header']).to.equal('phooey')
 })
@@ -472,15 +472,15 @@ test.serial('should pass custom xAmzHeadersCommon headers that override legacy o
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
 
-  let request = t.context.server.requests[1] // POST INIT
+  let request = server.requests[1] // POST INIT
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header1']).to.equal(undefined)
 
-  request = t.context.server.requests[3] // PUT UPLOAD
+  request = server.requests[3] // PUT UPLOAD
   expect(request.method).to.equal('PUT')
   expect(request.requestHeaders['x-custom-header3']).to.equal('phooey')
 
-  request = t.context.server.requests[5] // POST COMPLETE
+  request = server.requests[5] // POST COMPLETE
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header2']).to.eql(undefined)
   expect(request.requestHeaders['x-custom-header3']).to.eql('phooey')
@@ -492,7 +492,7 @@ test.serial('should pass custom xAmzHeadersCommon headers that do not apply to i
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
 
-  let request = t.context.server.requests[1] // POST INIT
+  let request = server.requests[1] // POST INIT
   expect(request.method).to.equal('POST')
   expect(request.requestHeaders['x-custom-header']).to.equal('peanuts')
 })
@@ -506,7 +506,7 @@ test.serial('should set xAmzHeadersCommon on Cancel', async (t) => {
     }
   })
 
-  let request = t.context.server.requests[7]
+  let request = server.requests[7]
   expect(request.method).to.equal('DELETE')
   expect(request.requestHeaders['x-custom-header']).to.equal('stopped')
 })
@@ -520,7 +520,7 @@ test.serial('should set xAmzHeadersCommon on check for parts on S3', async (t) =
   }
   }, 0, 0)
 
-  let request = t.context.server.requests[7]
+  let request = server.requests[7]
   expect(request.method).to.equal('GET')
   expect(request.url).to.match(/.*\?uploadId.*$/)
   expect(request.requestHeaders['x-custom-header']).to.equal('reused')
@@ -535,7 +535,7 @@ test.serial.failing('should set xAmzHeadersCommon when re-using S3 object', asyn
 
   await t.context.testS3Reuse(config)
 
-  let request = t.context.server.requests[7]
+  let request = server.requests[7]
   expect(request.method).to.equal('HEAD')
   expect(request.requestHeaders['x-custom-header']).to.equal('head-reuse')
 })
