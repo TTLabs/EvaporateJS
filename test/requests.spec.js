@@ -174,7 +174,7 @@ test.beforeEach((t) => {
     }
 
     server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
-      xhr.respond(t.context.getPartsStatus, CONTENT_TYPE_XML, getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, partNumberMarker++, maxGetParts))
+      xhr.respond(t.context.getPartsStatus, CONTENT_TYPE_XML, getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, maxGetParts, partNumberMarker++))
 
     })
 
@@ -206,9 +206,7 @@ test.beforeEach((t) => {
       }),
       started: sinon.spy(function () { }),
       pausing: sinon.spy(function () { }),
-      paused: sinon.spy(function () {
-        t.context.resume();
-      }),
+      paused: sinon.spy(function () {}),
       resumed: sinon.spy(function () {
         t.context.resolve();
       })
@@ -336,13 +334,11 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
     cryptoMd5Method: function (data) {
       return 'md5Checksum';
     }
-  }, 1, 1)
+  }, 1, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal(
-      'initiate,PUT:partNumber=1,complete,' +
-      'check for parts,check for parts,complete')
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts is not truncated without md5Checksums')
@@ -367,14 +363,13 @@ test.serial.failing('should check for parts when re-uploading a cached file, whe
     }
   })
 
-  await t.context.testCachedParts(addConfig, 1, 0)
+  await t.context.testCachedParts(addConfig, 5, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(t.context.request_order).to.equal(
       'initiate,PUT:partNumber=1,PUT:partNumber=2,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,complete,' +
-      'check for parts,check for parts,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,' +
-      'complete')
+      'check for parts,check for parts,check for parts,check for parts,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
 })
 test.todo('should check for parts when re-uploading a cached file, when getParts is truncated without md5Checksums')
@@ -426,8 +421,7 @@ test.serial.failing('should Start, force Pause and Resume an upload', async (t) 
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
-// TODO: failing because Evaporate calls complete() twice
-test.serial.failing('should re-use S3 object, if conditions are correct', async (t) => {
+test.serial('should re-use S3 object, if conditions are correct', async (t) => {
   await t.context.testS3Reuse({}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
 
   expect(t.context.config.complete.callCount).to.equal(1)

@@ -1,4 +1,4 @@
-module.exports = function (bucket = 'bucket', key = 'test.txt', partNumberMarker = 0, totalParts = 1) {
+module.exports = function (bucket = 'bucket', key = 'test.txt', totalParts = 1, partNumberMarker) {
   let head = `
   <?xml version="1.0" encoding="UTF-8"?>
   <ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -10,7 +10,7 @@ module.exports = function (bucket = 'bucket', key = 'test.txt', partNumberMarker
       <StorageClass>STANDARD</StorageClass>
       <PartNumberMarker>${partNumberMarker}</PartNumberMarker>
       <NextPartNumberMarker>${partNumberMarker + 1}</NextPartNumberMarker>
-      <IsTruncated>${partNumberMarker !== totalParts}</IsTruncated>`
+      <IsTruncated>${totalParts !==0 && (partNumberMarker + 1 !== totalParts)}</IsTruncated>`
 
   if (totalParts > 0) {
       head += `
