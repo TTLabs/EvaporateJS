@@ -22,7 +22,6 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
-  processMd5ThrottlingMs: 0,
   abortCompletionThrottlingMs: 0
 }
 
@@ -328,7 +327,7 @@ test.serial('should fetch V4 authorization using the signResponseHandler without
   expect(authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
 })
 
-test.serial.skip('should fetch V2 authorization using awsLambda', async () => {
+test.serial('should fetch V2 authorization using awsLambda', async () => {
   await testV2Authorization({awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
 
   expect(errMessages.length).to.equal(0)
@@ -336,7 +335,7 @@ test.serial.skip('should fetch V2 authorization using awsLambda', async () => {
   expect(authorization).to.equal(v2Authorization('abcdLambdaV2'))
 })
 
-test.serial.skip('should fetch V4 authorization using awsLambda', async () => {
+test.serial('should fetch V4 authorization using awsLambda', async () => {
   await testV4Authorization({awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
 
   expect(errMessages.length).to.equal(0)
@@ -361,7 +360,7 @@ test.serial('should return error when ABORT fails', async () => {
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-  expect(errMessages.join(',')).to.match(/Error aborting upload/)
+  expect(errMessages.join(',')).to.match(/Error aborting upload: status:403/)
 })
 
 test.serial('should return error when list parts fails', async () => {
@@ -381,7 +380,7 @@ test.serial('should return error when Abort fails after part upload failure (404
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-  expect(errMessages.join(',')).to.match(/Error aborting upload/)
+  expect(errMessages.join(',')).to.match(/Error aborting upload: status:403/)
 })
 
 test.serial('should return error when listParts fails in Abort after part upload failure (404)', async () => {

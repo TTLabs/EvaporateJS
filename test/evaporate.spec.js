@@ -24,7 +24,6 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
-  processMd5ThrottlingMs: 0,
   abortCompletionThrottlingMs: 0
 }
 

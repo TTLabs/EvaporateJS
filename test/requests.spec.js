@@ -23,7 +23,6 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
-  processMd5ThrottlingMs: 0,
   abortCompletionThrottlingMs: 0,
   progressIntervalMS: 5
 }
@@ -138,6 +137,9 @@ test.beforeEach((t) => {
 
     await t.context.deferred.promise
 
+  }
+
+  t.context.request_order = function () {
     var request_order = []
     server.requests.forEach(function (r) {
       // Ignore the signing requests
@@ -155,7 +157,7 @@ test.beforeEach((t) => {
       }
     })
 
-    t.context.request_order = request_order.join(',')
+    return request_order.join(',')
   }
 
   t.context.testCommon = async function (addConfig, evapConfig) {
@@ -241,7 +243,7 @@ test.beforeEach((t) => {
   t.context.testCancel = async function (addConfig) {
     server.respondWith('PUT', /^.*$/, (xhr) => {
       xhr.respond(200)
-      t.context.cancel();
+      //t.context.cancel();
       })
 
     server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
@@ -284,7 +286,7 @@ test.serial('should upload a file', async (t) => {
   await t.context.testCommon({})
 
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete')
+  expect(t.context.request_order()).to.equal('initiate,PUT:partNumber=1,complete')
 })
 
 // Default Setup: V2 signatures, with parts Cache
@@ -300,9 +302,10 @@ test.serial('should check for parts when re-uploading a cached file when getPart
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
-      'check for parts,PUT:partNumber=1,complete')
+      'check for parts,' +
+      'initiate,PUT:partNumber=1,complete')
   expect(server.requests[7].status).to.equal(404)
 })
 
@@ -313,9 +316,10 @@ test.serial('should check for parts when re-uploading a cached file when getPart
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
-      'check for parts,PUT:partNumber=1,complete')
+      'check for parts,' +
+      'initiate,PUT:partNumber=1,complete')
   expect(server.requests[7].status).to.equal(404)
 })
 
@@ -330,7 +334,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
   }, 0, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
       'check for parts,PUT:partNumber=1,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
@@ -343,7 +347,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
   await t.context.testCachedParts({}, 0, 0)
 
   expect(t.context.config.started.callCount).to.equal(1)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
       'check for parts,PUT:partNumber=1,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
@@ -362,7 +366,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete,check for parts,complete')
+  expect(t.context.request_order()).to.equal('initiate,PUT:partNumber=1,complete,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
 })
 
@@ -373,7 +377,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,' +
       'check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
@@ -402,7 +406,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,PUT:partNumber=2,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,complete,' +
       'check for parts,check for parts,check for parts,check for parts,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
@@ -424,7 +428,7 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,PUT:partNumber=2,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,complete,' +
       'check for parts,check for parts,check for parts,check for parts,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
@@ -434,24 +438,46 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
 test.serial('should do nothing when canceling before starting', async (t) => {
   const config = {
     started: function (id) { t.context.cancel() },
-    cancelled: function () {t.context.resolve() }
+    cancelled: sinon.spy(function () {t.context.resolve() })
   }
 
-  await t.context.testCancel(config)
+  await t.context.testBase(config)
 
-  expect(t.context.request_order).to.equal('')
+  expect(config.cancelled.callCount).to.equal(1)
+  expect(t.context.request_order()).to.equal('')
 })
 
 test.serial('should Cancel an upload', async (t) => {
-  await t.context.testCancel({})
+  server.respondWith('PUT', /^.*$/, (xhr) => {
+    xhr.respond(200)
+  })
+
+  server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
+    xhr.respond(200, CONTENT_TYPE_XML, getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, 0, 0))
+  })
+
+  const config = {
+    started: sinon.spy(function () { }),
+    cancelled: sinon.spy(function () {
+      t.context.resolve();
+    })
+  }
+
+  await t.context.testBase(config)
+
+  t.context.deferred = defer();
+
+  t.context.cancel()
+
+  await t.context.deferred.promise
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.config.cancelled.callCount).to.equal(1)
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete,cancel,check for parts')
+  expect(t.context.request_order()).to.equal('initiate,PUT:partNumber=1,complete,cancel,check for parts')
 })
+test.todo('should cancel an upload while parts are uploading')
 
 // Default Setup: V2 signatures: Pause & Resume
-// TODO: failing because Evaporate doesn't call complete()
 test.serial('should Start, friendly Pause and Resume an upload', async (t) => {
 
   await t.context.testPauseResume(false)
@@ -461,11 +487,10 @@ test.serial('should Start, friendly Pause and Resume an upload', async (t) => {
   expect(t.context.config.paused.callCount).to.equal(1)
   expect(t.context.config.resumed.callCount).to.equal(1)
 
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
+  expect(t.context.request_order()).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
-// TODO: failing because Evaporate doesn't call complete()
 test.serial('should Start, force Pause and Resume an upload', async (t) => {
   await t.context.testPauseResume(true)
 
@@ -474,7 +499,7 @@ test.serial('should Start, force Pause and Resume an upload', async (t) => {
   expect(t.context.config.paused.callCount).to.equal(1)
   expect(t.context.config.resumed.callCount).to.equal(1)
 
-  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
+  expect(t.context.request_order()).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
 })
 
@@ -482,7 +507,7 @@ test.serial('should re-use S3 object, if conditions are correct', async (t) => {
   await t.context.testS3Reuse({}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
 
   expect(t.context.config.complete.callCount).to.equal(1)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,HEAD')
   expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
 })
@@ -491,7 +516,7 @@ test.serial('should not re-use S3 object, if the Etags do not match', async (t) 
   await t.context.testS3Reuse({}, '"mismatched"')
 
   expect(t.context.config.complete.callCount).to.equal(1)
-  expect(t.context.request_order).to.equal(
+  expect(t.context.request_order()).to.equal(
       'initiate,PUT:partNumber=1,complete,HEAD,initiate,PUT:partNumber=1,complete')
   expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
 })
@@ -565,11 +590,35 @@ test.serial('should pass custom xAmzHeadersCommon headers that do not apply to i
 // Cover xAmzHeadersCommon
 
 // Cancel (xAmzHeadersCommon)
-test.todo('should set xAmzHeadersCommon on Cancel')
- // await t.context.testCancel({xAmzHeadersCommon: {
- //    'x-custom-header': 'stopped'
- //  }
- //  expect(headersForMethod('DELETE')['x-custom-header']).to.equal('stopped')
+test.serial('should set xAmzHeadersCommon on Cancel', async (t) => {
+  server.respondWith('PUT', /^.*$/, (xhr) => {
+    xhr.respond(200)
+  })
+
+  server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
+    xhr.respond(200, CONTENT_TYPE_XML, getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, 0, 0))
+  })
+
+  const config = {
+    started: sinon.spy(function () { }),
+    cancelled: sinon.spy(function () {
+      t.context.resolve();
+    }),
+    xAmzHeadersCommon: {
+      'x-custom-header': 'stopped'
+    }
+  }
+
+  await t.context.testBase(config)
+
+  t.context.deferred = defer();
+
+  t.context.cancel()
+
+  await t.context.deferred.promise
+
+  expect(headersForMethod('DELETE')['x-custom-header']).to.equal('stopped')
+})
 
 // getParts (xAmzHeadersCommon)
 test.serial('should set xAmzHeadersCommon on check for parts on S3', async (t) => {
