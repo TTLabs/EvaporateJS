@@ -29,7 +29,6 @@ const baseAddConfig = {
     path: '/tmp/file',
     size: 50,
     maxRetryBackoffSecs: 0.1,
-    processMd5ThrottlingMs: 0,
     abortCompletionThrottlingMs: 0
   })
 }

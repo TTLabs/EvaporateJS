@@ -81,7 +81,7 @@ var evaporate = new Evaporate({
 
 var file = new File([""], "file_object_to_upload");
 
-var file_id = evaporate.add({
+var promise = evaporate.add({
         name: file.name,
         file: file,
         progress: function (progressValue) { console.log('Progress', progressValue); },
@@ -91,6 +91,14 @@ var file_id = evaporate.add({
         bucket: AWS_BUCKET // Shows that the bucket can be changed per
      }
 );
+
+promise.then(
+    function () {
+        console.log('Uploaded completed!');
+    },
+    function (reason) {
+        console.log('File not uploaded: ', reason)
+    });
 ```
 
 ## Configuring The AWS S3 Bucket
@@ -342,7 +350,7 @@ signHeaders: {
 
 #### Evaporate#add()
 
-`var upload_id = evaporate.add(config[, overrideOptions])`
+`var completionPromise = evaporate.add(config[, overrideOptions])`
 
 `config` is an object with 2 required keys:
 
@@ -350,10 +358,9 @@ signHeaders: {
 * **file**: _File_. The reference to the JavaScript [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
   object to upload.
 
-  The `upload_id` identifies the file in Evaporate. If the upload_id is an `Integer`, Evaporate is processing the file. If
-  the `upload_id` is a `String`, that represents an error message. In such a case, Evaporate will not upload the file. For
-  example, if the file size violates the `maxFileSize` option, the method will return "File size too large.
-  Maximum size allowed is {maxFileSize}".
+  The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+  promise resolves with the file_key on sucessful file upload and rejects when the upload is canceled or aborted due
+  to an unrecoverable error.
 
 And a number of optional parameters:
 
@@ -375,16 +382,16 @@ And a number of optional parameters:
   added to all AWS requests other than the initiate request. `xAmzHeadersAtUpload` and `xAmzHeadersAtComplete` do
   not need to be specified if `xAmzHeadersCommon` satisfies the AWS header requirements.
 
-* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
-represents the file whose upload is being started.
+* **started**: _function(file_key)_. a function that will be called when the file upload starts. The file_key
+represents the internal identifier of the file whose upload is starting.
 
-* **paused**: _function(upload_id)_. a function that will be called when the file upload is completely paused (all
-in-progress parts are aborted or completed). The upload id represents the file whose upload has been paused.
+* **paused**: _function(file_key)_. a function that will be called when the file upload is completely paused (all
+in-progress parts are aborted or completed). The file_key represents the file whose upload has been paused.
 
-* **resumed**: _function(upload_id)_. a function that will be called when the file upload resumes.
+* **resumed**: _function(file_key)_. a function that will be called when the file upload resumes.
 
-* **pausing**: _function(upload_id)_. a function that will be called when the file upload has been asked to pause
-after all in-progress parts are completed. The upload id represents the file whose upload has been requested
+* **pausing**: _function(file_key)_. a function that will be called when the file upload has been asked to pause
+after all in-progress parts are completed. The file_key  represents the file whose upload has been requested
 to pause.
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
@@ -421,37 +428,39 @@ With the exception of the following options, all other Evaporate configuration o
 - `awsRegion`
 - `awsSignatureVersion`
 
-Returns a unique upload id for the file. This id can be used in the
-`.pause()`, `.resume()` and `.cancel()` methods.
+The `.add()` method returns a Promise that resolves when the upload completes.
 
-The `.add()` method returns the Evaporate id of the upload to process. Use this id to abort or cancel
-an upload. The id is also passed as a parameter to the `started()` callback. If the file validation passes, this method
-returns an integer representing the file id, otherwise, it returns a string error message.
+To pause, resume or cancel an upload, construct a file_key to pass to the respective Evaporate methods.
+`file_key` is the optional file key of the upload that you want to pause. File key is constructed
+as `bucket + '/' + object_name`.
 
 #### Evaporate#pause()
 
-`evaporate.pause([id[, options]])`
+`evaporate.pause([file_key[, options]])`
 
-Pauses the upload for the file identified by the upload id. If options include `force`,
+Pauses the upload for the file identified by the object file key or all files. If options include `force`,
 then the in-progress parts will be immediately aborted; otherwise, the file upload will be paused when all in-progress
 parts complete. Refer to the `.paused` and `.pausing` callbacks for status feedback when pausing.
 
-`id` is the optional id of the upload that you want to pause. IF `id` is not defined, then all files will be paused.
+`file_key` is the optional file key of the upload that you want to pause. If `file_key` is not defined, then all
+files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
 #### Evaporate#resume()
 
-`evaporate.resume([id])`
+`evaporate.resume([file_key])`
 
-Resumes the upload for the file identified by the upload id, or all files if the id is not
+Resumes the upload for the file identified by the file key, or all files if the file key is not
 passed. The `.resumed` callback is invoked when a file upload resumes.
 
-`id` is the optional id of the upload to resume
+`file_key` is the optional file key of the upload that you want to resume. If `file_key` is not defined, then all
+files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
 #### Evaporate#cancel()
 
-`evaporate.cancel(id)`
+`evaporate.cancel(file_key)`
 
-`id` is the id of the upload to cancel
+`file_key` is the file key of the upload that you want to cancel. File key is constructed as `bucket + '/' + object_name`.
+The completion promise rejects after the file upload aborts.
 
 #### Evaporate#supported
 
@@ -467,7 +476,7 @@ It then verifies that the `partSize` used when uploading matches the partSize cu
 upload then calcuates the MD5 digest of the first part for final verification. If you specify `onlyRetryForSameFileName`, 
 then a further check is done that the specified destination file name matches the destination file name used previously.
 
-If the uploaded file has an unfinished multipart upload ID associated with it, then the uploader queries S3 for the parts that 
+If the uploaded file has an unfinished S3 multipart upload ID associated with it, then the uploader queries S3 for the parts that 
 have been uploaded. It then uploads only the unfinished parts.
 
 If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to
