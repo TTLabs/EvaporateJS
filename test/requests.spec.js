@@ -453,6 +453,23 @@ test.serial('should pass custom xAmzHeaders on init, put and complete', async (t
 
 })
 
+test.serial('should apply signParams in the signature request', async (t) => {
+  await t.context.testCommon({}, {
+    signParams: { 'signing-auth': 'token' }
+  })
+
+  expect(server.requests[0].url).to.match(/signing-auth=token/)
+})
+
+test.serial('should pass signHeaders to the signature request', async (t) => {
+  await t.context.testCommon({}, {
+    signHeaders: { 'signing-auth': 'token' }
+  })
+
+  expect(headersForMethod('GET', /\/sign.*$/)['signing-auth']).to.equal('token')
+})
+
+// Cover xAmzHeader Options
 test.serial('should pass custom xAmzHeadersCommon headers on init, put and complete', async (t) => {
   await t.context.testCommon({
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
