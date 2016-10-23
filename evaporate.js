@@ -991,8 +991,6 @@
                 l.d(msg);
                 me.info(msg);
 
-                partsOnS3 = [];
-
                 var list = {
                     method: 'GET',
                     path: getPath() + '?uploadId=' + me.uploadId,
