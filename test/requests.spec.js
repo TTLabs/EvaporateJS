@@ -72,7 +72,7 @@ test.beforeEach((t) => {
   }
 
   server = sinon.fakeServer.create({
-    autoRespond: true
+    respondImmediately: true
   })
 
   server.respondWith('GET', /\/sign.*$/, (xhr) => {
@@ -206,10 +206,10 @@ test.beforeEach((t) => {
       }),
       started: sinon.spy(function () { }),
       pausing: sinon.spy(function () { }),
-      paused: sinon.spy(function () {}),
-      resumed: sinon.spy(function () {
-        t.context.resolve();
-      })
+      paused: sinon.spy(function () {
+        t.context.resume();
+      }),
+      resumed: sinon.spy(function () {})
     }
 
     await t.context.testBase(config)
@@ -267,7 +267,7 @@ test.beforeEach((t) => {
   }
 
   t.context.resume = function () {
-    t.context.evaporate.resume()
+    t.context.evaporate.resume(t.context.uploadId)
   }
 
   t.context.resolve = function () {
@@ -305,7 +305,19 @@ test.serial('should check for parts when re-uploading a cached file when getPart
       'check for parts,PUT:partNumber=1,complete')
   expect(server.requests[7].status).to.equal(404)
 })
-test.todo('should check for parts when re-uploading a cached file when getParts 404s without md5Checksums')
+
+test.serial('should check for parts when re-uploading a cached file when getParts 404s without md5Checksums', async (t) => {
+  t.context.getPartsStatus = 404
+
+  await t.context.testCachedParts({}, 0)
+
+  expect(t.context.config.started.callCount).to.equal(1)
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
+  expect(t.context.request_order).to.equal(
+      'initiate,PUT:partNumber=1,complete,' +
+      'check for parts,PUT:partNumber=1,complete')
+  expect(server.requests[7].status).to.equal(404)
+})
 
 test.serial('should check for parts when re-uploading a cached file, when getParts returns none', async (t) => {
   t.context.getPartsStatus = 200
@@ -324,7 +336,19 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
   expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
   expect(server.requests[7].status).to.equal(200)
 })
-test.todo('should check for parts when re-uploading a cached file, when getParts returns none without md5Checksums')
+
+test.serial('should check for parts when re-uploading a cached file, when getParts returns none without md5Checksums', async (t) => {
+  t.context.getPartsStatus = 200
+
+  await t.context.testCachedParts({}, 0, 0)
+
+  expect(t.context.config.started.callCount).to.equal(1)
+  expect(t.context.request_order).to.equal(
+      'initiate,PUT:partNumber=1,complete,' +
+      'check for parts,PUT:partNumber=1,complete')
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
+  expect(server.requests[7].status).to.equal(200)
+})
 
 test.serial('should check for parts when re-uploading a cached file, when getParts is not truncated', async (t) => {
   t.context.getPartsStatus = 200
@@ -341,10 +365,21 @@ test.serial('should check for parts when re-uploading a cached file, when getPar
   expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
 })
-test.todo('should check for parts when re-uploading a cached file, when getParts is not truncated without md5Checksums')
 
-// TODO: failing because get parts logic for truncated responses is broken
-test.serial.failing('should check for parts when re-uploading a cached file, when getParts is truncated', async (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is not truncated without md5Checksums', async (t) => {
+  t.context.getPartsStatus = 200
+
+  await t.context.testCachedParts({}, 1, 0)
+
+  expect(t.context.config.started.callCount).to.equal(1)
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
+  expect(t.context.request_order).to.equal(
+      'initiate,PUT:partNumber=1,complete,' +
+      'check for parts,complete')
+  expect(server.requests[7].status).to.equal(200)
+})
+
+test.serial('should check for parts when re-uploading a cached file, when getParts is truncated', async (t) => {
   t.context.getPartsStatus = 200
 
   const Parts5AddConfig = {
@@ -372,7 +407,28 @@ test.serial.failing('should check for parts when re-uploading a cached file, whe
       'check for parts,check for parts,check for parts,check for parts,check for parts,complete')
   expect(server.requests[7].status).to.equal(200)
 })
-test.todo('should check for parts when re-uploading a cached file, when getParts is truncated without md5Checksums')
+
+test.serial('should check for parts when re-uploading a cached file, when getParts is truncated without md5Checksums', async (t) => {
+  t.context.getPartsStatus = 200
+
+  const addConfig = {
+    name: t.context.requestedAwsObjectKey,
+    file: new File({
+      path: '/tmp/file',
+      size: 29690176,
+      name: randomAwsKey()
+    })
+  }
+
+  await t.context.testCachedParts(addConfig, 5, 0)
+
+  expect(t.context.config.started.callCount).to.equal(1)
+  expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
+  expect(t.context.request_order).to.equal(
+      'initiate,PUT:partNumber=1,PUT:partNumber=2,PUT:partNumber=3,PUT:partNumber=4,PUT:partNumber=5,complete,' +
+      'check for parts,check for parts,check for parts,check for parts,check for parts,complete')
+  expect(server.requests[7].status).to.equal(200)
+})
 
 // Default Setup: V2 signatures, Cancel
 test.serial('should do nothing when canceling before starting', async (t) => {
@@ -391,11 +447,12 @@ test.serial('should Cancel an upload', async (t) => {
 
   expect(t.context.config.started.callCount).to.equal(1)
   expect(t.context.config.cancelled.callCount).to.equal(1)
+  expect(t.context.request_order).to.equal('initiate,PUT:partNumber=1,complete,cancel,check for parts')
 })
 
 // Default Setup: V2 signatures: Pause & Resume
 // TODO: failing because Evaporate doesn't call complete()
-test.serial.failing('should Start, friendly Pause and Resume an upload', async (t) => {
+test.serial('should Start, friendly Pause and Resume an upload', async (t) => {
 
   await t.context.testPauseResume(false)
 
@@ -409,7 +466,7 @@ test.serial.failing('should Start, friendly Pause and Resume an upload', async (
 })
 
 // TODO: failing because Evaporate doesn't call complete()
-test.serial.failing('should Start, force Pause and Resume an upload', async (t) => {
+test.serial('should Start, force Pause and Resume an upload', async (t) => {
   await t.context.testPauseResume(true)
 
   expect(t.context.config.started.callCount).to.equal(2)
