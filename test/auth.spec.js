@@ -285,7 +285,7 @@ test.serial('should return error when listParts fails in Abort after part upload
   statusPUT = 404
   statusDELETE = 200
   statusLIST = 403
-  await testV2Authorization({}, 1)
+  await testV2Authorization({}, 2)
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
