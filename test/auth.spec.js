@@ -44,6 +44,24 @@ let server,
 
 test.before(() => {
   sinon.xhr.supportsCORS = true
+
+  global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
+
+  global.window = {
+   localStorage: {}
+  };
+
+})
+
+test.beforeEach(() =>{
+  signerUrlCalled = false;
+  authorization = undefined;
+  statusPUT = 200
+  statusDELETE = 200
+  statusLIST = 200
+  errMessages = []
+  localStorage.removeItem('awsUploads')
+
   server = sinon.fakeServer.create({
     autoRespond: true
   })
@@ -81,29 +99,13 @@ test.before(() => {
     xhr.respond(statusLIST, CONTENT_TYPE_XML, response)
   })
 
-  global.XMLHttpRequest = sinon.fakeServer.xhr
-
-  global.window = {
-   localStorage: {}
-  };
-
-})
-
-test.beforeEach(() =>{
-  signerUrlCalled = false;
-  authorization = undefined;
-  statusPUT = 200
-  statusDELETE = 200
-  statusLIST = 200
-  errMessages = []
-  localStorage.removeItem('awsUploads')
 })
 
 test.after(() => {
   server.restore()
 })
 
-async function testV2Authorization(initConfig, expectedErrors) {
+async function testV2Authorization(initConfig, expectedErrors, addCfg) {
   const config = Object.assign({}, baseConfig, {awsSignatureVersion: '2', signerUrl: 'http://what.ever/signv2'})
   const evapV2Config = Object.assign({}, config, initConfig)
 
@@ -115,7 +117,7 @@ async function testV2Authorization(initConfig, expectedErrors) {
     expectedErrors = 0;
   }
 
-  const addConfig = Object.assign({}, baseAddConfig, {
+  const addConfig = Object.assign({}, baseAddConfig, addCfg, {
     complete: function () { deferred.resolve();},
     error: function (msg) {
       errMessages.push(msg);
@@ -149,7 +151,7 @@ AWSLambda.prototype.invoke = function (params, cb) {
   cb('', data)
 }
 
-async function testV4Authorization(initConfig) {
+async function testV4Authorization(initConfig, addCfg) {
   const config = Object.assign({}, baseConfig, {
     signerUrl: 'http://what.ever/signv4',
     awsSignatureVersion: '4',
@@ -164,7 +166,7 @@ async function testV4Authorization(initConfig) {
 
   const evaporate = new Evaporate(evapV4Config)
 
-  const addConfig = Object.assign({}, baseAddConfig, {
+  const addConfig = Object.assign({}, baseAddConfig, addCfg, {
     complete: function () { deferred.resolve() },
     error: function (msg) { errMessages.push(msg) }})
 
@@ -173,9 +175,110 @@ async function testV4Authorization(initConfig) {
   await deferred.promise
 }
 
+async function testV4ToSign(addConfig) {
+  await testV4Authorization({cryptoHexEncodedHash256: function (d) { return d; }}, addConfig);
+
+  var qp = params(server.requests[2].url)
+
+  return {
+    result: qp.to_sign,
+    datetime: qp.datetime
+  }
+}
+
 const signResponseHandler = function  (response, stringToSign, signatureDateTime) {
   return '1234567890123456789012345srh';
 }
+
+function params(url) {
+  var query = url.split("?"),
+   qs = query[1] || '',
+   pairs = qs.split("&"),
+   result = {};
+  pairs.forEach(function (r) {
+    var pr = r.split("=");
+    if (pr.length === 1) {
+      result[pr[0]] = null;
+    } else {
+      result[pr[0]] = pr[1];
+    }
+  });
+  return result;
+}
+
+function stringToSignV2(path, method, request) {
+
+  var x_amz_headers = '', result, header_key_array = [];
+
+  for (var key in request.x_amz_headers) {
+    if (request.x_amz_headers.hasOwnProperty(key)) {
+      header_key_array.push(key);
+    }
+  }
+  header_key_array.sort();
+
+  header_key_array.forEach(function (header_key) {
+    x_amz_headers += (header_key + ':' + request.x_amz_headers[header_key] + '\n');
+  });
+
+  result = method + '\n' +
+      (request.md5_digest || '') + '\n' +
+      (request.contentType || '') + '\n' +
+      '\n' +
+      x_amz_headers +
+      '' +
+      path;
+
+  return result;
+}
+
+async function testV2ToSign(request, amzHeaders, addConfig, evapConfig) {
+  await testV2Authorization(evapConfig, 0, addConfig);
+
+  var qp = params(server.requests[2].url),
+      h = Object.assign({}, amzHeaders, {'x-amz-date': qp.datetime}),
+      r = Object.assign({}, request, {x_amz_headers: h}),
+      expected = encodeURIComponent(stringToSignV2('/' + AWS_BUCKET + '/' + AWS_UPLOAD_KEY +
+          '?partNumber=1&uploadId=Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--', 'PUT', r))
+
+  return {
+    result: qp.to_sign,
+    expected: expected
+  }
+}
+
+test.serial('should correctly create V2 string to sign for PUT', async () => {
+  var result = await testV2ToSign();
+  expect(result.result).to.equal(result.expected)
+})
+
+test.serial('should correctly create V2 string to sign for PUT with amzHeaders', async () => {
+  var result = await testV2ToSign({}, { 'x-custom-header': 'peanuts' }, {xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }});
+  expect(result.result).to.equal(result.expected)
+})
+
+test.serial('should correctly create V2 string to sign for PUT with md5 digest', async () => {
+  var result = await testV2ToSign({md5_digest: 'MD5Value'}, {}, {}, {
+    computeContentMd5: true,
+    cryptoMd5Method: function () { return 'MD5Value'; }
+  });
+  expect(result.result).to.equal(result.expected)
+})
+
+test.serial('should correctly create V4 string to sign for PUT', async () => {
+  var result = await testV4ToSign();
+  expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
+      result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
+      result.datetime + '%0A%0Acontent-md5%3Bhost%3Bx-amz-date%0AUNSIGNED-PAYLOAD')
+})
+
+test.serial('should correctly create V4 string to sign for PUT with amzHeaders', async () => {
+  var result = await testV4ToSign({xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }});
+
+  expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
+      result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
+      result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
+})
 
 test.serial('should fetch V2 authorization from the signerUrl', async () => {
   await testV2Authorization({});
