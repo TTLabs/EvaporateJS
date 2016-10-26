@@ -101,21 +101,10 @@ test('should return supported instance with public functions', () => {
   })
 })
 
-test('should not return supported instance with public functions', () => {
+test('should not return supported without required options', () => {
   const emptyConfig = {}
   const evaporate = new Evaporate(emptyConfig)
-  const publicFunctionNames = [
-    'add',
-    'cancel',
-    'pause',
-    'resume',
-    'forceRetry'
-  ]
-
-  // expect(evaporate.supported).to.not.be.ok
-  publicFunctionNames.forEach((functionName) => {
-    expect(evaporate[functionName]).to.equal(undefined)
-  })
+  expect(evaporate.supported).to.equal(false)
 })
 
 // add
