@@ -2,197 +2,50 @@ import { expect } from 'chai'
 import sinon from 'sinon'
 import test from 'ava'
 
-import Evaporate from '../evaporate'
-
-import initResponse from './fixtures/init-response'
-import completeResponse from './fixtures/complete-response'
-import getPartsResponse from './fixtures/get-parts-truncated-response'
-
-// constants
-
-const CONTENT_TYPE_XML = { 'Content-Type': 'text/xml' }
-const CONTENT_TYPE_TEXT = { 'Content-Type': 'text/plain' }
-
-const AWS_BUCKET = 'bucket'
-const AWS_UPLOAD_KEY = 'tests'
-
-const baseConfig = {
-  signerUrl: 'http://what.ever/sign',
-  aws_key: 'testkey',
-  bucket: AWS_BUCKET,
-  logging: false,
-  maxRetryBackoffSecs: 0.1,
-  abortCompletionThrottlingMs: 0
-}
-
-const baseAddConfig = {
-  name: AWS_UPLOAD_KEY,
-  file: new File({
-    path: '/tmp/file',
-    size: 50
-  })
-}
-
-let server,
-    authorization,
-    statusPUT,
-    statusDELETE,
-    statusLIST,
-    signerUrlCalled,
-    errMessages;
-
-test.before(() => {
-  sinon.xhr.supportsCORS = true
-
-  global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
-
-  global.window = {
-   localStorage: {}
-  };
-
-})
-
-test.beforeEach(() =>{
-  signerUrlCalled = false;
-  authorization = undefined;
-  statusPUT = 200
-  statusDELETE = 200
-  statusLIST = 200
-  errMessages = []
-  localStorage.removeItem('awsUploads')
-
-  server = sinon.fakeServer.create({
-    autoRespond: true
-  })
-
-  server.respondWith('GET', /\/signv4.*$/, (xhr) => {
-    signerUrlCalled = true
-    xhr.respond(200, CONTENT_TYPE_TEXT, '12345678901234567890123456v4')
-  })
-
-  server.respondWith('GET', /\/signv2.*$/, (xhr) => {
-    signerUrlCalled = true
-    xhr.respond(200, CONTENT_TYPE_TEXT, '1234567890123456789012345678')
-  })
-
-  server.respondWith('POST', /^.*\?uploads.*$/, (xhr) => {
-    authorization = xhr.requestHeaders.Authorization
-    xhr.respond(200, CONTENT_TYPE_XML, initResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
-  })
-
-  server.respondWith('PUT', /^.*$/, (xhr) => {
-    xhr.respond(statusPUT)
-  })
-
-  server.respondWith('POST', /.*\?uploadId.*$/, (xhr) => {
-    xhr.respond(200, CONTENT_TYPE_XML, completeResponse(AWS_BUCKET, AWS_UPLOAD_KEY))
-  })
-
-  server.respondWith('DELETE', /.*\?uploadId.*$/, (xhr) => {
-    xhr.respond(statusDELETE, CONTENT_TYPE_TEXT)
-  })
-
-  server.respondWith('GET', /.*\?uploadId.*$/, (xhr) => {
-    var response;
-    response = getPartsResponse(AWS_BUCKET, AWS_UPLOAD_KEY, 0, 0)
-    xhr.respond(statusLIST, CONTENT_TYPE_XML, response)
-  })
-
-})
-
-test.after(() => {
-  server.restore()
-})
-
-function testV2Authorization(initConfig, addCfg) {
-  const config = Object.assign({}, baseConfig, {awsSignatureVersion: '2', signerUrl: 'http://what.ever/signv2'})
-  const evapV2Config = Object.assign({}, config, initConfig)
-
-  const evaporate = new Evaporate(evapV2Config)
-  const addConfig = Object.assign({}, baseAddConfig, addCfg, {
-    error: function (msg) {
-      errMessages.push(msg);
-    }})
-
-  return evaporate.add(addConfig)
-      .then(
-        function (fileKey) {},
-        function (reason) {})
-}
-
-function v2Authorization(signature) {
-  return 'AWS testkey:' + signature
-}
-function v4Authorization(signingKey) {
-  return 'AWS4-HMAC-SHA256 Credential=testkey/' + v4DateString() + '/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-date, Signature=' + signingKey
-}
-function v4DateString() {
-  return new Date().toISOString().slice(0, 10).replace(/-|:/g, '')
-}
-
-let AWSLambda = function (payload) {
-  this.payload = payload;
-}
-AWSLambda.prototype.invoke = function (params, cb) {
-  const data = {
-    Payload: '"' + this.payload + '"'
-  }
-  cb('', data)
-}
-
-async function testV4Authorization(initConfig, addCfg) {
-  const config = Object.assign({}, baseConfig, {
-    signerUrl: 'http://what.ever/signv4',
-    awsSignatureVersion: '4',
-    computeContentMd5: true,
-    cryptoMd5Method: function () { return 'MD5Value'; },
-    cryptoHexEncodedHash256: function () { return 'SHA256Value'; }
-  })
-
-  const evapV4Config = Object.assign({}, config, initConfig)
-
-  const evaporate = new Evaporate(evapV4Config)
-
-  const addConfig = Object.assign({}, baseAddConfig, addCfg, {
-    error: function (msg) { errMessages.push(msg) }})
-
-  return evaporate.add(addConfig)
-      .then(
-          function (fileKey) {},
-          function (reason) {})
-}
-
-async function testV4ToSign(addConfig) {
-  await testV4Authorization({cryptoHexEncodedHash256: function (d) { return d; }}, addConfig);
-
-  var qp = params(server.requests[2].url)
-
-  return {
-    result: qp.to_sign,
-    datetime: qp.datetime
-  }
-}
+let server;
 
 const signResponseHandler = function  (response, stringToSign, signatureDateTime) {
   return '1234567890123456789012345srh';
 }
 
-function params(url) {
-  var query = url.split("?"),
-   qs = query[1] || '',
-   pairs = qs.split("&"),
-   result = {};
-  pairs.forEach(function (r) {
-    var pr = r.split("=");
-    if (pr.length === 1) {
-      result[pr[0]] = null;
-    } else {
-      result[pr[0]] = pr[1];
-    }
-  });
-  return result;
+function testCommonAuthorization(t, addCfg, evapConfig) {
+  const addConfig = Object.assign({}, t.context.baseAddConfig, addCfg, {
+    error: function (msg) {
+      t.context.errMessages.push(msg);
+    }})
+
+  return testBase(t, addConfig, evapConfig);
 }
 
+function v2Authorization(signature) {
+  return 'AWS testkey:' + signature
+}
+function testV2Authorization(t, initConfig, addCfg) {
+  const config = {awsSignatureVersion: '2', signerUrl: 'http://what.ever/signv2'}
+  const evapConfig = Object.assign({}, config, initConfig)
+
+  return testCommonAuthorization(t, addCfg, evapConfig);
+}
+function testV2ToSign(t, request, amzHeaders, addConfig, evapConfig) {
+  return testV2Authorization(t, evapConfig, addConfig)
+      .then(function () {
+        var qp = params(testRequests[t.context.testId][2].url),
+            h = Object.assign({}, amzHeaders, {testId: t.context.testId, 'x-amz-date': qp.datetime}),
+            r = Object.assign({}, request, {x_amz_headers: h}),
+            expected = encodeURIComponent(stringToSignV2('/' + AWS_BUCKET + '/' + t.context.config.name +
+                '?partNumber=1&uploadId=Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--', 'PUT', r))
+
+        return new Promise(function (resolve, reject) {
+          var result = {
+            result: qp.to_sign,
+            expected: expected
+          }
+          resolve(result)
+
+        })
+      })
+
+}
 function stringToSignV2(path, method, request) {
 
   var x_amz_headers = '', result, header_key_array = [];
@@ -219,165 +72,478 @@ function stringToSignV2(path, method, request) {
   return result;
 }
 
-async function testV2ToSign(request, amzHeaders, addConfig, evapConfig) {
-  await testV2Authorization(evapConfig, addConfig);
-
-  var qp = params(server.requests[2].url),
-      h = Object.assign({}, amzHeaders, {'x-amz-date': qp.datetime}),
-      r = Object.assign({}, request, {x_amz_headers: h}),
-      expected = encodeURIComponent(stringToSignV2('/' + AWS_BUCKET + '/' + AWS_UPLOAD_KEY +
-          '?partNumber=1&uploadId=Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--', 'PUT', r))
-
-  return {
-    result: qp.to_sign,
-    expected: expected
+function v4Authorization(signingKey) {
+  return 'AWS4-HMAC-SHA256 Credential=testkey/' + v4DateString() + '/us-east-1/s3/aws4_request, SignedHeaders=host;testid;x-amz-date, Signature=' + signingKey
+}
+function v4DateString() {
+  return new Date().toISOString().slice(0, 10).replace(/-|:/g, '')
+}
+function testV4Authorization(t, initConfig, addCfg) {
+  const config = {
+    signerUrl: 'http://what.ever/signv4',
+    awsSignatureVersion: '4',
+    computeContentMd5: true,
+    cryptoMd5Method: function () { return 'MD5Value'; },
+    cryptoHexEncodedHash256: function () { return 'SHA256Value'; }
   }
+  const evapConfig = Object.assign({}, config, initConfig)
+
+  return testCommonAuthorization(t, addCfg, evapConfig);
+}
+function testV4ToSign(t, addConfig) {
+  return testV4Authorization(t, {cryptoHexEncodedHash256: function (d) { return d; }}, addConfig)
+      .then(function () {
+        return new Promise(function (resolve) {
+          var qp = params(testRequests[t.context.testId][2].url)
+
+          var result =  {
+            result: qp.to_sign,
+            datetime: qp.datetime
+          }
+
+          resolve(result)
+        })
+      })
 }
 
-test.serial('should correctly create V2 string to sign for PUT', async () => {
-  var result = await testV2ToSign();
-  expect(result.result).to.equal(result.expected)
+let AWSLambda = function (payload) {
+  this.payload = payload;
+}
+AWSLambda.prototype.invoke = function (params, cb) {
+  const data = {
+    Payload: '"' + this.payload + '"'
+  }
+  cb('', data)
+}
+
+function params(url) {
+  var query = url.split("?"),
+      qs = query[1] || '',
+      pairs = qs.split("&"),
+      result = {};
+  pairs.forEach(function (r) {
+    var pr = r.split("=");
+    if (pr.length === 1) {
+      result[pr[0]] = null;
+    } else {
+      result[pr[0]] = pr[1];
+    }
+  });
+  return result;
+}
+
+test.before(() => {
+  sinon.xhr.supportsCORS = true
+
+  global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
+
+  global.window = {
+   localStorage: {}
+  };
+
+  server = serverCommonCase()
 })
 
-test.serial('should correctly create V2 string to sign for PUT with amzHeaders', async () => {
-  var result = await testV2ToSign({}, { 'x-custom-header': 'peanuts' }, {xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }});
-  expect(result.result).to.equal(result.expected)
+test.beforeEach((t) =>{
+  let testId = 'auth/' + t.title
+  if (testId in testContext) {
+    console.error('Test case must be uniquely named:', t.title)
+    return
+  }
+  t.context.requestedAwsObjectKey = randomAwsKey()
+
+  t.context.attempts = 0
+  t.context.maxRetries = 1
+  t.context.retry = function (type) {}
+
+  t.context.testId = testId
+
+  t.context.baseAddConfig = {
+    name: t.context.requestedAwsObjectKey,
+    file: new File({
+      path: '/tmp/file',
+      size: 50,
+      name: 'tests'
+    }),
+    xAmzHeadersAtInitiate: {testId: testId},
+    xAmzHeadersCommon: { testId: testId },
+    maxRetryBackoffSecs: 0.1,
+    abortCompletionThrottlingMs: 0
+  }
+
+  t.context.errMessages = []
+  localStorage.removeItem('awsUploads')
+
+  testContext[testId] = t.context
 })
 
-test.serial('should correctly create V2 string to sign for PUT with md5 digest', async () => {
-  var result = await testV2ToSign({md5_digest: 'MD5Value'}, {}, {}, {
+test('should correctly create V2 string to sign for PUT', (t) => {
+  return testV2ToSign(t)
+      .then(function (result) {
+        expect(result.result).to.equal(result.expected)
+      })
+})
+test('should correctly create V2 string to sign for PUT with amzHeaders', (t) => {
+  return testV2ToSign(t, {}, { 'x-custom-header': 'peanuts' }, {xAmzHeadersCommon: { testId: t.context.testId, 'x-custom-header': 'peanuts' }})
+      .then(function (result) {
+        expect(result.result).to.equal(result.expected);
+      })
+})
+test('should correctly create V2 string to sign for PUT with md5 digest', (t) => {
+  return testV2ToSign(t, {md5_digest: 'MD5Value'}, {}, {}, {
     computeContentMd5: true,
     cryptoMd5Method: function () { return 'MD5Value'; }
-  });
-  expect(result.result).to.equal(result.expected)
+    })
+      .then(function (result) {
+        expect(result.result).to.equal(result.expected)
+      })
 })
 
-test.serial('should correctly create V4 string to sign for PUT', async () => {
-  var result = await testV4ToSign();
-  expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
-      result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
-      result.datetime + '%0A%0Acontent-md5%3Bhost%3Bx-amz-date%0AUNSIGNED-PAYLOAD')
+test('should correctly create V4 string to sign for PUT', (t) => {
+  return testV4ToSign(t)
+    .then(function (result) {
+      expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
+          result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
+              '%0Atestid%3A' + encodeURIComponent(t.context.testId) +
+              '%0Ax-amz-date%3A' + result.datetime + '%0A%0Acontent-md5%3Bhost%3Btestid%3Bx-amz-date%0AUNSIGNED-PAYLOAD')
+    })
 })
 
-test.serial('should correctly create V4 string to sign for PUT with amzHeaders', async () => {
-  var result = await testV4ToSign({xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }});
-
-  expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
-      result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
-      result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
+test('should correctly create V4 string to sign for PUT with amzHeaders', (t) => {
+  return testV4ToSign(t, {xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }})
+      .then(function (result) {
+        expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
+            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
+            result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
+      })
 })
 
-test.serial('should fetch V2 authorization from the signerUrl', async () => {
-  await testV2Authorization({});
-
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(true)
-  expect(authorization).to.equal(v2Authorization('1234567890123456789012345678'))
+test('should fetch V2 authorization from the signerUrl without errors', (t) => {
+  return testV2Authorization(t)
+      .then(function () {
+        // TODO: Use reject?
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V2 authorization from the correct signing Url', (t) => {
+  return testV2Authorization(t)
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
+      })
 })
 
-test.serial('should fetch V2 authorization using the signResponseHandler even with signerUrl', async () => {
-  await testV2Authorization({signResponseHandler: signResponseHandler})
 
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(true)
-  expect(authorization).to.equal(v2Authorization('1234567890123456789012345srh'))
+test('should fetch V2 authorization from the signerUrl', (t) => {
+  return testV2Authorization(t)
+      .then(function () {
+        expect(t.context.authorization).to.equal(v2Authorization('1234567890123456789012345678'))
+      })
 })
 
-test.serial('should fetch V2 authorization using the signResponseHandler without signerUrl', async () => {
-  await testV2Authorization({signerUrl: undefined, signResponseHandler: signResponseHandler})
-
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(false)
-  expect(authorization).to.equal(v2Authorization('1234567890123456789012345srh'))
+test('should fetch V2 authorization using the signResponseHandler even with signerUrl without errors', (t) => {
+  return testV2Authorization(t, {signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
 })
 
-test.serial('should fetch V4 authorization from the signerUrl', async () => {
-  await testV4Authorization({})
-
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(true)
-  expect(authorization).to.equal(v4Authorization('12345678901234567890123456v4'))
+test('should call signResponseHandler() with the correct number of parameters', (t) => {
+  let handler = sinon.spy(signResponseHandler)
+  return testV2Authorization(t, {signResponseHandler: handler})
+      .then(function () {
+        expect(handler.firstCall.args.length).to.eql(3)
+      })
 })
 
-test.serial('should fetch V4 authorization using the signResponseHandler even with signerUrl', async () => {
-  await testV4Authorization({signResponseHandler: signResponseHandler})
-
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(true)
-  expect(authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
+test('should fetch V2 authorization with the correct singer url using the signResponseHandler even with signerUrl', (t) => {
+  return testV2Authorization(t, {signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
+      })
+})
+test('should fetch V2 authorization using the signResponseHandler', (t) => {
+  return testV2Authorization(t, {signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v2Authorization('1234567890123456789012345srh'))
+      })
 })
 
-test.serial('should fetch V4 authorization using the signResponseHandler without signerUrl', async () => {
-  await testV4Authorization({signerUrl: undefined, signResponseHandler: signResponseHandler})
-
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(false)
-  expect(authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
+test('should fetch V2 authorization using the signResponseHandler without signerUrl without errors', (t) => {
+   return testV2Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V2 authorization with the correct singer url using the signResponseHandler without signerUrl', (t) => {
+  return testV2Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(typeof headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal('undefined')
+      })
+})
+test('should fetch V2 authorization using the signResponseHandler without signerUrl', (t) => {
+  return testV2Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v2Authorization('1234567890123456789012345srh'))
+      })
 })
 
-test.serial('should fetch V2 authorization using awsLambda', async () => {
-  await testV2Authorization({awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
-
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(false)
-  expect(authorization).to.equal(v2Authorization('abcdLambdaV2'))
+test('should fetch V4 authorization from the signerUrl without errors', (t) => {
+  return testV4Authorization(t, {})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V4 authorization from the signerUrl and call the correct signing url', (t) => {
+  return testV4Authorization(t, {})
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal(t.context.testId)
+      })
+})
+test('should fetch V4 authorization from the signerUrl', (t) => {
+  return testV4Authorization(t, {})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v4Authorization('12345678901234567890123456v4'))
+      })
 })
 
-test.serial('should fetch V4 authorization using awsLambda', async () => {
-  await testV4Authorization({awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
+test('should fetch V4 authorization using the signResponseHandler even with signerUrl without errors', (t) => {
+  return testV4Authorization(t, {signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V4 authorization using the signResponseHandler even with signerUrl and call the correct signing url', (t) => {
+  return testV4Authorization(t, {signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal(t.context.testId)
+      })
+})
+test('should fetch V4 authorization using the signResponseHandler even with signerUrl', (t) => {
+  return testV4Authorization(t, {signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
+      })
+})
 
-  expect(errMessages.length).to.equal(0)
-  expect(signerUrlCalled).to.equal(false)
-  expect(authorization).to.equal(v4Authorization('abcdLambdaV4'))
+test('should fetch V4 authorization using the signResponseHandler without signerUrl without errors', (t) => {
+  return testV4Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V4 authorization using the signResponseHandler without calling signerUrl', (t) => {
+  return testV4Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(typeof headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal('undefined')
+      })
+})
+test('should fetch V4 authorization using the signResponseHandler without signerUrl', (t) => {
+  return testV4Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
+      })
+})
+
+test('should fetch V2 authorization using awsLambda without errors', (t) => {
+  return testV2Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V2 authorization using awsLambda should not use signing url', (t) => {
+  return testV2Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
+      .then(function () {
+        expect(typeof headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal('undefined')
+      })
+})
+test('should fetch V2 authorization using awsLambda', (t) => {
+  return testV2Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v2Authorization('abcdLambdaV2'))
+      })
+})
+
+test('should fetch V4 authorization using awsLambda without errors', (t) => {
+  return testV4Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
+      .then(function () {
+        expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V4 authorization using awsLambda and not call the signing url', (t) => {
+  return testV4Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
+      .then(function () {
+        expect(typeof headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal('undefined')
+      })
+})
+test('should fetch V4 authorization using awsLambda', (t) => {
+  return testV4Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
+      .then(function () {
+        expect(t.context.authorization).to.equal(v4Authorization('abcdLambdaV4'))
+      })
 })
 
 // Auth Error Handling
 
-test.serial('should abort on 404 in V2 Signature PUT', async () => {
-  statusPUT = 404
-  await testV2Authorization({})
+test('should abort on 404 in V2 Signature PUT should return errors and call the correct signer url', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
 
-  expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.')
+  return testV2Authorization(t)
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
+      })
+})
+test('should abort on 404 in V2 Signature PUT should return errors and return error messages', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+
+  return testV2Authorization(t)
+      .then(function () {
+        expect(t.context.errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.')
+      })
 })
 
-test.serial('should return error when ABORT fails', async () => {
-  statusPUT = 404
-  statusDELETE = 403
-  await testV2Authorization({})
+test('should return error when ABORT fails and call the correct signing url', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.deleteStatus = 403
 
-  expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-  expect(errMessages.join(',')).to.match(/Error aborting upload: status:403/)
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          }, function (reason) {
+            expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
+          }
+      )
+})
+test('should return error when ABORT fails and return error messages (1)', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.deleteStatus = 403
+
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          }, function (reason) {
+        expect(t.context.errMessages.join(',')).to.match(/status:403/)
+          }
+      )
 })
 
-test.serial('should return error when list parts fails', async () => {
-  statusPUT = 404
-  statusLIST = 403
-  await testV2Authorization({})
+test('should return error when list parts fails after calling correct signing url', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.getPartsStatus = 403
 
-  expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-  expect(errMessages.join(',')).to.match(/Error listing parts/)
+  return testV2Authorization(t)
+      .then(function () {
+          t.fail('Expected an error but found none: ' + t.context.testId)
+          },
+          function (reason) {
+            expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
+          })
+})
+test('should return error when list parts fails with error messages (1)', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.getPartsStatus = 403
+
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          },
+          function (reason) {
+            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+          })
+})
+test('should return error when list parts fails with error messages (2)', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.getPartsStatus = 403
+
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          },
+          function (reason) {
+            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/)
+          })
 })
 
-test.serial('should return error when Abort fails after part upload failure (404)', async () => {
-  statusPUT = 404
-  statusDELETE = 403
-  await testV2Authorization({})
+test('should return error when listParts fails in Abort after part upload failure (404) and call the signing url', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.getPartsStatus = 403
 
-  expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-  expect(errMessages.join(',')).to.match(/Error aborting upload: status:403/)
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          },
+          function (reason) {
+            expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
+          })
+})
+test('should return error when listParts fails in Abort after part upload failure (404) and return error messages (1)', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.getPartsStatus = 403
+
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          },
+          function (reason) {
+            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+          })
+})
+test('should return error when listParts fails in Abort after part upload failure (404) and return error messages (2)', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.getPartsStatus = 403
+
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Expected an error but found none: ' + t.context.testId)
+          },
+          function (reason) {
+            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/)
+          })
 })
 
-test.serial('should return error when listParts fails in Abort after part upload failure (404)', async () => {
-  statusPUT = 404
-  statusDELETE = 200
-  statusLIST = 403
-  await testV2Authorization({})
-
-  expect(signerUrlCalled).to.equal(true)
-  expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-  expect(errMessages.join(',')).to.match(/Error listing parts/)
+// signParams and signHeaders
+test('should apply signParams in the signature request', (t) => {
+  return testBase(t, {}, {
+    signParams: { 'signing-auth': 'token' }
+  })
+      .then(function () {
+        expect(testRequests[t.context.testId][0].url).to.match(/signing-auth=token/)
+      })
+})
+test('should pass signHeaders to the signature request', (t) => {
+  return testBase(t, {}, {
+    signHeaders: { 'signing-auth': 'token' }
+  })
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/sign.*$/)['signing-auth']).to.equal('token')
+      })
 })
