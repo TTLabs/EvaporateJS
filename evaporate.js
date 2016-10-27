@@ -123,6 +123,7 @@
     Evaporate.prototype.evaporatingCount = 0;
     Evaporate.prototype.awsUrl = '';
     Evaporate.prototype.files = [];
+    Evaporate.prototype.startedFiles = {};
     Evaporate.prototype.partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
     Evaporate.prototype.add = function (file,  pConfig) {
         var c = extend(pConfig, {});
@@ -151,14 +152,15 @@
          }*/
         if (err) { return err; }
 
-        var newId = this.addFile(file, fileConfig);
+        var promise = this.addFile(file, fileConfig);
+        // TODO: Why does this need to be asynchronous?
         setTimeout(this.processQueue.bind(this), 1);
-        return newId;
+        return promise;
     };
     Evaporate.prototype.cancel = function (id) {
         l.d('cancel ', id);
-        if (this.files[id]) {
-            this.files[id].stop();
+        if (this.startedFiles[id]) {
+            this.startedFiles[id].stop();
             return true;
         } else {
             return false;
@@ -175,12 +177,12 @@
                     file.pause(force);
                 }
             });
-        }  else if (typeof this.files[id] === 'undefined') {
+        }  else if (typeof this.startedFiles[id] === 'undefined') {
             l.w('Cannot pause a file that has not been added.');
-        } else if (this.files[id].status === PAUSED) {
-            l.w('Cannot pause a file that is already paused. Status:', this.files[id].status);
+        } else if (this.startedFiles[id].status === PAUSED) {
+            l.w('Cannot pause a file that is already paused. Status:', this.startedFiles[id].status);
         } else {
-            this.files[id].pause(force);
+            this.startedFiles[id].pause(force);
         }
     };
     Evaporate.prototype.resume = function (id) {
@@ -192,43 +194,45 @@
                     file.resume();
                 }
             });
-        }  else if (typeof this.files[id] === 'undefined') {
+        }  else if (typeof this.startedFiles[id] === 'undefined') {
             l.w('Cannot pause a file that does not exist.');
-        } else if (PAUSED_STATUSES.indexOf(this.files[id].status) === -1) {
-            l.w('Cannot resume a file that has not been paused. Status:', this.files[id].status);
+        } else if (PAUSED_STATUSES.indexOf(this.startedFiles[id].status) === -1) {
+            l.w('Cannot resume a file that has not been paused. Status:', this.startedFiles[id].status);
         } else {
-            this.files[id].resume();
+            this.startedFiles[id].resume();
         }
     };
     Evaporate.prototype.forceRetry = function () {};
     Evaporate.prototype.addFile = function (file, fileConfig) {
-        var id = this.files.length;
-        this.files.push(new FileUpload(extend({
-            started: function () {},
-            progress: function () {},
-            complete: function () {},
-            cancelled: function () {},
-            paused: function () {},
-            resumed: function () {},
-            pausing: function () {},
-            info: function () {},
-            warn: function () {},
-            error: function () {},
-            xAmzHeadersAtInitiate: {},
-            notSignedHeadersAtInitiate: {},
-            xAmzHeadersCommon: null,
-            xAmzHeadersAtUpload: {},
-            xAmzHeadersAtComplete: {}
-        }, file, {
-            id: id,
-            status: PENDING,
-            priority: 0,
-            onStatusChange: this.processQueue.bind(this),
-            loadedBytes: 0,
-            sizeBytes: file.file.size,
-            eTag: ''
-        }), fileConfig, this));
-        return id;
+        var fileKey = this.config.bucket + '/' + file.name,
+            fileUpload = new FileUpload(extend({
+                started: function () {},
+                progress: function () {},
+                complete: function () {},
+                cancelled: function () {},
+                paused: function () {},
+                resumed: function () {},
+                pausing: function () {},
+                info: function () {},
+                warn: function () {},
+                error: function () {},
+                xAmzHeadersAtInitiate: {},
+                notSignedHeadersAtInitiate: {},
+                xAmzHeadersCommon: null,
+                xAmzHeadersAtUpload: {},
+                xAmzHeadersAtComplete: {}
+            }, file, {
+                id: fileKey,
+                status: PENDING,
+                priority: 0,
+                onStatusChange: this.processQueue.bind(this),
+                loadedBytes: 0,
+                sizeBytes: file.file.size,
+                eTag: ''
+            }), fileConfig, this);
+        this.files.push(fileUpload);
+        this.startedFiles[fileUpload.id] = fileUpload;
+        return fileUpload.deferredCompletion.promise;
     };
     Evaporate.prototype.processQueue = function () {
         l.d('processQueue   length:', this.files.length);
@@ -325,6 +329,7 @@
         this.numParts = -1;
         this.con = con;
         this.evaporate = evaporate;
+        this.deferredCompletion = defer();
 
         extend(this, file);
 
@@ -338,6 +343,7 @@
     FileUpload.prototype.partsToUpload = [];
     FileUpload.prototype.s3Parts = [];
     FileUpload.prototype.partsOnS3 = [];
+    FileUpload.prototype.deferredCompletion = undefined;
     FileUpload.prototype.partsPromise = undefined;
     FileUpload.prototype.partsDeferredPromises = [];
     FileUpload.prototype.progressTotalInterval = -1;
@@ -1013,6 +1019,7 @@
         this.fileUpload.eTag = nodeValue(result, "ETag");
         this.fileUpload.complete(xhr, this.fileUpload.name);
         this.fileUpload.completeUploadFile();
+        this.fileUpload.deferredCompletion.resolve(this.fileUpload.id);
     };
     CompleteMultipartUpload.prototype.getPayload = function () {
         var completeDoc = [];
@@ -1269,7 +1276,7 @@
             this.fileUpload.error(errMsg);
             this.part.status = ABORTED;
             this.part.deferred.reject();
-            new DeleteMultipartUpload(this.fileUpload).send();
+            new DeleteMultipartUpload(this.fileUpload, true).send();
         } else {
             var msg = 'problem uploading part #' + this.partNumber + ',  reason: ' + reason;
 
@@ -1296,8 +1303,10 @@
     };
 
     //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
-    function DeleteMultipartUpload(fileUpload) {
+    function DeleteMultipartUpload(fileUpload, partError) {
         l.d('abortUpload');
+        this.isPartError = !!partError;
+
         fileUpload.info('will attempt to abort the upload');
 
         fileUpload.abortParts();
@@ -1314,27 +1323,29 @@
     }
     DeleteMultipartUpload.prototype = Object.create(SignedS3AWSRequest.prototype);
     DeleteMultipartUpload.prototype.constructor = DeleteMultipartUpload;
+    DeleteMultipartUpload.prototype.isPartError = false;
     DeleteMultipartUpload.prototype.maxRetries = 1;
     DeleteMultipartUpload.prototype.success = function () {
         this.fileUpload.setStatus(ABORTED);
-        new VerifyPartsAborted(this.fileUpload).send();
+        new VerifyPartsAborted(this.fileUpload, this.isPartError).send();
     };
     DeleteMultipartUpload.prototype.errorHandler =  function (reason) {
         if (this.attempts > this.maxRetries) {
             var msg = 'Error aborting upload: ' + reason;
             l.w(msg);
             this.fileUpload.error(msg);
+            this.fileUpload.deferredCompletion.reject('Exceeded retries deleting the file upload.');
             return true;
         }
     };
 
     // http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
-    function VerifyPartsAborted(fileUpload) {
+    function VerifyPartsAborted(fileUpload, partError) {
         l.d('listParts');
         fileUpload.info('list parts');
 
         this.awsKey = fileUpload.name;
-
+        this.isPartError = !!partError;
         var request = {
             method: 'GET',
             path: fileUpload.evaporate.getPath(fileUpload) + '?uploadId=' + fileUpload.uploadId,
@@ -1346,6 +1357,7 @@
         SignedS3AWSRequest.call(this, fileUpload, request);
     }
     VerifyPartsAborted.prototype = Object.create(SignedS3AWSRequest.prototype);
+    VerifyPartsAborted.prototype.isPartError = false;
     VerifyPartsAborted.prototype.constructor = VerifyPartsAborted;
     VerifyPartsAborted.prototype.maxRetries = 1;
     VerifyPartsAborted.prototype.awsKey = undefined;
@@ -1369,6 +1381,8 @@
         this.evaporate.evaporatingCount = 0;
         this.con.evaporateChanged(this.fileUpload, this.evaporate.evaporatingCount);
         this.fileUpload.cancelled();
+        var msg = this.isPartError ? 'File upload aborted due to an unrecoverable error uploading a part.' : 'File upload aborted.';
+        this.fileUpload.deferredCompletion.reject(msg);
     };
     VerifyPartsAborted.prototype.errorHandler =  function (reason) {
         if (this.attempts > this.maxRetries) {
@@ -1378,6 +1392,10 @@
             this.evaporate.evaporatingCount = 0;
             this.con.evaporateChanged(this.fileUpload, this.evaporate.evaporatingCount);
             this.fileUpload.cancelled();
+            msg = this.isPartError ?
+                'Exceeded retries checking for remaining parts deleting a file upload due to a part failing to upload.'
+                : 'Exceeded retries checking for remaining parts after deleting a file upload.';
+            this.fileUpload.deferredCompletion.reject(msg);
             return true;
         }
     };

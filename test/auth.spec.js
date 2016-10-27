@@ -104,30 +104,20 @@ test.after(() => {
   server.restore()
 })
 
-async function testV2Authorization(initConfig, expectedErrors, addCfg) {
+function testV2Authorization(initConfig, addCfg) {
   const config = Object.assign({}, baseConfig, {awsSignatureVersion: '2', signerUrl: 'http://what.ever/signv2'})
   const evapV2Config = Object.assign({}, config, initConfig)
 
-  var deferred = defer();
-
   const evaporate = new Evaporate(evapV2Config)
-
-  if (arguments.length === 1) {
-    expectedErrors = 0;
-  }
-
   const addConfig = Object.assign({}, baseAddConfig, addCfg, {
-    complete: function () { deferred.resolve();},
     error: function (msg) {
       errMessages.push(msg);
-      if (errMessages.length >= expectedErrors) {
-        deferred.resolve();
-      }
     }})
 
-  evaporate.add(addConfig)
-
-  await deferred.promise
+  return evaporate.add(addConfig)
+      .then(
+        function (fileKey) {},
+        function (reason) {})
 }
 
 function v2Authorization(signature) {
@@ -159,19 +149,17 @@ async function testV4Authorization(initConfig, addCfg) {
     cryptoHexEncodedHash256: function () { return 'SHA256Value'; }
   })
 
-  var deferred = defer();
-
   const evapV4Config = Object.assign({}, config, initConfig)
 
   const evaporate = new Evaporate(evapV4Config)
 
   const addConfig = Object.assign({}, baseAddConfig, addCfg, {
-    complete: function () { deferred.resolve() },
     error: function (msg) { errMessages.push(msg) }})
 
-  evaporate.add(addConfig)
-
-  await deferred.promise
+  return evaporate.add(addConfig)
+      .then(
+          function (fileKey) {},
+          function (reason) {})
 }
 
 async function testV4ToSign(addConfig) {
@@ -232,7 +220,7 @@ function stringToSignV2(path, method, request) {
 }
 
 async function testV2ToSign(request, amzHeaders, addConfig, evapConfig) {
-  await testV2Authorization(evapConfig, 0, addConfig);
+  await testV2Authorization(evapConfig, addConfig);
 
   var qp = params(server.requests[2].url),
       h = Object.assign({}, amzHeaders, {'x-amz-date': qp.datetime}),
@@ -347,7 +335,7 @@ test.serial('should fetch V4 authorization using awsLambda', async () => {
 
 test.serial('should abort on 404 in V2 Signature PUT', async () => {
   statusPUT = 404
-  await testV2Authorization({}, 1)
+  await testV2Authorization({})
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.')
@@ -356,7 +344,7 @@ test.serial('should abort on 404 in V2 Signature PUT', async () => {
 test.serial('should return error when ABORT fails', async () => {
   statusPUT = 404
   statusDELETE = 403
-  await testV2Authorization({}, 2)
+  await testV2Authorization({})
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
@@ -366,7 +354,7 @@ test.serial('should return error when ABORT fails', async () => {
 test.serial('should return error when list parts fails', async () => {
   statusPUT = 404
   statusLIST = 403
-  await testV2Authorization({}, 2)
+  await testV2Authorization({})
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
@@ -376,7 +364,7 @@ test.serial('should return error when list parts fails', async () => {
 test.serial('should return error when Abort fails after part upload failure (404)', async () => {
   statusPUT = 404
   statusDELETE = 403
-  await testV2Authorization({}, 2)
+  await testV2Authorization({})
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
@@ -387,7 +375,7 @@ test.serial('should return error when listParts fails in Abort after part upload
   statusPUT = 404
   statusDELETE = 200
   statusLIST = 403
-  await testV2Authorization({}, 2)
+  await testV2Authorization({})
 
   expect(signerUrlCalled).to.equal(true)
   expect(errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)

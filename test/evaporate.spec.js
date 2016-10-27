@@ -37,6 +37,10 @@ const baseAddConfig = {
 
 let server
 
+function randomAwsKey() {
+  return Math.random().toString().substr(2) + '_' + AWS_UPLOAD_KEY
+}
+
 test.before(() => {
   sinon.xhr.supportsCORS = true
   global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
@@ -125,36 +129,79 @@ test('should fail to add() when empty config is present', () => {
 })
 
 test('should add() new upload with correct config', () => {
-  const evaporate = new Evaporate(baseConfig)
-  const id = evaporate.add(baseAddConfig)
+  return new Evaporate(baseConfig)
+      .add(baseAddConfig)
+      .then(function (fileKey) {
+        let id = fileKey;
+        expect(id).to.equal(baseConfig.bucket + '/' + baseAddConfig.name)
+      })
+})
 
-  expect(id).to.equal(0)
+test('should return fileKeys correctly for common cases started, resolve', () => {
+  const evaporate = new Evaporate(baseConfig)
+
+  let config = Object.assign({}, baseAddConfig, {
+    started: function (fileKey) { start_id = fileKey; }
+  })
+
+  let start_id
+  return evaporate.add(config)
+      .then(function (fileKey) {
+        let expected = baseConfig.bucket + '/' + config.name
+        expect(start_id + fileKey).to.equal(expected + expected)
+      })
+})
+
+test('should return the object key in the complete callback', () => {
+  let complete_id
+
+  let config = Object.assign({}, baseAddConfig, {
+    complete: function (xhr, name) { complete_id = name;}
+  })
+
+  return new Evaporate(baseConfig).add(config)
+      .then(function () {
+        expect(complete_id).to.equal(config.name)
+      })
+
 })
 
 test('should add() two new uploads with correct config', () => {
-  const evaporate = new Evaporate(baseConfig)
-  const id0 = evaporate.add(baseAddConfig)
-  const id1 = evaporate.add(baseAddConfig)
+  let id0, id1
 
-  expect(id0).to.equal(0)
-  expect(id1).to.equal(1)
+  let config1 = Object.assign({}, baseAddConfig, {
+    started: function (fileId) { id0 = fileId; }
+  })
+  let config2 = Object.assign({}, config1, {
+    name: randomAwsKey(),
+    started: function (fileId) { id1 = fileId;},
+  })
+
+  const evaporate = new Evaporate(baseConfig)
+  let promise1 = evaporate.add(config1)
+  let promise2 = evaporate.add(config2)
+
+  return Promise.all([promise1, promise2])
+      .then (function () {
+        expect(id0).to.equal(baseConfig.bucket + '/' + config1.name);
+        expect(id1).to.equal(baseConfig.bucket + '/' + config2.name);
+      })
 })
 
-test('should call a callback on successful add()', async () => {
-  var deferred = defer();
-
-  const evaporate = new Evaporate(baseConfig)
+test('should call a callback on successful add()', () => {
+  let id
   const config = Object.assign({}, baseAddConfig, {
-    started: sinon.spy(function () {
-      deferred.resolve()
+    started: sinon.spy(function (fileId) {
+      id = fileId;
     })
   })
-  const id = evaporate.add(config)
 
-  await deferred.promise
-
-  expect(config.started).to.have.been.called
-  expect(config.started).to.have.been.calledWithExactly(id)
+  return new Evaporate(baseConfig)
+      .add(config)
+      .then(function () {
+        expect(config.started).to.have.been.called
+        expect(config.started).to.have.been.calledWithExactly(baseConfig.bucket + '/' + baseAddConfig.name)
+      })
 })
 
 // cancel
@@ -168,31 +215,57 @@ test('should fail to cancel() when no id is present', () => {
 
 test('should fail to cancel() when non-existing id is present', () => {
   const evaporate = new Evaporate(baseConfig)
-  const result = evaporate.cancel(42)
+  const result = evaporate.cancel('non-existent-file')
 
   expect(result).to.not.be.ok
 })
 
-test('should cancel() an upload with correct id', () => {
+test('should cancel() an upload with correct object name', async () => {
+  const config = Object.assign({}, baseAddConfig, {
+    name: randomAwsKey(),
+    started: function (fileId) { id = fileId; }
+  })
+
+  let id
+
   const evaporate = new Evaporate(baseConfig)
-  const id = evaporate.add(baseAddConfig)
+  await evaporate.add(config)
+      .catch(function (reason) {
+        console.log(reason)
+      })
+
   const result = evaporate.cancel(id)
 
   expect(result).to.be.ok
 })
 
 test('should cancel() two uploads with correct id', () => {
-  const evaporate = new Evaporate(baseConfig)
-  const id0 = evaporate.add(baseAddConfig)
-  const id1 = evaporate.add(baseAddConfig)
-  const result0 = evaporate.cancel(id0)
-  const result1 = evaporate.cancel(id1)
 
-  expect(result0).to.be.ok
-  expect(result1).to.be.ok
+  let config1 = Object.assign({}, baseAddConfig, {
+    started: function (fileId) { id0 = fileId;}
+  })
+  let config2 = Object.assign({}, config1, {
+    name: randomAwsKey(),
+    started: function (fileId) { id1 = fileId;},
+  })
+  let id0, id1
+
+  const evaporate = new Evaporate(baseConfig)
+  let promise0 = evaporate.add(config1)
+  let promise1 = evaporate.add(config2)
+
+  return Promise.all([promise0, promise1])
+      .then (function () {
+        const result0 = evaporate.cancel(id0)
+        const result1 = evaporate.cancel(id1)
+
+        expect(result0).to.be.ok
+        expect(result1).to.be.ok
+      })
 })
 
 test.serial('should call a callback on cancel()', async () => {
+  // TODO: cancel() should return a promise
   var deferred = defer();
 
   const evapConfig = Object.assign({}, baseConfig, {
@@ -200,10 +273,16 @@ test.serial('should call a callback on cancel()', async () => {
   })
   const evaporate = new Evaporate(evapConfig)
   const config = Object.assign({}, baseAddConfig, {
+    name: randomAwsKey(),
     cancelled: sinon.spy(function () { deferred.resolve() }),
+    started: function (fileId) { id = fileId; },
     complete: function () { deferred.resolve() }
   })
-  const id = evaporate.add(config)
+
+  let id
+
+  var objName = config.name;
+  evaporate.add(config)
 
   await deferred.promise
 
@@ -228,21 +307,27 @@ test('should call a callback on pause()', () => {
   const evaporate = new Evaporate(baseConfig)
   const config = Object.assign({}, baseAddConfig, {
     pausing: sinon.spy(),
-    paused: sinon.spy()
+    paused: sinon.spy(),
+    started: function (fileId) { id = fileId; }
   })
-  const id = evaporate.add(config)
+  let id
+
+  evaporate.add(config)
   evaporate.pause(id)
 
   expect(config.pausing).to.have.been.called
 })
 
 test('should call a callback on pause() with force option', () => {
+  // TODO: Pause should return a Promise
   const evaporate = new Evaporate(baseConfig)
   const config = Object.assign({}, baseAddConfig, {
     pausing: sinon.spy(),
-    paused: sinon.spy()
+    paused: sinon.spy(),
+    started: function (fileId) { id = fileId; }
   })
-  const id = evaporate.add(config)
+  let id
+  evaporate.add(config)
   evaporate.pause(id, { force: true })
 
   expect(config.paused).to.have.been.called
@@ -253,9 +338,11 @@ test('should call a callback on resume()', () => {
   const config = Object.assign({}, baseAddConfig, {
     pausing: sinon.spy(),
     paused: sinon.spy(),
-    resumed: sinon.spy()
+    resumed: sinon.spy(),
+    started: function (fileId) { id = fileId; }
   })
-  const id = evaporate.add(config)
+  let id
+  evaporate.add(config)
   evaporate.pause(id, { force: true })
   evaporate.resume(id)
 
@@ -264,20 +351,15 @@ test('should call a callback on resume()', () => {
 })
 
 test('should call signResponseHandler() with the correct number of parameters', async () => {
-  var deferred = defer();
-
   const evapConfig = Object.assign({}, baseConfig, {
     signerUrl: undefined,
     signResponseHandler: sinon.spy(function () {
-      deferred.resolve()
       return 'abcd'})
   })
 
-  const evaporate = new Evaporate(evapConfig)
-
-  evaporate.add(baseAddConfig)
-
-  await deferred.promise
-
-  expect(evapConfig.signResponseHandler.firstCall.args.length).to.eql(3)
+  return new Evaporate(evapConfig)
+      .add(baseAddConfig)
+      .then(function () {
+        expect(evapConfig.signResponseHandler.firstCall.args.length).to.eql(3)
+      })
 })
