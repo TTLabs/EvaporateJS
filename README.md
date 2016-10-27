@@ -457,10 +457,13 @@ files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
 #### Evaporate#cancel()
 
-`evaporate.cancel(file_key)`
+`var cancellationPromise = evaporate.cancel(file_key)`
 
 `file_key` is the file key of the upload that you want to cancel. File key is constructed as `bucket + '/' + object_name`.
 The completion promise rejects after the file upload aborts.
+
+The cancellationPromise will resolve whent the file has been canceled or reject if any unrecoverable errors occur when
+canceling.
 
 #### Evaporate#supported
 
