@@ -236,7 +236,7 @@ Available onfiguration options:
 * **aws_key**: your AWS key, for example 'AKIAIQC7JOOdsfsdf'
 * **signerUrl**: a url on your application server which will sign the request according to your chosen AWS signature method (Version 2 or 4). For example
     'http://myserver.com/auth_upload'. When using AWS Signature Version 4, this URL must respond with the V4 signing key. If you don't want to use
-    a signerURL and want to sign the request yourself, then you sign the request using `signReponseHandler`.
+    a signerURL and want to sign the request yourself, then you sign the request using `signResponseHandler`.
 * **computeContentMd5**: default=false, whether to compute and send an
     MD5 digest for each part for verification by AWS S3. This
     option defaults to `false` for backward compatibility; however, **new
