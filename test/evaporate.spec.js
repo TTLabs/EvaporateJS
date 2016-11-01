@@ -199,7 +199,6 @@ test('should require computeContentMd5 if V4 signatures enabled', (t) => {
           function (reason) {
             t.pass(reason)
           })
-
 })
 
 test.todo('should require browser File support')
@@ -210,19 +209,75 @@ test.todo('should require browser FileReader#readAsArrayBuffer support if comput
 // add
 
 test('should fail to add() when no file is present', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const result = evaporate.add()
-
-  expect(result).to.equal('Missing file')
-})
-
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.add({ name: 'test' })
+            .then(function () {
+                  t.fail('Evaporate added a new file but should not have.')
+                },
+                function (reason) {
+                  t.pass(reason)
+                })
+      })
+});
 test('should fail to add() when empty config is present', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const emptyConfig = {}
-  const result = evaporate.add(emptyConfig)
-
-  expect(result).to.equal('Missing attribute: name  ')
-})
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.add({})
+            .then(function () {
+                  t.fail('Evaporate added a new file but should not have.')
+                },
+                function (reason) {
+                  t.pass(reason)
+                })
+      })
+});
+test('should fail to add() when no config is present', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.add()
+            .then(function () {
+                  t.fail('Evaporate added a new file but should not have.')
+                },
+                function (reason) {
+                  t.pass(reason)
+                })
+      })
+});
+test('should require a name if file is present', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.add({
+          file: new File({
+            path: '/tmp/file',
+            size: 50000
+          })
+        })
+            .then(function () {
+                  t.fail('Evaporate added a new file but should not have.')
+                },
+                function (reason) {
+                  t.pass(reason)
+                })
+      })
+});
+test('should respect maxFileSize', (t) => {
+  return Evaporate.create(Object.assign({}, baseConfig, {maxFileSize: 10}))
+      .then(function (evaporate) {
+        evaporate.add({
+          file: new File({
+            path: '/tmp/file',
+            size: 50000
+          })
+        })
+            .then(function () {
+                  t.fail('Evaporate added a new file but should not have.')
+                },
+                function (reason) {
+                  t.pass(reason)
+                })
+      })
+});
 
 test('should add() new upload with correct config', (t) => {
   return testBase(t)

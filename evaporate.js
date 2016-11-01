@@ -142,37 +142,39 @@
     Evaporate.prototype.startedFiles = {};
     Evaporate.prototype.partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
     Evaporate.prototype.add = function (file,  pConfig) {
-        var c = extend(pConfig, {});
+        var self = this,
+            fileConfig;
+        return new Promise(function (resolve, reject) {
+            var c = extend(pConfig, {});
 
-        IMMUTABLE_OPTIONS.map(function (a) { delete c[a]; });
+            IMMUTABLE_OPTIONS.map(function (a) { delete c[a]; });
 
-        var fileConfig = extend(this.config, c);
+            fileConfig = extend(self.config, c);
 
-        l.d('add');
-        var err;
-        if (typeof file === 'undefined') {
-            return 'Missing file';
-        }
-        if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
-            return 'File size too large. Maximum size allowed is ' + fileConfig.maxFileSize;
-        }
-        if (typeof file.name === 'undefined') {
-            err = 'Missing attribute: name  ';
-        } else if (fileConfig.encodeFilename) {
-            // correctly encode to an S3 object name, considering '/' and ' '
-            file.name = s3EncodedObjectName(file.name);
-        }
+            if (typeof file === 'undefined' || typeof file.file === 'undefined') {
+                return reject('Missing file');
+            }
+            if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
+                return reject('File size too large. Maximum size allowed is ' + fileConfig.maxFileSize);
+            }
+            if (typeof file.name === 'undefined') {
+                return reject('Missing attribute: name');
+            }
 
-        /*if (!(file.file instanceof File)){
-         err += '.file attribute must be instanceof File';
-         }*/
-        if (err) { return err; }
+            if (fileConfig.encodeFilename) {
+                // correctly encode to an S3 object name, considering '/' and ' '
+                file.name = s3EncodedObjectName(file.name);
+            }
 
-        var promise = this.addFile(file, fileConfig);
-        // TODO: Why does this need to be asynchronous?
-        setTimeout(this.processQueue.bind(this), 1);
-        return promise;
+            resolve(fileConfig);
+        })
+            .then(function () {
+                var promise = self.addFile(file, fileConfig)
+                self.processQueue();
+                return promise;
+            });
     };
+    // TODO: Fail Promises if pause/cancel/resume can't be satisifed
     Evaporate.prototype.cancel = function (id) {
         l.d('cancel ', id);
         if (this.startedFiles[id]) {
@@ -357,10 +359,10 @@
     FileUpload.prototype.progressTotalInterval = -1;
     FileUpload.prototype.progressPartsInterval = -1;
     FileUpload.prototype.start = function () {
-        l.d('starting FileUpload', this.id);
         this.started(this.id);
 
         if (this.status === ABORTED) {
+            // TODO: shouldn't we resolve/reject a promise?
             return;
         }
 
