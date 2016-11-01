@@ -25,7 +25,7 @@
 
          var files;
 
-         var _e_ = new Evaporate({
+         Evaporate.create({
             aws_key: 'your aws_key here',
             bucket: 'your s3 bucket name here',
             awsLambda:  new AWS.Lambda({
@@ -34,51 +34,66 @@
                 secretAccessKey: 'the secret'
             }),
             awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // arn of your lambda function
-         });
+         })
+                 .then(function (_e_) {
+                    $('#files').change(function (evt) {
 
-         $('#files').change(function (evt) {
-            files = evt.target.files;
+                       files = evt.target.files;
 
-            for (var i = 0; i < files.length; i++) {
+                       for (var i = 0; i < files.length; i++) {
+                          var promise = _e_.add({
+                             name: 'test_' + Math.floor(1000000000 * Math.random()),
+                             file: files[i],
+                             notSignedHeadersAtInitiate: {
+                                'Cache-Control': 'max-age=3600'
+                             },
+                             xAmzHeadersAtInitiate: {
+                                'x-amz-acl': 'public-read'
+                             },
+                             signParams: {
+                                foo: 'bar',
+                                fooFunction: function () {
+                                   return 'bar';
+                                }
+                             },
+                             signHeaders: {
+                                fooHeaderFunction: function () {
+                                   return 'bar'
+                                },
+                                fooHeader: 'bar'
+                             },
+                             beforeSigner: function (xhr) {
+                                var requestDate = (new Date()).toISOString();
+                                xhr.setRequestHeader('Request-Header', requestDate);
+                             },
+                             complete: function () {
+                                console.log('complete................yay!');
+                             },
+                             progress: function (progress) {
+                                console.log('making progress: ' + progress);
+                             }
+                          })
+                            .then(function (awsKey) {
+                                    console.log(awsKey, 'complete!');
+                                 });
 
-               _e_.add({
-                  name: 'test_' + Math.floor(1000000000*Math.random()),
-                  file: files[i],
-                  notSignedHeadersAtInitiate: {
-                     'Cache-Control': 'max-age=3600'
-                  },
-                  xAmzHeadersAtInitiate : {
-                     'x-amz-acl': 'public-read'
-                  },
-                  signParams: {
-                     foo: 'bar',
-                     fooFunction: function () {
-                       return 'bar';
-                     }
-                  },
-                  signHeaders: {
-                    fooHeaderFunction: function () {
-                      return 'bar'
-                    },
-                    fooHeader: 'bar'
-                  },
-                  beforeSigner: function (xhr) {
-                    var requestDate = (new Date()).toISOString();
-                    xhr.setRequestHeader('Request-Header', requestDate);
-                  },
-                  complete: function () {
-                     console.log('complete................yay!');
-                  },
-                  progress: function (progress) {
-                     console.log('making progress: ' + progress);
-                  }
-               });
-            }
+                          filePromises.push(promise);
+                       }
+                    });
 
-            $(evt.target).val('');
+                   allCompleted = Promise.all(filePromises)
+                           .then(function () {
+                              console.log('All files were uploaded successfully.');
+                           }, function (reason) {
+                              console.log('All files were not uploaded successfully:', reason);
+                           });
 
-         });
-
+                   $(evt.target).val('');
+                },
+                function (reason) {
+                   console.log('Evaporate failed to initialize: ', reason)
+                }
+        );
       </script>
 
    </body>

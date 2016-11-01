@@ -145,36 +145,16 @@ test.before(() => {
 })
 
 test.beforeEach((t) =>{
-  let testId = 'auth/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-  t.context.requestedAwsObjectKey = randomAwsKey()
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.testId = testId
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
+  beforeEachSetup(t, new File({
       path: '/tmp/file',
       size: 50,
       name: 'tests'
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
+    })
+  )
 
-  t.context.errMessages = []
-  localStorage.removeItem('awsUploads')
+  delete t.context.cryptoMd5
+  delete t.context.cryptoHexEncodedHash256
 
-  testContext[testId] = t.context
 })
 
 test('should correctly create V2 string to sign for PUT', (t) => {
@@ -213,15 +193,15 @@ test('should correctly create V4 string to sign for PUT with amzHeaders', (t) =>
   return testV4ToSign(t, {xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }})
       .then(function (result) {
         expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
-            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
-            result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
+            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
+            '%0Atestid%3A' + encodeURIComponent(t.context.testId) +
+            '%0Ax-amz-date%3A' + result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Btestid%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
       })
 })
 
 test('should fetch V2 authorization from the signerUrl without errors', (t) => {
   return testV2Authorization(t)
       .then(function () {
-        // TODO: Use reject?
         expect(t.context.errMessages.length).to.equal(0)
       })
 })
@@ -392,6 +372,9 @@ test('should abort on 404 in V2 Signature PUT should return errors and call the 
 
   return testV2Authorization(t)
       .then(function () {
+            t.fail('Cancel promise should have rejected, but did not.')
+      },
+      function () {
         expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
       })
 })
@@ -403,7 +386,11 @@ test('should abort on 404 in V2 Signature PUT should return errors and return er
 
   return testV2Authorization(t)
       .then(function () {
-        expect(t.context.errMessages.join(',')).to.equal('404 error on part PUT. The part and the file will abort.')
+        t.fail('Cancel promise should have rejected, but did not.')
+      },
+      function (reason) {
+        console.log(reason)
+        expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT. The part and the file will abort/i)
       })
 })
 
@@ -465,22 +452,7 @@ test('should return error when list parts fails with error messages (1)', (t) =>
             t.fail('Expected an error but found none: ' + t.context.testId)
           },
           function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-          })
-})
-test('should return error when list parts fails with error messages (2)', (t) => {
-  t.context.retry = function (type) {
-    return type === 'part'
-  }
-  t.context.errorStatus = 404
-  t.context.getPartsStatus = 403
-
-  return testV2Authorization(t)
-      .then(function () {
-            t.fail('Expected an error but found none: ' + t.context.testId)
-          },
-          function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/)
+            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/i)
           })
 })
 
@@ -511,22 +483,7 @@ test('should return error when listParts fails in Abort after part upload failur
             t.fail('Expected an error but found none: ' + t.context.testId)
           },
           function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
-          })
-})
-test('should return error when listParts fails in Abort after part upload failure (404) and return error messages (2)', (t) => {
-  t.context.retry = function (type) {
-    return type === 'part'
-  }
-  t.context.errorStatus = 404
-  t.context.getPartsStatus = 403
-
-  return testV2Authorization(t)
-      .then(function () {
-            t.fail('Expected an error but found none: ' + t.context.testId)
-          },
-          function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/)
+            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/i)
           })
 })
 

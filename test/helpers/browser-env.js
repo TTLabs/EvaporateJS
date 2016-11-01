@@ -71,18 +71,7 @@ global.randomAwsKey = function () {
   return Math.random().toString().substr(2) + '_' + AWS_UPLOAD_KEY
 }
 
-global.storeTestRequest = function (xhr) {
-  let k = xhr.requestHeaders.testId
-  testRequests[k] = testRequests[k] || []
-  testRequests[k].push(xhr)
-  return getContext(xhr)
-}
-
-global.getContext = function (xhr) {
-  return testContext[xhr.requestHeaders.testId]
-}
-
-let     requestMap = {
+let requestMap = {
   'POST:uploads': 'initiate',
   'POST:uploadId': 'complete',
   'DELETE:uploadId': 'cancel',
@@ -151,7 +140,9 @@ global.serverCommonCase = function (partRequestHandler) {
     let context = storeTestRequest(xhr)
 
     if (typeof partRequestHandler === 'function') {
-      return partRequestHandler(xhr, context);
+      if (typeof partRequestHandler(xhr, context) === 'undefined') {
+        return;
+      }
     }
     let status = retryStatus(xhr, 'part'),
         errResponse = `
@@ -208,8 +199,33 @@ global.serverCommonCase = function (partRequestHandler) {
     }
   })
 
+  server.respondWith('GET', /\/time.*$/, (xhr) => {
+    let match = xhr.url.match(/testId=(.+)\?/)
+    if (match) {
+      let testId = match[1],
+          context = storeTestRequest(xhr, testId)
+      if (typeof context.timeUrlCalled === 'undefined') {
+        context.timeUrlCalled = 0
+      }
+      context.timeUrlCalled += 1
+    }
+    let payload = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString()
+    xhr.respond(retryStatus(xhr, 'time'), CONTENT_TYPE_TEXT, payload)
+  })
+
+  function getContext(testId) {
+    return testContext[testId]
+  }
+
+  function storeTestRequest(xhr, k) {
+    k = k || xhr.requestHeaders.testId
+    testRequests[k] = testRequests[k] || []
+    testRequests[k].push(xhr)
+    return getContext(k)
+  }
+
   function retryStatus(xhr, type, successStatus) {
-    let context = getContext(xhr),
+    let context = getContext(xhr.requestHeaders.testId),
         status;
     if (!context) {
       return successStatus || 200
@@ -228,23 +244,54 @@ global.serverCommonCase = function (partRequestHandler) {
   }
 }
 
+global.beforeEachSetup = function (t, file) {
+  let testId = t.title
+  if (testId in testContext) {
+    console.error('Test case must be uniquely named:', testId)
+    return
+  }
+
+  t.context.testId = testId
+  t.context.requestedAwsObjectKey = randomAwsKey()
+  t.context.requests = []
+  t.context.errMessages = []
+
+  t.context.attempts = 0
+  t.context.maxRetries = 1
+  t.context.retry = function (type) {}
+
+  let addFile = file || new File({
+        path: '/tmp/file',
+        size: 12000000,
+        name: randomAwsKey()
+      })
+
+  t.context.baseAddConfig = {
+    name: t.context.requestedAwsObjectKey,
+    file: addFile,
+    maxRetryBackoffSecs: 0.1,
+    abortCompletionThrottlingMs: 0
+  }
+
+  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum' })
+  t.context.cryptoHexEncodedHash256 = sinon.spy(function () { return 'SHA256Value' })
+
+
+  testContext[testId] = t.context
+}
+
 global.newEvaporate = function (t, evapConfig) {
   evapConfig = evapConfig || {}
   t.context.evaporate = new Evaporate(Object.assign({}, baseConfig,
       {cryptoMd5Method: t.context.cryptoMd5}, evapConfig,  {
-        signHeaders: Object.assign({ // TODO: apply this to the other headers we need for tests
+        signHeaders: Object.assign({
           testId: t.context.testId
         }, evapConfig.signHeaders)
       }))
   return t.context.evaporate;
 }
 
-global.testBase = function (t, addConfig, evapConfig) {
-  addConfig = addConfig || {}
-  evapConfig = evapConfig || {}
-
-  t.context.evaporate = newEvaporate(t, evapConfig)
-
+global.evaporateAdd = function (t, evaporate, addConfig) {
   if (typeof addConfig.started === "function") {
     addConfig.user_started = addConfig.started;
     delete addConfig.started;
@@ -253,6 +300,23 @@ global.testBase = function (t, addConfig, evapConfig) {
   if (typeof addConfig.complete === "function") {
     addConfig.user_complete = addConfig.complete;
     delete addConfig.complete;
+  }
+
+  addConfig.xAmzHeadersAtInitiate = Object.assign({
+    testId: t.context.testId
+  }, addConfig.xAmzHeadersAtInitiate)
+
+  if (addConfig.xAmzHeadersAtUpload || addConfig.xAmzHeadersAtComplete) {
+    addConfig.xAmzHeadersAtUpload = Object.assign({ testId: t.context.testId }, addConfig.xAmzHeadersAtUpload)
+
+    addConfig.xAmzHeadersAtComplete = Object.assign({ testId: t.context.testId }, addConfig.xAmzHeadersAtComplete)
+
+    if (addConfig.xAmzHeadersCommon) {
+      addConfig.xAmzHeadersCommon = Object.assign({}, { testId: t.context.testId }, addConfig.xAmzHeadersCommon)
+    }
+
+  } else {
+    addConfig.xAmzHeadersCommon = Object.assign({}, { testId: t.context.testId }, addConfig.xAmzHeadersCommon)
   }
 
   t.context.config = Object.assign({}, t.context.baseAddConfig, addConfig, {
@@ -269,5 +333,25 @@ global.testBase = function (t, addConfig, evapConfig) {
       }
     })
   })
-  return t.context.evaporate.add(t.context.config)
+
+  return evaporate.add(t.context.config)
+
+}
+global.testBase = function (t, addConfig, evapConfig) {
+  addConfig = addConfig || {}
+  evapConfig = evapConfig || {}
+
+  t.context.evapConfig = Object.assign({}, baseConfig,
+      {cryptoMd5Method: t.context.cryptoMd5}, evapConfig,  {
+        signHeaders: Object.assign({
+          testId: t.context.testId
+        }, evapConfig.signHeaders)
+      })
+
+  return Evaporate.create(t.context.evapConfig)
+      .then(function (evaporate) {
+        t.context.evaporate = evaporate
+
+        return evaporateAdd(t, evaporate, addConfig)
+      })
 }

@@ -24,37 +24,49 @@
 
          var files;
 
-         var _e_ = new Evaporate({
+         Evaporate.create({
             signerUrl: 'http://localhost:3000/sign_auth',
             timeUrl: 'http://localhost:3000/timestamp',
             aws_key: 'AKIAI35IN4YICFYEONOA',
-            bucket: 'bikeath1337-evaporate',
+            bucket: 'bucket-evaporate',
 
             // extract the signature
             signResponseHandler: function(response) { return JSON.parse(response).signature; }
-         });
+         })
+        .then(function (_e_) {
+                   files = evt.target.files;
 
-         $('#files').change(function(evt){
-            files = evt.target.files;
+                   for (var i = 0; i < files.length; i++) {
+                      var promise = _e_.add({
+                         name: 'test_' + Math.floor(1000000000*Math.random()),
+                         file: files[i],
+                         complete: function(){
+                            console.log('complete................yay!');
+                         },
+                         progress: function(progress){
+                            console.log('making progress: ' + progress);
+                         }
+                      })
+                     .then(function (awsKey) {
+                          console.log(awsKey, 'complete!');
+                       });
 
-            for (var i = 0; i < files.length; i++){
+                      filePromises.push(promise);
+                   }
 
-               _e_.add({
-                  name: 'test_' + Math.floor(1000000000*Math.random()),
-                  file: files[i],
-                  complete: function(){
-                     console.log('complete................yay!');
-                  },
-                  progress: function(progress){
-                     console.log('making progress: ' + progress);
-                  }
-               });
-            }
+                   allCompleted = Promise.all(filePromises)
+                           .then(function () {
+                              console.log('All files were uploaded successfully.');
+                           }, function (reason) {
+                              console.log('All files were not uploaded successfully:', reason);
+                           });
 
-            $(evt.target).val('');
-
-         });
-
+                   $(evt.target).val('');
+                },
+                function (reason) {
+                   console.log('Evaporate failed to initialize: ', reason)
+                }
+        );
       </script>
 
    </body>

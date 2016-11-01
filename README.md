@@ -70,34 +70,35 @@ Otherwise, include it in your HTML:
 ```javascript
 require('aws-sdk');
 
-var evaporate = new Evaporate({
-  signerUrl: <SIGNER_URL>,
-  aws_key: <AWS_KEY>,
-  bucket: <AWS_BUCKET>,
-  cloudfront: true,
-  computeContentMd5: true,
-  cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); }
-});
+var config = {
+     signerUrl: <SIGNER_URL>,
+     aws_key: <AWS_KEY>,
+     bucket: <AWS_BUCKET>,
+     cloudfront: true,
+     computeContentMd5: true,
+     cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); }
+};
 
-var file = new File([""], "file_object_to_upload");
-
-var promise = evaporate.add({
-        name: file.name,
-        file: file,
-        progress: function (progressValue) { console.log('Progress', progressValue); },
-        complete: function (_xhr, awsKey) { console.log('Complete!'); },
-      },
-     {
-        bucket: AWS_BUCKET // Shows that the bucket can be changed per
-     }
-);
-
-promise.then(
-    function () {
-        console.log('Uploaded completed!');
-    },
-    function (reason) {
-        console.log('File not uploaded: ', reason)
+return Evaporate.create(config)
+    .then(function (evaporate) {
+      
+      var file = new File([""], "file_object_to_upload"),
+          addConfig = {
+            name: file.name,
+            file: file,
+            progress: function (progressValue) { console.log('Progress', progressValue); },
+            complete: function (_xhr, awsKey) { console.log('Complete!'); },
+          },
+          overrides = {
+            bucket: AWS_BUCKET // Shows that the bucket can be changed per
+          };
+      evaporate.add(addConfig, overrrides)
+          .then(function (awsObjectKey) {
+                console.log('File successfully uploaded to:', awsObjectKey);
+              },
+              function (reason) {
+                console.log('File did not upload sucessfully:', reason);
+              });
     });
 ```
 
@@ -210,10 +211,10 @@ The example application is a simple and quick way to see evaporate.js work.  The
 2. Set your AWS Key and S3 bucket in example/evaporate_example.html. This configuration does not use Md5 Digest verfication.
 
 ```javascript
-var _e_ = new Evaporate({
-   signerUrl: '/sign_auth', # Do not change this in the example app
-   aws_key: 'your aws_key here',
-   bucket: 'your s3 bucket name here',
+var promise = Evaporate.create({
+    signerUrl: '/sign_auth', // Do not change this in the example app
+    aws_key: 'your aws_key here',
+    bucket: 'your s3 bucket name here',
 });
 ```
 
@@ -235,11 +236,30 @@ $ dev_appserver.py app.yaml
 
 ## API
 
-### new Evaporate()
+As of version 2.0, Evaporate supports the Promise interface. Instead of instantiating the Evaporate class as you would in earlier verions, use
+the `create` class method of Evaporate like so:
 
-`var evaporate = new Evaporate(config)`
+```javascript
+Evaporate.create(config)
+    .then(
+        function (evaporate) {
+            evaporate.add(add_config)
+                .then(
+                    function (awsKey) { console.log('Successfully uploaded:', awsKey); },
+                    function (reason) { console.log('Failed to upload:', reason); }
+                )
+        },
+        function (reason) {
+            console.log('Evaporate failed to initialize:', reason);
+        });
+            
+```
 
-Where `config` minimally consists of `bucket` and `aws_key` and one of the
+The promise `create` returns will resolve with a reference to the fully initialized evaporate instance or reject with a reason as to why
+Evaporate could not intitialize. If you use `timeUrl`, you should use the `create` method because the promise only resolves after the
+time offset is available.
+
+`config` minimally consists of `bucket` and `aws_key` and one of the
 following combinations of signing options:
 
 1. A custom `signerUrl` that returns the signture or signing response required
@@ -249,6 +269,7 @@ following combinations of signing options:
 
 `signerUrl` is not required if using signing methods 2 or 3. `signResponseHandler` can
 also be provided for additional processing of responses from `signerUrl`.
+
 
 Available onfiguration options:
 
@@ -348,6 +369,12 @@ signHeaders: {
 }
 ```
 
+### new Evaporate()
+
+`new Evaporate(config)`
+
+You can instantiate still Evaporate using the new keyword but you should prefer using the `Evaporate.create()` for future compatibility and stability. 
+
 #### Evaporate#add()
 
 `var completionPromise = evaporate.add(config[, overrideOptions])`
@@ -359,8 +386,8 @@ signHeaders: {
   object to upload.
 
   The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
-  promise resolves with the file_key on sucessful file upload and rejects when the upload is canceled or aborted due
-  to an unrecoverable error.
+  promise resolves with the file_key on sucessful file upload and rejects with a message as to why the file could not
+  be uploaded.
 
 And a number of optional parameters:
 
@@ -436,7 +463,7 @@ as `bucket + '/' + object_name`.
 
 #### Evaporate#pause()
 
-`evaporate.pause([file_key[, options]])`
+`var completionPromise = evaporate.pause([file_key[, options]])`
 
 Pauses the upload for the file identified by the object file key or all files. If options include `force`,
 then the in-progress parts will be immediately aborted; otherwise, the file upload will be paused when all in-progress
@@ -444,6 +471,9 @@ parts complete. Refer to the `.paused` and `.pausing` callbacks for status feedb
 
 `file_key` is the optional file key of the upload that you want to pause. If `file_key` is not defined, then all
 files will be paused. File key is constructed as `bucket + '/' + object_name`.
+
+The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+promise resolves when the upload pauses and rejects with a message if the upload could not be fulfilled.
 
 #### Evaporate#resume()
 
@@ -455,6 +485,31 @@ passed. The `.resumed` callback is invoked when a file upload resumes.
 `file_key` is the optional file key of the upload that you want to resume. If `file_key` is not defined, then all
 files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
+After resumption of the upload, the completion promise returned for the added file, will be resolved or rejected depending
+on the final outcome of the upload.
+
+```javascript
+    Evaporate.create({
+        bucket: 'mybucket'
+    })
+        .then(function (evaporate) {
+            evaporate.add({
+                name: 'myFile',
+                file: new File()
+            })
+            .then(function (awsKey) {
+                console.log('Completed', awsKey);
+            });
+            
+            evaporate.pause('mybucket/myFile', {force: true}) // or 'evaporate.pause()' to pause all
+                .then(function () {
+                    console.log('Paused!');
+                });
+            
+            evaporate.resume('mybucket/myFile');            
+        })
+```
+  
 #### Evaporate#cancel()
 
 `var cancellationPromise = evaporate.cancel(file_key)`
@@ -462,8 +517,31 @@ files will be paused. File key is constructed as `bucket + '/' + object_name`.
 `file_key` is the file key of the upload that you want to cancel. File key is constructed as `bucket + '/' + object_name`.
 The completion promise rejects after the file upload aborts.
 
-The cancellationPromise will resolve whent the file has been canceled or reject if any unrecoverable errors occur when
-canceling.
+The `cancellationPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+promise resolves when the upload is completely canceled or rejects if the upload could not be canceled without errors.
+
+```javascript
+    Evaporate.create({
+        bucket: 'mybucket'
+    })
+        .then(function (evaporate) {
+            evaporate.add({
+                name: 'myFile',
+                file: new File()
+            })
+            .then(function (awsKey) {
+                console.log('Completed', awsKey);
+            },
+            function (reason) {
+                console.log('Did not upload', reason);
+            });
+            
+            evaporate.cancel('mybucket/myFile')
+                .then(function () {
+                    console.log('Canceled!');
+                });
+        })
+```
 
 #### Evaporate#supported
 
@@ -559,7 +637,7 @@ upload to S3. Here is a sample policy
 * Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaFunction`, instead of `signerUrl`
 
 ```javascript
-var evaporate = new Evaporate({
+Evaporate.create({
     aws_key: 'your aws_key here',
     bucket: 'your s3 bucket name here',
     awsLambda:  new AWS.Lambda({
@@ -568,7 +646,11 @@ var evaporate = new Evaporate({
         'secretAccessKey': 'the secret'
     }),
     awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // ARN of your lambda function
+ })
+ .then(function (evaporate) {
+       evaporate.add(...);
  });
+
 ```
 
 ## License

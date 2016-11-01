@@ -6,10 +6,19 @@ import test from 'ava'
 
 let server
 
+function defer() {
+  var deferred = {}, promise;
+  promise = new Promise(function(resolve, reject){
+    deferred = {resolve: resolve, reject: reject};
+  });
+  return {
+    resolve: deferred.resolve,
+    reject: deferred.reject,
+    promise: promise
+  }
+}
 function testCancel(t, addConfig) {
   addConfig = addConfig || {}
-
-  addConfig.xAmzHeadersCommon = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersCommon)
 
   const config = Object.assign({}, {
     started: sinon.spy(),
@@ -19,9 +28,9 @@ function testCancel(t, addConfig) {
 
   return testBase(t, config)
       .then(function () {
-        return t.context.cancel()
+        t.context.cancelPromise = t.context.cancel()
+        return t.context.cancelPromise
       })
-
 }
 
 test.before(() => {
@@ -32,56 +41,130 @@ test.before(() => {
     console: console
   };
 
-  server = serverCommonCase()
+  function partRequestHandler(xhr, context)  {
+    if (context.pauseUpload) {
+      if (xhr.url.indexOf('partNumber=1') > -1) {
+          context.pause(context.forcePause)
+              .then(context.pausedPromise.resolve)
+      }
+    }
+    return true
+  }
+
+  server = serverCommonCase(partRequestHandler)
 })
 
 test.beforeEach((t) => {
-  let testId = 'cancel-abort/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-  t.context.getPartsStatus = 200
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 12000000,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
+  beforeEachSetup(t)
 
   t.context.cancel = function () {
     return t.context.evaporate.cancel(t.context.uploadId)
   }
-
-  testContext[testId] = t.context
+  t.context.pause = function (force) {
+    return t.context.evaporate.pause(t.context.uploadId, {force: force})
+  }
 })
 
 // Default Setup: V2 signatures, Cancel
-test('should Cancel an upload', (t) => {
+test('should Cancel an upload calling started once', (t) => {
   return testCancel(t)
       .then(function () {
         expect(t.context.config.started.callCount).to.equal(1)
-        expect(t.context.config.cancelled.callCount).to.equal(1)
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts')
       })
 })
+test('should Cancel an upload calling cancelled once', (t) => {
+  return testCancel(t)
+      .then(function () {
+        expect(t.context.config.cancelled.callCount).to.equal(1)
+      })
+})
+test('should Cancel an upload in the correct request order', (t) => {
+  return testCancel(t)
+      .then(function () {
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel')
+      })
+})
+test('should Cancel an upload and resolve the cancel promise', (t) => {
+  return testCancel(t)
+      .then(function () {
+        t.context.cancelPromise
+            .catch(t.fail)
+      })
+})
+test('should Cancel an upload and reduce evaporating count to 0', (t) => {
+  const config = {
+    file: new File({
+      path: '/tmp/file',
+      size: 990000000, // we need lots of parts so that we exceed the maxConcurrentParts
+      name: randomAwsKey()
+    })
+  }
+  return testCancel(t, config)
+      .then(function () {
+        expect(t.context.evaporate.evaporatingCount).to.equal(0)
+      })
+})
+
+test('should Cancel an upload after it is paused', (t) => {
+  const config = {
+    file: new File({
+          path: '/tmp/file',
+          size: 990000000, // we need lots of parts so that we exceed the maxConcurrentParts
+          name: randomAwsKey()
+        }),
+    cancelled: sinon.spy()
+  }
+
+  t.context.pauseUpload = true
+  t.context.pausedPromise = defer()
+
+  t.context.pausedPromise.promise
+      .then(
+          function () {
+            t.context.cancel()
+          })
+
+  return testBase(t, config)
+      .then(
+          function () {
+            t.fail('Expected upload to fail but it did not.')
+          },
+          function (reason) {
+            expect(reason).to.match(/aborted/i)
+          })
+})
+test('should Cancel an upload after it is paused if the cancel fails', (t) => {
+  t.context.deleteStatus = 403
+
+  const config = {
+    file: new File({
+      path: '/tmp/file',
+      size: 990000000, // we need lots of parts so that we exceed the maxConcurrentParts
+      name: randomAwsKey()
+    }),
+    cancelled: sinon.spy()
+  }
+
+  t.context.pauseUpload = true
+  t.context.pausedPromise = defer()
+
+  t.context.pausedPromise.promise
+      .then(
+          function () {
+            t.context.cancel()
+          })
+
+  return testBase(t, config)
+      .then(
+          function () {
+            t.fail('Expected upload to fail but it did not.')
+          },
+          function (reason) {
+            expect(reason).to.match(/Error aborting upload/i)
+          })
+})
+
+test.todo('should Cancel an upload after it is force paused')
 test.todo('should cancel an upload while parts are uploading')
 
 // Cancel (xAmzHeadersCommon)
@@ -106,7 +189,6 @@ test('should set xAmzHeadersCommon on Cancel', (t) => {
 })
 
 // retry
-// TODO: DRY Up the common stuff
 test('should not retry Cancel but trigger Initiate if status is 404 with started callback', (t) => {
   t.context.deleteStatus = 404
   return testCancel(t)
@@ -148,49 +230,5 @@ test('should retry Cancel twice if status is non-404 error in the correct order'
   return testCancel(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,cancel')
-      })
-})
-
-test('should not retry check for aborted parts if status is 404 with status callback', (t) => {
-  t.context.getPartsStatus = 404
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.started.callCount).to.equal(1)
-      })
-})
-test('should not retry check for aborted parts if status is 404 with cancelled callback', (t) => {
-  t.context.getPartsStatus = 404
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.cancelled.callCount).to.equal(1)
-      })
-})
-test('should not retry check for aborted parts if status is 404 in the correct order', (t) => {
-  t.context.getPartsStatus = 404
-  return testCancel(t)
-      .then(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts')
-      })
-})
-
-test('should retry check for remaining aborted parts twice if status is non-404 error with started callback', (t) => {
-  t.context.getPartsStatus = 403
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.started.callCount).to.equal(1)
-      })
-})
-test('should retry check for remaining aborted parts twice if status is non-404 error with cancelled callback', (t) => {
-  t.context.getPartsStatus = 403
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.cancelled.callCount).to.equal(1)
-      })
-})
-test('should retry check for remaining aborted parts twice if status is non-404 error in the correct order', (t) => {
-  t.context.getPartsStatus = 403
-  return testCancel(t)
-      .then(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts,check for parts')
       })
 })

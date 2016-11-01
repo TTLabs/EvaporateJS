@@ -25,36 +25,11 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
-  let testId = 'aws_url/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 50,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
-
-  testContext[testId] = t.context
+  beforeEachSetup(t, new File({
+    path: '/tmp/file',
+    size: 50,
+    name: randomAwsKey()
+  }))
 })
 
 // cloudfront, aws_url, awsRegion and s3Acceleration

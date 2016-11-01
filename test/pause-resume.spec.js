@@ -47,41 +47,15 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
-  let testId = 'pause-request/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-  t.context.retry = function (type) {}
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 12000000,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
+  beforeEachSetup(t)
 
   t.context.pause = function (force) {
-    return t.context.evaporate.pause(t.context.uploadId, force)
+    return t.context.evaporate.pause(t.context.uploadId, {force: force})
   }
 
   t.context.resume = function () {
     return t.context.evaporate.resume(t.context.uploadId)
   }
-
-  testContext[testId] = t.context
 })
 
 // Default Setup: V2 signatures: Pause & Resume
