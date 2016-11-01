@@ -2,6 +2,7 @@ import chai, { expect } from 'chai'
 import chaiSinon from 'sinon-chai'
 import sinon from 'sinon'
 import test from 'ava'
+import Evaporate from '../evaporate'
 
 chai.use(chaiSinon)
 
@@ -61,24 +62,150 @@ test('should work', (t) => {
 
 // constructor
 
-test('should return supported instance', (t) => {
-  expect(newEvaporate(t, baseConfig).supported).to.be.ok
+test('#create should return supported instance', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        expect(evaporate).to.be.instanceof(Evaporate)
+      },
+      function (reason) {
+        t.fail(reason)
+      })
+
+})
+test('#create evaporate should support #add', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+            expect(evaporate.add).to.be.instanceof(Function)
+          },
+          function (reason) {
+            t.fail(reason)
+          })
+
+})
+test('#create evaporate should support #cancel', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+            expect(evaporate.cancel).to.be.instanceof(Function)
+          },
+          function (reason) {
+            t.fail(reason)
+          })
+
+})
+test('#create evaporate should support #pause', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+            expect(evaporate.pause).to.be.instanceof(Function)
+          },
+          function (reason) {
+            t.fail(reason)
+          })
+
+})
+test('#create evaporate should support #resume', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+            expect(evaporate.resume).to.be.instanceof(Function)
+          },
+          function (reason) {
+            t.fail(reason)
+          })
+
+})
+test('#create evaporate should support #forceRetry', (t) => {
+  return Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+            expect(evaporate.forceRetry).to.be.instanceof(Function)
+          },
+          function (reason) {
+            t.fail(reason)
+          })
+
 })
 
-test('should return supported instance with public functions', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const publicFunctionNames = [
-    'add',
-    'cancel',
-    'pause',
-    'resume',
-    'forceRetry'
-  ]
+// Unsupported
+test('should require configuration options on instantiation', (t) => {
+  return Evaporate.create()
+      .then(function (evaporate) {
+          t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
 
-  publicFunctionNames.forEach((functionName) => {
-    expect(evaporate[functionName]).to.be.instanceof(Function)
+})
+test('should signerUrl is required unless signResponseHandler is present', (t) => {
+  return Evaporate.create({signerUrl: null, signResponseHandler: null})
+      .then(function (evaporate) {
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
+
+})
+
+test('should require an AWS bucket with a signerUrl', (t) => {
+  return Evaporate.create({signerUrl: 'https://sign.com/sign'})
+      .then(function (evaporate) {
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
+
+})
+test('should require an AWS bucket without a signerUrl but with a signResponseHandler', (t) => {
+  return Evaporate.create({signResponseHandler: function () {}})
+      .then(function (evaporate) {
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
+
+})
+test('should require a cryptoMd5Method if computeContentMd5 is enabled', (t) => {
+  return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', computeContentMd5: true})
+      .then(function (evaporate) {
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
+
+})
+test('should require a cryptoHexEncodedHash256 method if computeContentMd5 is enabled with V4 signatures', (t) => {
+  return Evaporate.create({
+    bucket: 'asdafsa',
+    signerUrl: 'https://sign.com/sign',
+    computeContentMd5: true,
+    awsSignatureVersion: '4',
+    cryptoMd5Method: function () {}
   })
+      .then(function (evaporate) {
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
+
 })
+test('should require computeContentMd5 if V4 signatures enabled', (t) => {
+  return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', awsSignatureVersion: '4'})
+      .then(function (evaporate) {
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            t.pass(reason)
+          })
+
+})
+
+test.todo('should require browser File support')
+test.todo('should require browser Blob support')
+test.todo('should require browser Blob slice support')
+test.todo('should require browser FileReader#readAsArrayBuffer support if computeContentMd5 enabled')
 
 // add
 

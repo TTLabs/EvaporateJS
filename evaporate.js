@@ -92,9 +92,12 @@
             l.e = window.console.error ? l.error : l.d;
         }
 
-        if (!this.validateEvaporateOptions()) {
+        this._instantiationError = this.validateEvaporateOptions();
+        if (typeof this._instantiationError === 'string') {
             this.supported = false;
             return;
+        } else {
+            delete this._instantiationError;
         }
 
         if (!this.config.logging) {
@@ -116,9 +119,22 @@
                 self.initialized = true;
             });
     };
+    Evaporate.create = function (config) {
+        return new Promise(function (resolve, reject) {
+            var e = new Evaporate(config);
+
+            if (e.supported === true) {
+                resolve(e);
+            } else {
+                reject(e._instantiationError);
+            }
+
+        })
+    };
     Evaporate.prototype.config = {};
     Evaporate.prototype.initialized = false;
     Evaporate.prototype.supported = false;
+    Evaporate.prototype._instantiationError = undefined;
     Evaporate.prototype.localTimeOffset = 0;
     Evaporate.prototype.evaporatingCount = 0;
     Evaporate.prototype.awsUrl = '';
@@ -269,41 +285,34 @@
             !!this.config.testUnsupported);
 
         if (!this.config.signerUrl && typeof this.config.signResponseHandler !== 'function') {
-            l.e("Option signerUrl is required unless signResponseHandler is present.");
-            return;
+            return "Option signerUrl is required unless signResponseHandler is present.";
         }
 
         if (!this.config.bucket) {
-            l.e("The AWS 'bucket' option must be present.");
-            return;
+            return "The AWS 'bucket' option must be present.";
         }
 
         if (!this.supported) {
-            l.e('The browser does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice]');
-            return;
+            return 'The browser does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice]';
         }
 
         if (this.config.computeContentMd5) {
             this.supported = typeof FileReader.prototype.readAsArrayBuffer !== 'undefined';
             if (!this.supported) {
-                l.e('The browser\'s FileReader object does not support readAsArrayBuffer');
-                return;
+                return 'The browser\'s FileReader object does not support readAsArrayBuffer';
             }
 
             if (typeof this.config.cryptoMd5Method !== 'function') {
-                l.e('Option computeContentMd5 has been set but cryptoMd5Method is not defined.');
-                return;
+                return 'Option computeContentMd5 has been set but cryptoMd5Method is not defined.'
             }
 
             if (this.config.awsSignatureVersion === '4') {
                 if (typeof this.config.cryptoHexEncodedHash256 !== 'function') {
-                    l.e('Option awsSignatureVersion is 4 but cryptoHexEncodedHash256 is not defined.');
-                    return;
+                    return 'Option awsSignatureVersion is 4 but cryptoHexEncodedHash256 is not defined.';
                 }
             }
         } else if (this.config.awsSignatureVersion === '4') {
-            l.e('Option awsSignatureVersion is 4 but computeContentMd5 is not enabled.');
-            return;
+            return 'Option awsSignatureVersion is 4 but computeContentMd5 is not enabled.';
         }
         return true;
     };
