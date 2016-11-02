@@ -71,18 +71,7 @@ global.randomAwsKey = function () {
   return Math.random().toString().substr(2) + '_' + AWS_UPLOAD_KEY
 }
 
-global.storeTestRequest = function (xhr) {
-  let k = xhr.requestHeaders.testId
-  testRequests[k] = testRequests[k] || []
-  testRequests[k].push(xhr)
-  return getContext(xhr)
-}
-
-global.getContext = function (xhr) {
-  return testContext[xhr.requestHeaders.testId]
-}
-
-let     requestMap = {
+let requestMap = {
   'POST:uploads': 'initiate',
   'POST:uploadId': 'complete',
   'DELETE:uploadId': 'cancel',
@@ -208,8 +197,33 @@ global.serverCommonCase = function (partRequestHandler) {
     }
   })
 
+  server.respondWith('GET', /\/time.*$/, (xhr) => {
+    let match = xhr.url.match(/testId=(.+)\?/)
+    if (match) {
+      let testId = match[1],
+          context = storeTestRequest(xhr, testId)
+      if (typeof context.timeUrlCalled === 'undefined') {
+        context.timeUrlCalled = 0
+      }
+      context.timeUrlCalled += 1
+    }
+    let payload = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString()
+    xhr.respond(retryStatus(xhr, 'time'), CONTENT_TYPE_TEXT, payload)
+  })
+
+  function getContext(testId) {
+    return testContext[testId]
+  }
+
+  function storeTestRequest(xhr, k) {
+    k = k || xhr.requestHeaders.testId
+    testRequests[k] = testRequests[k] || []
+    testRequests[k].push(xhr)
+    return getContext(k)
+  }
+
   function retryStatus(xhr, type, successStatus) {
-    let context = getContext(xhr),
+    let context = getContext(xhr.requestHeaders.testId),
         status;
     if (!context) {
       return successStatus || 200
@@ -239,12 +253,7 @@ global.newEvaporate = function (t, evapConfig) {
   return t.context.evaporate;
 }
 
-global.testBase = function (t, addConfig, evapConfig) {
-  addConfig = addConfig || {}
-  evapConfig = evapConfig || {}
-
-  t.context.evaporate = newEvaporate(t, evapConfig)
-
+global.evaporateAdd = function (t, evaporate, addConfig) {
   if (typeof addConfig.started === "function") {
     addConfig.user_started = addConfig.started;
     delete addConfig.started;
@@ -269,5 +278,14 @@ global.testBase = function (t, addConfig, evapConfig) {
       }
     })
   })
-  return t.context.evaporate.add(t.context.config)
+  return evaporate.add(t.context.config)
+
+}
+global.testBase = function (t, addConfig, evapConfig) {
+  addConfig = addConfig || {}
+  evapConfig = evapConfig || {}
+
+  t.context.evaporate = newEvaporate(t, evapConfig)
+
+  return evaporateAdd(t, t.context.evaporate, addConfig)
 }

@@ -77,6 +77,7 @@
             signResponseHandler: null,
             xhrWithCredentials: false,
             // undocumented
+            localTimeOffset: undefined,
             testUnsupported: false,
             simulateStalling: false,
             simulateErrors: false,
@@ -110,32 +111,71 @@
 
         var _d = new Date();
         HOURS_AGO = new Date(_d.setHours(_d.getHours() - (this.config.s3FileCacheHoursAgo || -100)));
-
-        var self = this;
-        getLocalTimeOffset(this.config)
-            .then(function (offset) {
-                l.d('localTimeOffset is', offset, 'ms');
-                self.localTimeOffset = offset;
-                self.initialized = true;
-            });
+        if (typeof config.localTimeOffset === 'number') {
+            this.localTimeOffset = config.localTimeOffset;
+        } else {
+            var self = this;
+            Evaporate.getLocalTimeOffset(this.config)
+                .then(function (offset) {
+                    self.localTimeOffset = offset;
+                });
+        }
     };
     Evaporate.create = function (config) {
-        return new Promise(function (resolve, reject) {
-            var e = new Evaporate(config);
+        var evapConfig = Object.assign({}, config);
+        return Evaporate.getLocalTimeOffset(evapConfig)
+                .then(function (offset) {
+                    evapConfig.localTimeOffset = offset;
+                    return new Promise(function (resolve, reject) {
+                        let e = new Evaporate(evapConfig);
 
-            if (e.supported === true) {
-                resolve(e);
-            } else {
-                reject(e._instantiationError);
-            }
-
-        })
+                        if (e.supported === true) {
+                            resolve(e);
+                        } else {
+                            reject(e._instantiationError);
+                        }
+                    });
+                });
     };
+    Evaporate.getLocalTimeOffset = function (config) {
+        return new Promise(function (resolve, reject) {
+            if (typeof config.localTimeOffset === 'number') {
+                return resolve(config.localTimeOffset);
+            }
+            if (config.timeUrl) {
+                var xhr = new XMLHttpRequest();
+
+                xhr.open("GET", config.timeUrl + '?requestTime=' + new Date().getTime());
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            var server_date = new Date(Date.parse(xhr.responseText)),
+                                now = new Date();
+                            resolve(now - server_date);
+                        }
+                    }
+                };
+
+                xhr.onerror = function (xhr) {
+                    l.e('xhr error timeUrl', xhr);
+                    reject('Fetching offset time failed with status: ' + xhr.status);
+                };
+                xhr.send();
+            } else {
+                resolve(0);
+            }
+        })
+        .then(function (offset) {
+            l.d('localTimeOffset is', offset, 'ms');
+            return new Promise(function (resolve) {
+                resolve(offset);
+            });
+        });
+     };
     Evaporate.prototype.config = {};
-    Evaporate.prototype.initialized = false;
+    Evaporate.prototype.localTimeOffset = 0;
     Evaporate.prototype.supported = false;
     Evaporate.prototype._instantiationError = undefined;
-    Evaporate.prototype.localTimeOffset = 0;
     Evaporate.prototype.evaporatingCount = 0;
     Evaporate.prototype.awsUrl = '';
     Evaporate.prototype.files = [];
@@ -1756,33 +1796,6 @@
         };
 
         return con.awsSignatureVersion === '4' ? AwsSignatureV4 : AwsSignatureV2;
-    }
-
-    function getLocalTimeOffset(con) {
-        return new Promise(function (resolve) {
-            if (con.timeUrl) {
-                var xhr = new XMLHttpRequest();
-
-                xhr.open("GET", con.timeUrl + '?requestTime=' + new Date().getTime());
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState === 4) {
-                        if (xhr.status === 200) {
-                            var server_date = new Date(Date.parse(xhr.responseText)),
-                                now = new Date();
-                            resolve(now - server_date);
-                        }
-                    }
-                };
-
-                xhr.onerror = function (xhr) {
-                    l.e('xhr error timeUrl', xhr);
-                    resolve(0);
-                };
-                xhr.send();
-            } else {
-                resolve(0);
-            }
-        });
     }
 
     function awsUrl(con) {
