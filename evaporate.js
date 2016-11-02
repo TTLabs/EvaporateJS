@@ -752,7 +752,7 @@
                 function () {
                     self.setStatus(ABORTED);
                     self.cancelled();
-                    self.deferredCompletion.resolve(self.id);
+                    self.deferredCompletion.reject(partError ? 'File upload aborted due to a part failing to upload' : 'User aborted the upload');
                 },
                 self.deferredCompletion.reject.bind(self));
     };

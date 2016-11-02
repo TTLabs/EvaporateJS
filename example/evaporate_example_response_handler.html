@@ -49,9 +49,6 @@
                       })
                      .then(function (awsKey) {
                           console.log(awsKey, 'complete!');
-                       },
-                       function (reason) {
-                          console.log(awsKey, 'failed!');
                        });
 
                       filePromises.push(promise);
