@@ -34,26 +34,11 @@ test.before(() => {
 })
 
 test.beforeEach((t) =>{
-  localStorage.removeItem('awsUploads')
-  let testId = 'evaporate/' + t.title
-
-  t.context.testId = testId
-  t.context.requests = []
-
-  t.context.retry = function (type) {}
-
-  t.context.baseAddConfig = {
-    name: AWS_UPLOAD_KEY,
-    file: new File({
-      path: '/tmp/file',
-      size: 50
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId }
-  }
-
-  testContext[testId] = t.context
-
+  beforeEachSetup(t, new File({
+    path: '/tmp/file',
+    size: 50,
+    name: randomAwsKey()
+  }))
 })
 
 test('should work', (t) => {
@@ -70,7 +55,6 @@ test('#create should return supported instance', (t) => {
       function (reason) {
         t.fail(reason)
       })
-
 })
 test('#create evaporate should support #add', (t) => {
   return Evaporate.create(baseConfig)
@@ -348,7 +332,7 @@ test('should add() new upload with correct config', (t) => {
   return testBase(t)
       .then(function (fileKey) {
         let id = fileKey;
-        expect(id).to.equal(baseConfig.bucket + '/' + baseAddConfig.name)
+        expect(id).to.equal(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey)
       })
 })
 
@@ -404,7 +388,7 @@ test('should call a callback on successful add()', (t) => {
   return testBase(t)
       .then(function () {
         expect(t.context.config.started).to.have.been.called
-        expect(t.context.config.started).to.have.been.calledWithExactly(baseConfig.bucket + '/' + baseAddConfig.name)
+        expect(t.context.config.started).to.have.been.calledWithExactly(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey)
       })
 })
 

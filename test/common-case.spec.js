@@ -6,43 +6,6 @@ import test from 'ava'
 
 let server
 
-function testCommonCase(t, addConfig, evapConfig) {
-
-  let leagcyAmzHeaders = false, c;
-  if (addConfig.xAmzHeadersAtInitiate) {
-    c = Object.assign({}, t.context.baseAddConfig.xAmzHeadersAtInitiate, addConfig.xAmzHeadersAtInitiate)
-    addConfig.xAmzHeadersAtInitiate = c
-  }
-
-  if (addConfig.xAmzHeadersAtUpload) {
-    leagcyAmzHeaders = true
-    c = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersAtUpload)
-    addConfig.xAmzHeadersAtUpload = c
-    if (addConfig.xAmzHeadersCommon) {
-      c = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersCommon)
-      addConfig.xAmzHeadersCommon = c
-    }
-  }
-  if (addConfig.xAmzHeadersAtComplete) {
-    leagcyAmzHeaders = true
-    c = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersAtComplete)
-    addConfig.xAmzHeadersAtComplete = c
-    if (addConfig.xAmzHeadersCommon) {
-      c = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersCommon)
-      addConfig.xAmzHeadersCommon = c
-    }
-  }
-
-  if (leagcyAmzHeaders) {
-    delete t.context.baseAddConfig.xAmzHeadersCommon
-  } else {
-    c = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersCommon)
-    addConfig.xAmzHeadersCommon = c
-  }
-
-  return testBase(t, addConfig, evapConfig)
-}
-
 function testMd5V2(t) {
   return testBase(t, {}, { computeContentMd5: true })
 }
@@ -66,36 +29,7 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
-  let testId = 'common-case/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 12000000,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
-
-  testContext[testId] = t.context
+  beforeEachSetup(t)
 })
 
 // Default Setup: V2 signatures: Common Case
@@ -159,7 +93,7 @@ test('V4 should upload a file and return the correct file upload ID', (t) => {
 
 // Cover xAmzHeader Options
 test('should pass xAmzHeadersAtInitiate headers', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' }
   })
       .then(function () {
@@ -167,7 +101,7 @@ test('should pass xAmzHeadersAtInitiate headers', (t) => {
       })
 })
 test('should pass xAmzHeadersAtUpload headers', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtUpload: { 'x-custom-header': 'phooey' }
   })
       .then(function () {
@@ -175,7 +109,7 @@ test('should pass xAmzHeadersAtUpload headers', (t) => {
       })
 })
 test('should pass xAmzHeadersAtComplete headers', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtComplete: { 'x-custom-header': 'eindelijk' }
   })
       .then(function () {
@@ -184,7 +118,7 @@ test('should pass xAmzHeadersAtComplete headers', (t) => {
 })
 
 test('should not use xAmzHeadersCommon headers for Initiate', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
@@ -193,7 +127,7 @@ test('should not use xAmzHeadersCommon headers for Initiate', (t) => {
       })
 })
 test('should use xAmzHeadersCommon headers for Parts', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
       .then(function () {
@@ -201,7 +135,7 @@ test('should use xAmzHeadersCommon headers for Parts', (t) => {
       })
 })
 test('should use xAmzHeadersCommon headers for Complete', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
       .then(function () {
@@ -210,7 +144,7 @@ test('should use xAmzHeadersCommon headers for Complete', (t) => {
 })
 
 test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -219,7 +153,7 @@ test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t) => {
       })
 })
 test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -228,7 +162,7 @@ test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t) => {
       })
 })
 test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -237,7 +171,7 @@ test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (t) => {
       })
 })
 test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (2)', (t) => {
-  return testCommonCase(t, {
+  return testBase(t, {
     xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -252,7 +186,7 @@ test('should retry Initiate', (t) => {
     return type === 'init'
   }
 
-  return testCommonCase(t, {})
+  return testBase(t, {})
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
@@ -263,7 +197,7 @@ test('should retry Complete', (t) => {
     return type === 'complete'
   }
 
-  return testCommonCase(t, {})
+  return testBase(t, {})
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,complete')
       })
@@ -274,7 +208,7 @@ test('should retry Upload Part', (t) => {
     return type === 'part'
   }
 
-  return testCommonCase(t, { file: new File({
+  return testBase(t, { file: new File({
         path: '/tmp/file',
         size: 50,
         name: 'tests'
@@ -316,7 +250,7 @@ test('should retry get signature for common case: Initiate, Put, Complete (autho
     return request_order.join(',')
   }
 
-  return testCommonCase(t, { file: new File({
+  return testBase(t, { file: new File({
       path: '/tmp/file',
       size: 50,
       name: 'tests'

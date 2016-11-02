@@ -242,11 +242,47 @@ global.serverCommonCase = function (partRequestHandler) {
   }
 }
 
+global.beforeEachSetup = function (t, file) {
+  let testId = t.title
+  if (testId in testContext) {
+    console.error('Test case must be uniquely named:', testId)
+    return
+  }
+
+  t.context.testId = testId
+  t.context.requestedAwsObjectKey = randomAwsKey()
+  t.context.requests = []
+  t.context.errMessages = []
+
+  t.context.attempts = 0
+  t.context.maxRetries = 1
+  t.context.retry = function (type) {}
+
+  let addFile = file || new File({
+        path: '/tmp/file',
+        size: 12000000,
+        name: randomAwsKey()
+      })
+
+  t.context.baseAddConfig = {
+    name: t.context.requestedAwsObjectKey,
+    file: addFile,
+    maxRetryBackoffSecs: 0.1,
+    abortCompletionThrottlingMs: 0
+  }
+
+  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum' })
+  t.context.cryptoHexEncodedHash256 = sinon.spy(function () { return 'SHA256Value' })
+
+
+  testContext[testId] = t.context
+}
+
 global.newEvaporate = function (t, evapConfig) {
   evapConfig = evapConfig || {}
   t.context.evaporate = new Evaporate(Object.assign({}, baseConfig,
       {cryptoMd5Method: t.context.cryptoMd5}, evapConfig,  {
-        signHeaders: Object.assign({ // TODO: apply this to the other headers we need for tests
+        signHeaders: Object.assign({
           testId: t.context.testId
         }, evapConfig.signHeaders)
       }))
@@ -264,6 +300,23 @@ global.evaporateAdd = function (t, evaporate, addConfig) {
     delete addConfig.complete;
   }
 
+  addConfig.xAmzHeadersAtInitiate = Object.assign({
+    testId: t.context.testId
+  }, addConfig.xAmzHeadersAtInitiate)
+
+  if (addConfig.xAmzHeadersAtUpload || addConfig.xAmzHeadersAtComplete) {
+    addConfig.xAmzHeadersAtUpload = Object.assign({ testId: t.context.testId }, addConfig.xAmzHeadersAtUpload)
+
+    addConfig.xAmzHeadersAtComplete = Object.assign({ testId: t.context.testId }, addConfig.xAmzHeadersAtComplete)
+
+    if (addConfig.xAmzHeadersCommon) {
+      addConfig.xAmzHeadersCommon = Object.assign({}, { testId: t.context.testId }, addConfig.xAmzHeadersCommon)
+    }
+
+  } else {
+    addConfig.xAmzHeadersCommon = Object.assign({}, { testId: t.context.testId }, addConfig.xAmzHeadersCommon)
+  }
+
   t.context.config = Object.assign({}, t.context.baseAddConfig, addConfig, {
     started: sinon.spy(function (id) {
       t.context.uploadId = id;
@@ -278,6 +331,7 @@ global.evaporateAdd = function (t, evaporate, addConfig) {
       }
     })
   })
+
   return evaporate.add(t.context.config)
 
 }

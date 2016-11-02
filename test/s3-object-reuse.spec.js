@@ -37,37 +37,7 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
-  let testId = 's3-object-reuse/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-
-  t.context.headStatus = 200
-  t.context.headEtag = 'custom-eTag'
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 12000000,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId }
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
-
-  testContext[testId] = t.context
+  beforeEachSetup(t)
 })
 
 // S3 Object re-use

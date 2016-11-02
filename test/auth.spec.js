@@ -145,36 +145,16 @@ test.before(() => {
 })
 
 test.beforeEach((t) =>{
-  let testId = 'auth/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-  t.context.requestedAwsObjectKey = randomAwsKey()
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.testId = testId
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
+  beforeEachSetup(t, new File({
       path: '/tmp/file',
       size: 50,
       name: 'tests'
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
+    })
+  )
 
-  t.context.errMessages = []
-  localStorage.removeItem('awsUploads')
+  delete t.context.cryptoMd5
+  delete t.context.cryptoHexEncodedHash256
 
-  testContext[testId] = t.context
 })
 
 test('should correctly create V2 string to sign for PUT', (t) => {
@@ -213,15 +193,15 @@ test('should correctly create V4 string to sign for PUT with amzHeaders', (t) =>
   return testV4ToSign(t, {xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }})
       .then(function (result) {
         expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
-            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com%0Ax-amz-date%3A' +
-            result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
+            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
+            '%0Atestid%3A' + encodeURIComponent(t.context.testId) +
+            '%0Ax-amz-date%3A' + result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Btestid%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
       })
 })
 
 test('should fetch V2 authorization from the signerUrl without errors', (t) => {
   return testV2Authorization(t)
       .then(function () {
-        // TODO: Use reject?
         expect(t.context.errMessages.length).to.equal(0)
       })
 })

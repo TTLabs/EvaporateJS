@@ -34,32 +34,7 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
-  let testId = 'cached-parts/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-
-  t.context.retry = function (type) {}
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 12000000,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId }
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
-
-  testContext[testId] = t.context
+  beforeEachSetup(t)
 })
 
 // Cached File Parts (some parts on S3), multipart upload not completed

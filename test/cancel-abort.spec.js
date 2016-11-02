@@ -36,41 +36,11 @@ test.before(() => {
 })
 
 test.beforeEach((t) => {
-  let testId = 'cancel-abort/' + t.title
-  if (testId in testContext) {
-    console.error('Test case must be uniquely named:', t.title)
-    return
-  }
-
-  t.context.attempts = 0
-  t.context.maxRetries = 1
-  t.context.retry = function (type) {}
-
-  t.context.testId = testId
-  t.context.requestedAwsObjectKey = randomAwsKey()
-  t.context.requests = []
-  t.context.getPartsStatus = 200
-
-  t.context.baseAddConfig = {
-    name: t.context.requestedAwsObjectKey,
-    file: new File({
-      path: '/tmp/file',
-      size: 12000000,
-      name: randomAwsKey()
-    }),
-    xAmzHeadersAtInitiate: {testId: testId},
-    xAmzHeadersCommon: { testId: testId },
-    maxRetryBackoffSecs: 0.1,
-    abortCompletionThrottlingMs: 0
-  }
-
-  t.context.cryptoMd5 = sinon.spy(function () { return 'md5Checksum'; })
+  beforeEachSetup(t)
 
   t.context.cancel = function () {
     return t.context.evaporate.cancel(t.context.uploadId)
   }
-
-  testContext[testId] = t.context
 })
 
 // Default Setup: V2 signatures, Cancel
@@ -106,7 +76,6 @@ test('should set xAmzHeadersCommon on Cancel', (t) => {
 })
 
 // retry
-// TODO: DRY Up the common stuff
 test('should not retry Cancel but trigger Initiate if status is 404 with started callback', (t) => {
   t.context.deleteStatus = 404
   return testCancel(t)
