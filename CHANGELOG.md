@@ -1,3 +1,16 @@
+# v1.5.9#
+
+## Enhancements ##
+- Adds more test coverage.
+
+## Bug Fixes ##
+- Corrects an error message that was using a 0-based index rather than 1
+- Correctly aborts an upload if start() cancels the upload.
+- Fixes a bug where the reported progress doubled after resuming an upload
+- Fixes the ability to fetch the uploaded part count for files with more than
+  1,000 uploaded parts.
+- Adds safety checks for parsing the error XML from AWS responses
+
 # v1.5.8#
 
 ## Enhancements ##
