@@ -560,15 +560,15 @@
         clearInterval(this.progressTotalInterval);
         this.progressTotalInterval = setInterval(function () {
 
-            var totalBytesLoaded = this.fileTotalBytesUploaded;
+            var totalBytesLoaded = self.fileTotalBytesUploaded;
             self.partsInProcess.forEach(function (i) {
                 totalBytesLoaded += self.s3Parts[i].loadedBytes;
             });
 
-            self.progress(totalBytesLoaded / this.sizeBytes);
+            self.progress(totalBytesLoaded / self.sizeBytes);
         }, this.con.progressIntervalMS);
     };
-    FileUpload.prototype.monitorPartsProgress =function () {
+    FileUpload.prototype.monitorPartsProgress = function () {
         /*
          Issue #6 identified that some parts would stall silently.
          The issue was only noted on Safari on OSX. A bug was filed with Apple, #16136393
