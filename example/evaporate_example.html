@@ -35,6 +35,7 @@
 <script language="javascript">
 
    var files, file_id = 0, file_ids = [];
+   var filePromises = [], allCompleted;
 
    // Change these to reflect your local settings
    var AWS_KEY = 'AWS KEY',
@@ -45,7 +46,7 @@
    $("#s3Bucket").text(AWS_BUCKET);
    $("#SIGNERURL").text(SIGNER_URL);
 
-   var _e_ = new Evaporate({
+   Evaporate.create({
       signerUrl: SIGNER_URL,
       aws_key: AWS_KEY,
       bucket: AWS_BUCKET,
@@ -61,174 +62,196 @@
             $("#pause-all, #pause-all-force, #resume").hide();
          }
       }
-   });
+   })
+     .then(function (_e_) {
+        $('#files').change(function (evt) {
+           files = evt.target.files;
 
-   $('#files').change(function (evt) {
-      files = evt.target.files;
+           for (var i = 0; i < files.length; i++) {
+              callback_methods = callbacks(files[i], i);
 
-      for (var i = 0; i < files.length; i++) {
-         callback_methods = callbacks(files[i], i);
+              var promise = _e_.add({
+                         name: files[i].name,
+                         file: files[i],
+                         started: callback_methods.started,
+                         complete: callback_methods.complete,
+                         cancelled: callback_methods.cancelled,
+                         progress: callback_methods.progress,
+                         error: callback_methods.error,
+                         warn: callback_methods.warn,
+                         paused: callback_methods.paused,
+                         pausing: callback_methods.pausing,
+                         resumed: callback_methods.resumed
+                      },
+                      {
+                         bucket: AWS_BUCKET // Shows that the bucket can be changed per
+                      }
+              )
+              .then(
+                      function (awsKey) {
+                        console.log(awsKey, 'successfully uploaded!');
+                      },
+                      function (reason) {
+                        console.load(awsKey, 'failed to upload:', reason);
+                      }
+              );
 
-         var file_id = _e_.add({
-                    name: files[i].name,
-                    file: files[i],
-                    started: callback_methods.started,
-                    complete: callback_methods.complete,
-                    cancelled: callback_methods.cancelled,
-                    progress: callback_methods.progress,
-                    error: callback_methods.error,
-                    warn: callback_methods.warn,
-                    paused: callback_methods.paused,
-                    pausing: callback_methods.pausing,
-                    resumed: callback_methods.resumed
-                 },
-                 {
-                    bucket: AWS_BUCKET // Shows that the bucket can be changed per
-                 }
-         );
+              filePromises.push(promise);
 
-         callback_methods.progress_clock.attr('file_id', file_id);
+              callback_methods.progress_clock.attr('file_id', file_id);
 
-         ["#pause-all",  "#pause-all-force", "resume"].forEach(function (v) { $(v).show(); });
-      }
+              ["#pause-all",  "#pause-all-force", "resume"].forEach(function (v) { $(v).show(); });
+           }
 
-      $(evt.target).val('');
+           allCompleted = Promise.all(filePromises)
+                   .then(function () {
+                      console.log('All files were uploaded successfully.');
+                   }, function (reason) {
+                      console.log('All files were not uploaded successfully:', reason);
+                   })
 
-   });
+           $(evt.target).val('');
 
-   $("#pause-all").hide().click(function () {
-      _e_.pause();
-   });
+        });
 
-   $("#pause-all-force").hide().click(function () {
-      _e_.pause(undefined, {force: true});
-   });
+        $("#pause-all").hide().click(function () {
+           _e_.pause();
+        });
 
-   $("#resume").hide().click(function () {
-      _e_.resume();
-      $("#resume").hide();
-   });
+        $("#pause-all-force").hide().click(function () {
+           _e_.pause(undefined, {force: true});
+        });
 
-   function callbacks(file, idx) {
+        $("#resume").hide().click(function () {
+           _e_.resume();
+           $("#resume").hide();
+        });
 
-      var progress_clock = $('<div class="progress-clock"/>'),
-              clock,
-              progress,
-              file_id;
+        function callbacks(file, idx) {
 
-      $('#progress-container')
-              .append(progress_clock);
+           var progress_clock = $('<div class="progress-clock"/>'),
+                   clock,
+                   progress,
+                   file_id;
 
-      progress_clock
-              .append('<span>' + file.name + '</span>')
-              .append('<div class="circle"/>');
-      var cancel = $('<button class="cancel btn btn-danger btn-xs glyphicon glyphicon-stop" title="Cancel"></button>')
-              .click(function () {
-                 _e_.cancel(file_id);
-              });
-      progress_clock.append(cancel);
+           $('#progress-container')
+                   .append(progress_clock);
 
-      var pause = $('<button class="pause btn btn-warning btn-xs glyphicon glyphicon-pause" title="Pause"></button>')
-              .hide()
-              .click(function () {
-                 _e_.pause(file_id);
-              });
-      progress_clock.append(pause);
+           progress_clock
+                   .append('<span>' + file.name + '</span>')
+                   .append('<div class="circle"/>');
+           var cancel = $('<button class="cancel btn btn-danger btn-xs glyphicon glyphicon-stop" title="Cancel"></button>')
+                   .click(function () {
+                      _e_.cancel(file_id);
+                   });
+           progress_clock.append(cancel);
 
-      var resume = $('<button class="resume btn btn-success btn-xs glyphicon glyphicon-play" title="Resume"></button>').hide()
-              .hide()
-              .click(function () {
-                 _e_.resume(file_id);
-              });
-      progress_clock.append(resume);
+           var pause = $('<button class="pause btn btn-warning btn-xs glyphicon glyphicon-pause" title="Pause"></button>')
+                   .hide()
+                   .click(function () {
+                      _e_.pause(file_id);
+                   });
+           progress_clock.append(pause);
 
-      var status = $('<span class="status"></span>');
-      progress_clock.append(status);
+           var resume = $('<button class="resume btn btn-success btn-xs glyphicon glyphicon-play" title="Resume"></button>').hide()
+                   .hide()
+                   .click(function () {
+                      _e_.resume(file_id);
+                   });
+           progress_clock.append(resume);
 
-      clock = new ProgressBar.Circle(progress_clock.find('.circle')[0], {
-         strokeWidth: 3,
-         trailWidth: 1,
-         duration: 350,
-         text: {
-            value: ''
-         },
-         step: function(state, bar) {
-            bar.setText((bar.value() * 100).toFixed(0) + '%');
-         }
-      });
+           var status = $('<span class="status"></span>');
+           progress_clock.append(status);
 
-      progress_clock.find('svg path').removeAttr('stroke');
-      progress_clock.find('.progressbar-text').css('color', '');
+           clock = new ProgressBar.Circle(progress_clock.find('.circle')[0], {
+              strokeWidth: 3,
+              trailWidth: 1,
+              duration: 350,
+              text: {
+                 value: ''
+              },
+              step: function(state, bar) {
+                 bar.setText((bar.value() * 100).toFixed(0) + '%');
+              }
+           });
+
+           progress_clock.find('svg path').removeAttr('stroke');
+           progress_clock.find('.progressbar-text').css('color', '');
 
 
-      function markComplete(className) {
-         progress_clock.addClass(className);
-         status.text(className);
-      }
+           function markComplete(className) {
+              progress_clock.addClass(className);
+              status.text(className);
+           }
 
-      return {
-         progress: function (progressValue) {
-            progress = progressValue;
-            clock.animate(progressValue);
-         },
-         started: function (fid) {
-            file_id = fid;
-            pause.show();
-            resume.hide();
-            progress_clock.addClass('evaporating');
-            status.text('evaporating');
-         },
-         error: function (msg) {
-            var m = $('<div/>').append(msg);
-            var html = $('<small/>').html(m);
-            markComplete('error');
-            clock.animate(progress);
-            progress_clock.removeClass('evaporating warning');
-         },
-         cancelled: function () {
-            clock.animate(progress);
-            markComplete('canceled');
-            progress_clock.removeClass('evaporating warning paused pausing');
-            cancel.hide();
-            resume.hide();
-            pause.hide();
-         },
-         pausing: function () {
-            clock.animate(progress);
-            markComplete('pausing');
-            $("#resume").show();
-            progress_clock.removeClass('evaporating warning');
-         },
-         paused: function () {
-            clock.animate(progress);
-            markComplete('paused');
-            pause.hide();
-            resume.show();
-            $("#resume").show();
-            progress_clock.removeClass('evaporating warning pausing');
-         },
-         resumed: function () {
-            clock.animate(progress);
-            markComplete('evaporating');
-            pause.show();
-            resume.hide();
-            progress_clock.removeClass('pausing paused');
-         },
-         warn: function (msg) {
-            var m = $('<small/>').html(msg);
-            var html = $('<div/>').append(m);
-            clock.animate(progress)
-         },
-         complete: function (_xhr, awsKey){
-            var m = $('<small/>').html(awsKey + ' - Completed');
-            var html = $('<div/>').append(m);
-            clock.animate(1);
-            progress_clock.removeClass('evaporating warning');
-            markComplete('completed');
-         },
-         progress_clock: progress_clock
-      }
-   }
+           return {
+              progress: function (progressValue) {
+                 progress = progressValue;
+                 clock.animate(progressValue);
+              },
+              started: function (fid) {
+                 file_id = fid;
+                 pause.show();
+                 resume.hide();
+                 progress_clock.addClass('evaporating');
+                 status.text('evaporating');
+              },
+              error: function (msg) {
+                 var m = $('<div/>').append(msg);
+                 var html = $('<small/>').html(m);
+                 markComplete('error');
+                 clock.animate(progress);
+                 progress_clock.removeClass('evaporating warning');
+              },
+              cancelled: function () {
+                 clock.animate(progress);
+                 markComplete('canceled');
+                 progress_clock.removeClass('evaporating warning paused pausing');
+                 cancel.hide();
+                 resume.hide();
+                 pause.hide();
+              },
+              pausing: function () {
+                 clock.animate(progress);
+                 markComplete('pausing');
+                 $("#resume").show();
+                 progress_clock.removeClass('evaporating warning');
+              },
+              paused: function () {
+                 clock.animate(progress);
+                 markComplete('paused');
+                 pause.hide();
+                 resume.show();
+                 $("#resume").show();
+                 progress_clock.removeClass('evaporating warning pausing');
+              },
+              resumed: function () {
+                 clock.animate(progress);
+                 markComplete('evaporating');
+                 pause.show();
+                 resume.hide();
+                 progress_clock.removeClass('pausing paused');
+              },
+              warn: function (msg) {
+                 var m = $('<small/>').html(msg);
+                 var html = $('<div/>').append(m);
+                 clock.animate(progress)
+              },
+              complete: function (_xhr, awsKey){
+                 var m = $('<small/>').html(awsKey + ' - Completed');
+                 var html = $('<div/>').append(m);
+                 clock.animate(1);
+                 progress_clock.removeClass('evaporating warning');
+                 markComplete('completed');
+              },
+              progress_clock: progress_clock
+           }
+        }
+     },
+     function (reason) {
+        console.log('Evaporate failed to initialize: ', reason)
+     });
+
 
 </script>
 
