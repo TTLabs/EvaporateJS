@@ -52,7 +52,6 @@ test('should Cancel an upload', (t) => {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts')
       })
 })
-test.todo('should cancel an upload while parts are uploading')
 
 // Cancel (xAmzHeadersCommon)
 test('should set xAmzHeadersCommon on Cancel', (t) => {
@@ -163,3 +162,5 @@ test('should retry check for remaining aborted parts twice if status is non-404 
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts,check for parts')
       })
 })
+
+test.todo('should cancel an upload while parts are uploading')

@@ -711,8 +711,11 @@
                                         .then(resolve);
                                 },
                                 function () {
-                                    self.abortUpload(true)
-                                        .then(resolve, reject);
+                                    return self.abortUpload(true)
+                                        .then(function () {
+                                            var reason = 'File upload aborted due to a part failing to upload'
+                                            reject(reason);
+                                        });
                                 }
                             );
                     });
@@ -721,9 +724,7 @@
                 function () {
                     self.deferredCompletion.resolve(self.id);
                 },
-                function (reason) {
-                    self.deferredCompletion.reject(reason);
-                }
+                self.deferredCompletion.reject.bind(self)
             );
     };
     FileUpload.prototype.abortUpload = function (partError) {
@@ -752,7 +753,9 @@
                 function () {
                     self.setStatus(ABORTED);
                     self.cancelled();
-                    self.deferredCompletion.reject(partError ? 'File upload aborted due to a part failing to upload' : 'User aborted the upload');
+                    if (!partError) {
+                        self.deferredCompletion.reject('User aborted the upload');
+                    }
                 },
                 self.deferredCompletion.reject.bind(self));
     };
@@ -839,7 +842,6 @@
                     self.deferredCompletion.reject(reason);
                 }
             );
-        ;
     };
 
 
@@ -1449,7 +1451,6 @@
             this.fileUpload.error(errMsg);
             this.part.status = ABORTED;
             this.part.deferred.reject();
-            this.fileUpload.abortUpload(true);
             return true;
         } else {
             var msg = 'problem uploading part #' + this.partNumber + ',  reason: ' + reason;
