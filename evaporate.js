@@ -409,7 +409,7 @@
             return this.reuseObject(awsKey)
         }
 
-        if (typeof this.uploadId === 'undefined' || typeof this.eTag === 'undefined') {
+        if (typeof this.uploadId === 'undefined') {
             // New File
             return this.uploadFile(awsKey);
         }
@@ -714,7 +714,11 @@
                                         .send()
                                         .then(resolve);
                                 },
-                                function () {
+                                function (reason) {
+                                    if (self.userTriggereAbort) {
+                                        reject(reason);
+                                        return;
+                                    }
                                     return self.abortUpload(true)
                                         .then(function () {
                                             var reason = 'File upload aborted due to a part failing to upload';
@@ -740,6 +744,7 @@
         this.startFileProcessing();
         return Promise.all(promises);
     }
+    FileUpload.prototype.userTriggeredAbort = false;
     FileUpload.prototype.abortUpload = function (partError) {
         var self = this;
         return new Promise(function (resolve, reject) {
@@ -749,6 +754,7 @@
                 return;
             }
 
+            self.userTriggereAbort = true;
             new DeleteMultipartUpload(self)
                 .send()
                 .then(resolve, reject);
@@ -760,6 +766,7 @@
                     if (!partError) {
                         self.deferredCompletion.reject('User aborted the upload');
                     }
+                    self.removeUploadFile();
                 },
                 self.deferredCompletion.reject.bind(self));
     };
