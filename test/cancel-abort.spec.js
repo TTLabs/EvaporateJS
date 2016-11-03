@@ -66,32 +66,32 @@ test.beforeEach((t) => {
 })
 
 // Default Setup: V2 signatures, Cancel
-test('should Cancel an upload calling started once', (t) => {
+test.serial('should Cancel an upload calling started once', (t) => {
   return testCancel(t)
       .then(function () {
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should Cancel an upload calling cancelled once', (t) => {
+test.serial('should Cancel an upload calling cancelled once', (t) => {
   return testCancel(t)
       .then(function () {
         expect(t.context.config.cancelled.callCount).to.equal(1)
       })
 })
-test('should Cancel an upload in the correct request order', (t) => {
+test.serial('should Cancel an upload in the correct request order', (t) => {
   return testCancel(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel')
       })
 })
-test('should Cancel an upload and resolve the cancel promise', (t) => {
+test.serial('should Cancel an upload and resolve the cancel promise', (t) => {
   return testCancel(t)
       .then(function () {
         t.context.cancelPromise
             .catch(t.fail)
       })
 })
-test('should Cancel an upload and reduce evaporating count to 0', (t) => {
+test.serial('should Cancel an upload and reduce evaporating count to 0', (t) => {
   const config = {
     file: new File({
       path: '/tmp/file',
@@ -105,7 +105,7 @@ test('should Cancel an upload and reduce evaporating count to 0', (t) => {
       })
 })
 
-test('should Cancel an upload after it is paused', (t) => {
+test.serial('should Cancel an upload after it is paused', (t) => {
   const config = {
     file: new File({
           path: '/tmp/file',
@@ -133,7 +133,7 @@ test('should Cancel an upload after it is paused', (t) => {
             expect(reason).to.match(/aborted/i)
           })
 })
-test('should Cancel an upload after it is paused if the cancel fails', (t) => {
+test.serial('should Cancel an upload after it is paused if the cancel fails', (t) => {
   t.context.deleteStatus = 403
 
   const config = {
@@ -168,7 +168,7 @@ test.todo('should Cancel an upload after it is force paused')
 test.todo('should cancel an upload while parts are uploading')
 
 // Cancel (xAmzHeadersCommon)
-test('should set xAmzHeadersCommon on Cancel', (t) => {
+test.serial('should set xAmzHeadersCommon on Cancel', (t) => {
   const config = {
     xAmzHeadersCommon: {
       'x-custom-header': 'stopped'
@@ -189,21 +189,21 @@ test('should set xAmzHeadersCommon on Cancel', (t) => {
 })
 
 // retry
-test('should not retry Cancel but trigger Initiate if status is 404 with started callback', (t) => {
+test.serial('should not retry Cancel but trigger Initiate if status is 404 with started callback', (t) => {
   t.context.deleteStatus = 404
   return testCancel(t)
       .then(function () {
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should not retry Cancel but trigger Initiate if status is 404 with cancelled callback', (t) => {
+test.serial('should not retry Cancel but trigger Initiate if status is 404 with cancelled callback', (t) => {
   t.context.deleteStatus = 404
   return testCancel(t)
       .then(function () {
         expect(t.context.config.cancelled.callCount).to.equal(1)
       })
 })
-test('should not retry Cancel but trigger Initiate if status is 404 in the correct order', (t) => {
+test.serial('should not retry Cancel but trigger Initiate if status is 404 in the correct order', (t) => {
   t.context.deleteStatus = 404
   return testCancel(t)
       .then(function () {
@@ -211,21 +211,21 @@ test('should not retry Cancel but trigger Initiate if status is 404 in the corre
       })
 })
 
-test('should retry Cancel twice if status is non-404 error with started callback', (t) => {
+test.serial('should retry Cancel twice if status is non-404 error with started callback', (t) => {
   t.context.deleteStatus = 403
   return testCancel(t)
       .then(function () {
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should retry Cancel twice if status is non-404 error with cancelled callback', (t) => {
+test.serial('should retry Cancel twice if status is non-404 error with cancelled callback', (t) => {
   t.context.deleteStatus = 403
   return testCancel(t)
       .then(function () {
         expect(t.context.config.cancelled.callCount).to.equal(0)
       })
 })
-test('should retry Cancel twice if status is non-404 error in the correct order', (t) => {
+test.serial('should retry Cancel twice if status is non-404 error in the correct order', (t) => {
   t.context.deleteStatus = 403
   return testCancel(t)
       .then(function () {

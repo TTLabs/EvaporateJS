@@ -282,7 +282,7 @@ test('should fail to add() when no file is present', (t) => {
                   t.fail('Evaporate added a new file but should not have.')
                 },
                 function (reason) {
-                  t.pass(reason)
+                  expect(reason).to.match(/missing file/i)
                 })
       })
 });
@@ -474,31 +474,31 @@ test('should cancel() two uploads with correct id, first result OK', (t) => {
 })
 
 test('should call a callbacks on cancel(): canceled', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
     .then(function () {
       expect(t.context.config.cancelled).to.have.been.called
     })
 })
 test('should call a callbacks on cancel(): evaporateChanged', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
         expect(t.context.evapConfig.evaporateChanged).to.have.been.called
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged call count', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
-        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(2)
+        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(3)
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged first call args', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
         expect(t.context.evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged second call args', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
         expect(t.context.evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
       })
