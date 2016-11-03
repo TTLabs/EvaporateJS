@@ -431,18 +431,24 @@
     };
     FileUpload.prototype.pause = function (force) {
         l.d('pausing FileUpload, force:', !!force, this.id);
-        this.pausedPromise = defer();
+        var promises = [],
+            self = this;
         this.info('Pausing uploads...');
         if (force) {
             this.abortParts();
             this.setStatus(PAUSED);
             this.paused();
-            this.pausedPromise.resolve();
         } else {
-            this.setStatus(PAUSING);
+            this.partsInProcess.forEach(function (p) {
+                promises.push(self.s3Parts[p].awsRequest.awsDeferred.promise)
+            });
             this.pausing();
         }
-        return this.pausedPromise.promise;
+        return Promise.all(promises)
+            .then(function () {
+                self.status = PAUSED;
+                self.paused();
+            });
     };
     FileUpload.prototype.resume = function () {
         if ([PAUSING, PAUSED].indexOf(this.status) > -1) {
@@ -498,11 +504,6 @@
     FileUpload.prototype.retirePartFromProcessing = function (part) {
         removeAtIndex(this.partsToUpload, part.part);
         this.removePartFromProcessing(part.part);
-        if (this.partsInProcess.length === 0 && this.status === PAUSING) {
-            this.status = PAUSED;
-            this.paused();
-            this.pausedPromise.resolve();
-        }
     };
     FileUpload.prototype.abortParts = function (reject) {
         var self = this;
