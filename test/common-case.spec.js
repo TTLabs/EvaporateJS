@@ -260,3 +260,77 @@ test('should retry get signature for common case: Initiate, Put, Complete (autho
         expect(requestOrder(t)).to.equal('sign,sign,initiate,sign,sign,PUT:partNumber=1,sign,sign,complete')
       })
 })
+
+// Failures to upload because PUT Part 404
+test('should fail if PUT part 404s', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+
+  return testBase(t)
+      .then(function () {
+        t.fail('Expected upload to fail but it did not.')
+      })
+      .catch(function (reason) {
+        expect(reason).to.match(/File upload aborted/i)
+      })
+})
+test('should call cancelled() if PUT part 404s', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+
+  return testBase(t, { cancelled: sinon.spy() })
+      .then(function () {
+        t.fail('Expected upload to fail but it did not.')
+      })
+      .catch(function () {
+        expect(t.context.config.cancelled.callCount).to.equal(1)
+      })
+})
+test('should call the correctly ordered requests if PUT part 404s', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+
+  return testBase(t)
+      .then(function () {
+        t.fail('Expected upload to fail but it did not.')
+      })
+      .catch(function () {
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,cancel,check for parts')
+      })
+})
+test('should fail with a message when PUT part 404s and DELETE fails', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.deleteStatus = 403
+
+  return testBase(t, { cancelled: sinon.spy() })
+      .then(function () {
+        t.fail('Expected upload to fail but it did not.')
+      })
+      .catch(function (reason) {
+        expect(reason).to.match(/Error aborting upload/i)
+      })
+})
+test('should fail with the correctly ordered requests when PUT part 404s and DELETE fails', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+  t.context.deleteStatus = 403
+
+  return testBase(t, { cancelled: sinon.spy() })
+      .then(function () {
+        t.fail('Expected upload to fail but it did not.')
+      })
+      .catch(function () {
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,cancel,cancel')
+      })
+})

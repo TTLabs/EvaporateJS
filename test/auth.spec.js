@@ -451,7 +451,7 @@ test('should return error when list parts fails with error messages (1)', (t) =>
             t.fail('Expected an error but found none: ' + t.context.testId)
           },
           function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/i)
           })
 })
 test('should return error when list parts fails with error messages (2)', (t) => {
@@ -466,7 +466,7 @@ test('should return error when list parts fails with error messages (2)', (t) =>
             t.fail('Expected an error but found none: ' + t.context.testId)
           },
           function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/)
+            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/i)
           })
 })
 
@@ -497,7 +497,7 @@ test('should return error when listParts fails in Abort after part upload failur
             t.fail('Expected an error but found none: ' + t.context.testId)
           },
           function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/)
+            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/i)
           })
 })
 test('should return error when listParts fails in Abort after part upload failure (404) and return error messages (2)', (t) => {
@@ -512,7 +512,7 @@ test('should return error when listParts fails in Abort after part upload failur
             t.fail('Expected an error but found none: ' + t.context.testId)
           },
           function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/)
+            expect(t.context.errMessages.join(',')).to.match(/Error listing parts/i)
           })
 })
 

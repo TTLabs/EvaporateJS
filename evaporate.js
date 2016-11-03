@@ -715,6 +715,9 @@
                                         .then(function () {
                                             var reason = 'File upload aborted due to a part failing to upload'
                                             reject(reason);
+                                        },
+                                        function (reason) {
+                                            reject('File upload canceled with errors.')
                                         });
                                 }
                             );
@@ -1508,7 +1511,7 @@
             var msg = 'Error aborting upload, Exceeded retries deleting the file upload: ' + reason;
             l.w(msg);
             this.fileUpload.error(msg);
-            this.awsDeferred.reject(reason)
+            this.awsDeferred.reject(msg)
             return true;
         }
     };

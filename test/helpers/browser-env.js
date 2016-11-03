@@ -140,7 +140,9 @@ global.serverCommonCase = function (partRequestHandler) {
     let context = storeTestRequest(xhr)
 
     if (typeof partRequestHandler === 'function') {
-      return partRequestHandler(xhr, context);
+      if (typeof partRequestHandler(xhr, context) === 'undefined') {
+        return;
+      }
     }
     let status = retryStatus(xhr, 'part'),
         errResponse = `
@@ -339,7 +341,15 @@ global.testBase = function (t, addConfig, evapConfig) {
   addConfig = addConfig || {}
   evapConfig = evapConfig || {}
 
-  t.context.evaporate = newEvaporate(t, evapConfig)
+  return Evaporate.create(Object.assign({}, baseConfig,
+      {cryptoMd5Method: t.context.cryptoMd5}, evapConfig,  {
+        signHeaders: Object.assign({
+          testId: t.context.testId
+        }, evapConfig.signHeaders)
+      }))
+      .then(function (evaporate) {
+        t.context.evaporate = evaporate
 
-  return evaporateAdd(t, t.context.evaporate, addConfig)
+        return evaporateAdd(t, evaporate, addConfig)
+      })
 }
