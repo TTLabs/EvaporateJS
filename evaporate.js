@@ -654,7 +654,7 @@
         var upload = Object.assign({}, uploads[fileKey], updates);
         saveUpload(fileKey, upload);
     };
-    FileUpload.prototype.completeUploadFile = function () {
+    FileUpload.prototype.completeUploadFile = function (xhr) {
         var uploads = getSavedUploads(),
             upload = uploads[uploadKey(this)];
 
@@ -664,6 +664,7 @@
             historyCache.setItem('awsUploads', JSON.stringify(uploads));
         }
 
+        this.complete(xhr, this.name);
         this.setStatus(COMPLETE);
         this.progress(1.0);
     };
@@ -699,6 +700,19 @@
             (this.con.onlyRetryForSameFileName ? this.name === u.awsKey : true);
     };
 
+    FileUpload.prototype.completeUpload = function () {
+        var self = this;
+        return new CompleteMultipartUpload(this)
+            .send()
+            .then(
+                function (xhr) {
+                    var oDOM = parseXml(xhr.responseText),
+                        result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
+                    self.eTag = nodeValue(result, "ETag");
+                    self.completeUploadFile(xhr);
+                });
+    };
+
     FileUpload.prototype.uploadFile = function (awsKey) {
         var self = this;
         return new Promise(function (resolve, reject) {
@@ -710,8 +724,7 @@
                         return self.uploadParts()
                             .then(
                                 function () {
-                                    return new CompleteMultipartUpload(self)
-                                        .send()
+                                    return self.completeUpload()
                                         .then(resolve);
                                 },
                                 function (reason) {
@@ -732,9 +745,7 @@
                     });
         })
             .then(
-                function () {
-                    self.deferredCompletion.resolve(self.id);
-                },
+                function () {self.deferredCompletion.resolve(self.id); },
                 self.deferredCompletion.reject.bind(self)
             );
     };
@@ -777,13 +788,12 @@
                 new GetMultipartUploadParts(self)
                     .send()
                     .then(
-                        function () {
+                        function (xhr) {
                             return self.uploadParts()
                                 .then(
                                     function () {
-                                        return new CompleteMultipartUpload(self)
-                                            .send()
-                                            .then(resolve);
+                                        return self.completeUpload()
+                                            .then(function () { resolve(xhr); });
                                     },
                                     function (reason) {
                                         self.abortUpload(true);
@@ -820,10 +830,8 @@
                                 .then(
                                     function (xhr) {
                                         l.d('headObject found matching object on S3.');
-                                        self.progress(1.0);
-                                        self.complete(xhr, self.name);
-                                        self.setStatus(COMPLETE);
-                                        resolve();
+                                        self.completeUploadFile(xhr);
+                                        resolve(xhr);
                                     }, reject);
 
                         } else {
@@ -863,7 +871,7 @@
     SignedS3AWSRequest.prototype.con = undefined;
     SignedS3AWSRequest.prototype.evaporate = undefined;
     SignedS3AWSRequest.prototype.awsDeferred = undefined;
-    SignedS3AWSRequest.prototype.success = function () {};
+    SignedS3AWSRequest.prototype.success = function () { return true; };
     SignedS3AWSRequest.prototype.error =  function (reason) {
         if (this.errorExceptionStatus()) {
             return;
@@ -1194,14 +1202,6 @@
     }
     CompleteMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
     CompleteMultipartUpload.prototype.constructor = CompleteMultipartUpload;
-    CompleteMultipartUpload.prototype.success = function (xhr) {
-        var oDOM = parseXml(xhr.responseText),
-            result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
-        this.fileUpload.eTag = nodeValue(result, "ETag");
-        this.fileUpload.complete(xhr, this.fileUpload.name);
-        this.fileUpload.completeUploadFile();
-        return true;
-    };
     CompleteMultipartUpload.prototype.getPayload = function () {
         var completeDoc = [];
         completeDoc.push('<CompleteMultipartUpload>');
