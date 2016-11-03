@@ -404,22 +404,24 @@
         var awsKey = this.name;
 
         this.getUnfinishedFileUpload();
+        if (this.con.computeContentMd5 && typeof this.firstMd5Digest !== 'undefined' && typeof this.eTag !== 'undefined' ) {
+            // Attempt to reuse entire uploaded object on S3
+            return this.reuseObject(awsKey)
+        }
 
-        if (typeof this.uploadId === 'undefined') {
+        if (typeof this.uploadId === 'undefined' || typeof this.eTag === 'undefined') {
             // New File
             return this.uploadFile(awsKey);
         }
-        if (typeof this.eTag === 'undefined' || !this.firstMd5Digest || !this.con.computeContentMd5) {
-            if (this.partsOnS3.length) { // Resume after Pause
-                this.status = EVAPORATING;
-                return this.startFileProcessing();
-            } else { // Recovery after client error/browser refresh during upload after some parts completed
-                // File with some parts on S3
-                return this.restartFromUploadedParts();
-            }
+
+        if (this.partsOnS3.length) {
+            // Resume after Pause
+            this.status = EVAPORATING;
+            return this.startFileProcessing();
+        } else { // Recovery after client error/browser refresh during upload after some parts completed
+            // File with some parts on S3
+            return this.restartFromUploadedParts();
         }
-        // Attempt to reuse entire uploaded object on S3
-        return this.reuseObject(awsKey)
     };
     FileUpload.prototype.stop = function () {
         l.d('stopping FileUpload ', this.id);
@@ -510,28 +512,35 @@
         });
         this.monitorTotalProgress();
     };
-    FileUpload.prototype.makeParts = function () {
+    FileUpload.prototype.makeParts = function (firstPart) {
         this.numParts = Math.ceil(this.file.size / this.con.partSize) || 1; // issue #58
         var partsDeferredPromises = [];
 
-        for (var part = 1; part <= this.numParts; part++) {
+        var self = this;
+
+        function resolve(s3Part) { return function () { self.retirePartFromProcessing(s3Part); } }
+        function reject(s3Part) { return function () { self.retirePartFromProcessing(s3Part); } }
+
+        var limit = firstPart ? 1 : this.numParts;
+
+        for (var part = 1; part <= limit; part++) {
             var s3Part = this.s3Parts[part];
             if (typeof s3Part !== "undefined"){
                 if(s3Part.status === COMPLETE) { continue; }
             } else {
-                this.makePart(part, PENDING, this.file.size);
+                s3Part = this.makePart(part, PENDING, this.file.size);
             }
+            s3Part.awsRequest = new PutPart(this, s3Part);
+            s3Part.awsRequest.awsDeferred.promise
+                .then(resolve(s3Part), reject(s3Part));
 
             this.partsToUpload.push(part);
             partsDeferredPromises.push(this.s3Parts[part].awsRequest.awsDeferred.promise);
         }
 
-        this.setStatus(EVAPORATING);
-        this.startFileProcessing();
-        return Promise.all(partsDeferredPromises);
+        return partsDeferredPromises;
     };
     FileUpload.prototype.makePart = function (partNumber, status, size) {
-        var self = this;
         var part = {
             status: status,
             loadedBytes: 0,
@@ -540,15 +549,6 @@
             md5_digest: null,
             part: partNumber
         };
-
-        if (status !== COMPLETE) {
-            part.awsRequest = new PutPart(this, part);
-            part.awsRequest.awsDeferred.promise
-                .then(
-                    function () { self.retirePartFromProcessing(part); },
-                    function () { self.retirePartFromProcessing(part); }
-                )
-        }
 
         this.s3Parts[partNumber] = part;
 
@@ -706,10 +706,10 @@
                 .then(
                     function () {
                         self.partsToUpload = [];
-                        self.makeParts()
+                        return self.uploadParts()
                             .then(
                                 function () {
-                                    new CompleteMultipartUpload(self)
+                                    return new CompleteMultipartUpload(self)
                                         .send()
                                         .then(resolve);
                                 },
@@ -733,6 +733,12 @@
                 self.deferredCompletion.reject.bind(self)
             );
     };
+    FileUpload.prototype.uploadParts = function () {
+        var promises = this.makeParts();
+        this.setStatus(EVAPORATING);
+        this.startFileProcessing();
+        return Promise.all(promises);
+    }
     FileUpload.prototype.abortUpload = function (partError) {
         var self = this;
         return new Promise(function (resolve, reject) {
@@ -764,10 +770,10 @@
                     .send()
                     .then(
                         function () {
-                            self.makeParts()
+                            return self.uploadParts()
                                 .then(
                                     function () {
-                                        new CompleteMultipartUpload(self)
+                                        return new CompleteMultipartUpload(self)
                                             .send()
                                             .then(resolve);
                                     },
@@ -793,16 +799,15 @@
     FileUpload.prototype.reuseObject = function (awsKey) {
         var self = this;
         // Attempt to reuse entire uploaded object on S3
-        var firstPart = this.makePart(1, PENDING, 1);
-        this.partsToUpload.push(firstPart);
+        this.makeParts(1);
+        var firstPart = this.s3Parts[1];
         return new Promise(function (resolveReuse, rejectReuse) {
             new Promise(function (resolve, reject) {
                 firstPart.awsRequest.getPartMd5Digest()
                     .then(function () {
                         if (self.con.allowS3ExistenceOptimization &&
                             self.firstMd5Digest === self.s3Parts[1].md5_digest) {
-
-                            new ReuseS3Object(self, awsKey)
+                            return new ReuseS3Object(self, awsKey)
                                 .send()
                                 .then(
                                     function (xhr) {
@@ -822,7 +827,7 @@
                 .then(resolveReuse, function (reason) {
                     l.d(reason);
                     self.removeUploadFile();
-                    self.uploadFile(awsKey)
+                    return self.uploadFile(awsKey)
                         .then(resolveReuse, rejectReuse);
                 });
         })
@@ -1460,7 +1465,7 @@
     };
     PutPart.prototype.getPayload = function () {
         var slice = getFilePart(this.fileUpload.file, this.start, this.end);
-        l.d(this.request.part, 'payload bytes:', this.start, '->', this.end, ', size:', slice.size);
+        l.d(this.partNumber, 'payload bytes:', this.start, '->', this.end, ', size:', slice.size);
         if (!this.part.isEmpty && slice.size === 0) { // issue #58
             l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
         }
