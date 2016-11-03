@@ -27,6 +27,25 @@ const baseAddConfig = {
 
 let server
 
+function testCancelCallbacks(t) {
+  const evapConfig = Object.assign({}, baseConfig, {
+    evaporateChanged: sinon.spy()
+  })
+  const config = Object.assign({}, baseAddConfig, {
+    name: randomAwsKey(),
+    cancelled: sinon.spy(),
+    started: function (fileId) { id = fileId; }
+  })
+
+  let id
+
+  return testBase(t, config, evapConfig)
+      .then(function () {
+        return t.context.evaporate.cancel(id)
+      })
+}
+
+
 test.before(() => {
   sinon.xhr.supportsCORS = true
   global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
@@ -423,7 +442,7 @@ test('should cancel() an upload with correct object name', (t) => {
       })
 })
 
-test('should cancel() two uploads with correct id', (t) => {
+test('should cancel() two uploads with correct id, first result OK', (t) => {
 
   let config1 = Object.assign({}, baseAddConfig, {
     started: function (fileId) { id0 = fileId;}
@@ -438,40 +457,38 @@ test('should cancel() two uploads with correct id', (t) => {
   let promise1 = testBase(t, config2)
 
   return Promise.all([promise0, promise1])
-      .then (function () {
-        const result0 = t.context.evaporate.cancel(id0)
-        const result1 = t.context.evaporate.cancel(id1)
-
-        expect(typeof result0).to.be.ok
-        expect(result1).to.be.ok
+      .catch(function (reason) {
+        t.fail('Promises failed.')
       })
 })
 
-test('should call a callback on cancel()', (t) => {
-  const evapConfig = Object.assign({}, baseConfig, {
-    evaporateChanged: sinon.spy()
-  })
-  const config = Object.assign({}, baseAddConfig, {
-    name: randomAwsKey(),
-    cancelled: sinon.spy(),
-    started: function (fileId) { id = fileId; }
-  })
-
-  let id
-
-  return testBase(t, config, evapConfig)
+test('should call a callbacks on cancel(): canceled', (t) => {
+  testCancelCallbacks(t)
+    .then(function () {
+      expect(t.context.config.cancelled).to.have.been.called
+    })
+})
+test('should call a callbacks on cancel(): evaporateChanged', (t) => {
+  testCancelCallbacks(t)
       .then(function () {
-        t.context.evaporate.cancel(id)
-            .then(function () {
-              expect(config.cancelled).to.have.been.called
-
-              expect(evapConfig.evaporateChanged).to.have.been.called
-              expect(evapConfig.evaporateChanged.callCount).to.equal(3)
-
-              expect(evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
-              expect(evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
-              expect(evapConfig.evaporateChanged.thirdCall.args[1]).to.eql(0)
-            })
+        expect(t.context.evapConfig.evaporateChanged).to.have.been.called
       })
 })
-
+test('should call a callbacks on cancel(): evaporateChanged call count', (t) => {
+  testCancelCallbacks(t)
+      .then(function () {
+        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(2)
+      })
+})
+test('should call a callbacks on cancel(): evaporateChanged first call args', (t) => {
+  testCancelCallbacks(t)
+      .then(function () {
+        expect(t.context.evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
+      })
+})
+test('should call a callbacks on cancel(): evaporateChanged second call args', (t) => {
+  testCancelCallbacks(t)
+      .then(function () {
+        expect(t.context.evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
+      })
+})

@@ -81,7 +81,7 @@ test('should Cancel an upload calling cancelled once', (t) => {
 test('should Cancel an upload in the correct request order', (t) => {
   return testCancel(t)
       .then(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts')
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel')
       })
 })
 test('should Cancel an upload and resolve the cancel promise', (t) => {
@@ -217,49 +217,5 @@ test('should retry Cancel twice if status is non-404 error in the correct order'
   return testCancel(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,cancel')
-      })
-})
-
-test('should not retry check for aborted parts if status is 404 with status callback', (t) => {
-  t.context.getPartsStatus = 404
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.started.callCount).to.equal(1)
-      })
-})
-test('should not retry check for aborted parts if status is 404 with cancelled callback', (t) => {
-  t.context.getPartsStatus = 404
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.cancelled.callCount).to.equal(1)
-      })
-})
-test('should not retry check for aborted parts if status is 404 in the correct order', (t) => {
-  t.context.getPartsStatus = 404
-  return testCancel(t)
-      .then(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts')
-      })
-})
-
-test('should retry check for remaining aborted parts twice if status is non-404 error with started callback', (t) => {
-  t.context.getPartsStatus = 403
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.started.callCount).to.equal(1)
-      })
-})
-test('should retry check for remaining aborted parts twice if status is non-404 error with cancelled callback', (t) => {
-  t.context.getPartsStatus = 403
-  return testCancel(t)
-      .then(function () {
-        expect(t.context.config.cancelled.callCount).to.equal(1)
-      })
-})
-test('should retry check for remaining aborted parts twice if status is non-404 error in the correct order', (t) => {
-  t.context.getPartsStatus = 403
-  return testCancel(t)
-      .then(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,cancel,check for parts,check for parts')
       })
 })

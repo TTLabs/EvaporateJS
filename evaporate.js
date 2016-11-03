@@ -741,16 +741,7 @@
 
             new DeleteMultipartUpload(self, partError)
                 .send()
-                .then(
-                    function (xhr) {
-                        if (xhr.status === 404) {
-                            return resolve();
-                        }
-                        return new VerifyPartsAborted(self, partError)
-                            .send()
-                            .then(resolve, reject);
-                    },
-                    reject);
+                .then(resolve, reject);
         })
             .then(
                 function () {
@@ -1515,66 +1506,6 @@
             return true;
         }
     };
-
-    // http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
-    function VerifyPartsAborted(fileUpload, partError) {
-        fileUpload.info('list parts');
-
-        this.awsKey = fileUpload.name;
-        this.isPartError = !!partError;
-        var request = {
-            method: 'GET',
-            path: fileUpload.evaporate.getPath(fileUpload) + '?uploadId=' + fileUpload.uploadId,
-            x_amz_headers: fileUpload.xAmzHeadersCommon,
-            step: 'list',
-            success404: true
-        };
-
-        SignedS3AWSRequest.call(this, fileUpload, request);
-    }
-    VerifyPartsAborted.prototype = Object.create(SignedS3AWSRequest.prototype);
-    VerifyPartsAborted.prototype.isPartError = false;
-    VerifyPartsAborted.prototype.constructor = VerifyPartsAborted;
-    VerifyPartsAborted.prototype.maxRetries = 1;
-    VerifyPartsAborted.prototype.awsKey = undefined;
-    VerifyPartsAborted.prototype.success = function (xhr) {
-        if (xhr.status === 404) {
-            // Success! Parts are not found because the uploadid has been cleared
-            this.fileUpload.removeUploadFile();
-        } else {
-            var oDOM = parseXml(xhr.responseText);
-            var domParts = oDOM.getElementsByTagName("Part");
-            if (domParts.length) { // Some parts are still uploading
-                l.d('Parts still found after abort...waiting ' + this.con.abortCompletionThrottlingMs + 'ms to check again.');
-                var self = this;
-                setTimeout(function () { self.trySend(); }, this.con.abortCompletionThrottlingMs);
-                return;
-            }
-        }
-        this.fileUpload.fileTotalBytesUploaded = 0;
-
-        this.fileUpload.info('upload canceled');
-        this.evaporate.evaporatingCount = 0;
-        this.con.evaporateChanged(this.fileUpload, this.evaporate.evaporatingCount);
-        var msg = this.isPartError ? 'File upload aborted due to an unrecoverable error uploading a part.' : 'File upload aborted.';
-        return true;
-    };
-    VerifyPartsAborted.prototype.errorHandler =  function (reason) {
-        if (this.attempts > this.maxRetries) {
-            var msg = 'Error listing parts. ' + reason;
-            l.w(msg);
-            this.fileUpload.error(msg);
-            this.evaporate.evaporatingCount = 0;
-            this.con.evaporateChanged(this.fileUpload, this.evaporate.evaporatingCount);
-            this.fileUpload.cancelled();
-            msg = this.isPartError ?
-                'Exceeded retries checking for remaining parts deleting a file upload due to a part failing to upload.'
-                : 'Exceeded retries checking for remaining parts after deleting a file upload.';
-            this.awsDeferred.reject(msg);
-            return true;
-        }
-    };
-
 
     function signingVersion(con, l, AWS_HOST) {
         function AwsSignature(request) {

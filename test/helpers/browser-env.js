@@ -341,12 +341,14 @@ global.testBase = function (t, addConfig, evapConfig) {
   addConfig = addConfig || {}
   evapConfig = evapConfig || {}
 
-  return Evaporate.create(Object.assign({}, baseConfig,
+  t.context.evapConfig = Object.assign({}, baseConfig,
       {cryptoMd5Method: t.context.cryptoMd5}, evapConfig,  {
         signHeaders: Object.assign({
           testId: t.context.testId
         }, evapConfig.signHeaders)
-      }))
+      })
+
+  return Evaporate.create(t.context.evapConfig)
       .then(function (evaporate) {
         t.context.evaporate = evaporate
 
