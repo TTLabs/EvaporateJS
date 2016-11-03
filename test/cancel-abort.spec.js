@@ -91,6 +91,19 @@ test('should Cancel an upload and resolve the cancel promise', (t) => {
             .catch(t.fail)
       })
 })
+test('should Cancel an upload and reduce evaporating count to 0', (t) => {
+  const config = {
+    file: new File({
+      path: '/tmp/file',
+      size: 990000000, // we need lots of parts so that we exceed the maxConcurrentParts
+      name: randomAwsKey()
+    })
+  }
+  return testCancel(t, config)
+      .then(function () {
+        expect(t.context.evaporate.evaporatingCount).to.equal(0)
+      })
+})
 
 test('should Cancel an upload after it is paused', (t) => {
   const config = {

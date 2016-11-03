@@ -17,7 +17,6 @@ function testS3Reuse(t, addConfig2, headEtag, evapConfig2) {
   return testBase(t, {}, evapConfig)
       .then(function () {
         addConfig2.name = randomAwsKey()
-        addConfig2.xAmzHeadersCommon = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig2.xAmzHeadersCommon)
         // Upload the second time to trigger head
         evapConfig = Object.assign({}, evapConfig, evapConfig2 || {})
         t.context.requestedAwsObjectKey = addConfig2.name

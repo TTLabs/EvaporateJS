@@ -10,8 +10,6 @@ function testCachedParts(t, addConfig, maxGetParts, partNumberMarker) {
   t.context.partNumberMarker = partNumberMarker
   t.context.maxGetParts = maxGetParts
 
-  addConfig.xAmzHeadersCommon = Object.assign({}, t.context.baseAddConfig.xAmzHeadersCommon, addConfig.xAmzHeadersCommon)
-
   const evapConfig = {
     s3FileCacheHoursAgo: 24
   }
