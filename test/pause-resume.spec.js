@@ -35,10 +35,14 @@ test.before(() => {
 
   function partRequestHandler(xhr, context)  {
     if (xhr.url.indexOf('partNumber=1') > -1) {
-      context.pause()
-          .then(function () {
-            context.resume()
-          });
+      if (context.pauseHandler) {
+        context.pauseHandler();
+      } else {
+        context.pausePromise = context.pause()
+            .then(function () {
+              context.resumePromise = context.resume()
+            })
+      }
     }
     xhr.respond(200)
   }
@@ -49,12 +53,12 @@ test.before(() => {
 test.beforeEach((t) => {
   beforeEachSetup(t)
 
-  t.context.pause = function (force) {
-    return t.context.evaporate.pause(t.context.uploadId, {force: force})
+  t.context.pause = function () {
+    return t.context.evaporate.pause(t.context.pauseFileId || t.context.uploadId, {force: t.context.force})
   }
 
   t.context.resume = function () {
-    return t.context.evaporate.resume(t.context.uploadId)
+    return t.context.evaporate.resume(t.context.resumeFileId || t.context.uploadId)
   }
 })
 
@@ -102,3 +106,73 @@ test('should Resume an upload and return the correct file upload ID', (t) => {
       })
 })
 
+test('should fail to pause() when file not added', (t) => {
+  t.context.pauseFileId = 'nonexistent'
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.pausePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/has not been added/i)
+                }
+            )
+      })
+});
+test('should fail to pause() when file already paused', (t) => {
+  t.context.pauseHandler = function () {
+    t.context.pause()
+        .then(function () {
+          t.context.pausePromise =  t.context.pause()
+        })
+  }
+
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.pausePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/already paused/i)
+                }
+            )
+      })
+});
+
+test('should fail to resume() when file not added', (t) => {
+  t.context.resumeFileId = 'nonexistent'
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.resumePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/does not exist/i)
+                }
+            )
+      })
+});
+test('should fail to resume() when file not paused', (t) => {
+  t.context.pauseHandler = function () {
+    t.context.resumePromise = t.context.resume()
+  }
+
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.resumePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/not been paused/i)
+                }
+            )
+      })
+});

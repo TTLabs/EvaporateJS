@@ -214,49 +214,65 @@
             });
     };
     Evaporate.prototype.cancel = function (id) {
-        if (this.startedFiles[id]) {
-            return this.startedFiles[id].stop();
-        } else {
-            return false;
-        }
+        var self = this;
+        return new Promise(function (resolve, reject) {
+            if (self.startedFiles[id]) {
+                self.startedFiles[id]
+                    .stop()
+                    .then(resolve, reject);
+            } else {
+                reject('File does not exist');
+            }
+        })
     };
     Evaporate.prototype.pause = function (id, options) {
-        options = options || {};
-        var force = options.force === 'undefined' ? false : options.force,
-            typeOfId = typeof id;
-        if (typeOfId === 'undefined') {
-            l.d('Pausing all file uploads');
-            var pausePromises = [];
-            this.files.forEach(function (file) {
-                if ([PENDING, EVAPORATING, ERROR].indexOf(file.status) > -1)  {
-                    pausePromises.push(file.pause(force));
-                }
-            });
-            return Promise.all(pausePromises);
-        }  else if (typeof this.startedFiles[id] === 'undefined') {
-            l.w('Cannot pause a file that has not been added.');
-        } else if (this.startedFiles[id].status === PAUSED) {
-            l.w('Cannot pause a file that is already paused. Status:', this.startedFiles[id].status);
-        } else {
-            return this.startedFiles[id].pause(force);
-        }
+        var self = this;
+        return new Promise(function (resolve, reject) {
+            options = options || {};
+            var force = options.force === 'undefined' ? false : options.force,
+                typeOfId = typeof id;
+            if (typeOfId === 'undefined') {
+                l.d('Pausing all file uploads');
+                var pausePromises = [];
+                self.files.forEach(function (file) {
+                    if ([PENDING, EVAPORATING, ERROR].indexOf(file.status) > -1) {
+                        pausePromises.push(file.pause(force));
+                    }
+                });
+                return Promise.all(pausePromises).then(resolve, reject);
+            }
+            if (typeof self.startedFiles[id] === 'undefined') {
+                return reject('Cannot pause a file that has not been added.');
+            }
+            if (self.startedFiles[id].status === PAUSED) {
+                return reject('Cannot pause a file that is already paused.');
+            }
+
+            self.startedFiles[id].pause(force).then(resolve, reject);
+        });
     };
     Evaporate.prototype.resume = function (id) {
-        var PAUSED_STATUSES = [PAUSED, PAUSING];
-        if (typeof id === 'undefined') {
-            l.d('Resuming all file uploads');
-            this.files.forEach(function (file) {
-                if (PAUSED_STATUSES.indexOf(file.status) > -1)  {
-                    file.resume();
-                }
-            });
-        }  else if (typeof this.startedFiles[id] === 'undefined') {
-            l.w('Cannot pause a file that does not exist.');
-        } else if (PAUSED_STATUSES.indexOf(this.startedFiles[id].status) === -1) {
-            l.w('Cannot resume a file that has not been paused. Status:', this.startedFiles[id].status);
-        } else {
-            this.startedFiles[id].resume();
-        }
+        var self = this;
+        return new Promise(function (resolve, reject) {
+            var PAUSED_STATUSES = [PAUSED, PAUSING];
+            if (typeof id === 'undefined') {
+                l.d('Resuming all file uploads');
+                self.files.forEach(function (file) {
+                    if (PAUSED_STATUSES.indexOf(file.status) > -1)  {
+                        file.resume();
+                    }
+                });
+                return resolve();
+            }
+            if (typeof self.startedFiles[id] === 'undefined') {
+                return reject('Cannot pause a file that does not exist.');
+            }
+            if (PAUSED_STATUSES.indexOf(self.startedFiles[id].status) === -1) {
+                return reject('Cannot resume a file that has not been paused.');
+            }
+            self.startedFiles[id].resume();
+            resolve();
+        });
     };
     Evaporate.prototype.forceRetry = function () {};
     Evaporate.prototype.addFile = function (file, fileConfig) {

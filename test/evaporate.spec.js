@@ -174,8 +174,7 @@ test('#create evaporate calls timeUrl only once', (t) => {
 })
 test('new Evaporate() should instantiate and return default offset before timeUrl', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time' })
-  var evaporate = newEvaporate(t, config);
-  expect(evaporate.localTimeOffset).to.equal(0)
+  expect(new Evaporate(config).localTimeOffset).to.equal(0)
 })
 test('new Evaporate() should instantiate and not call timeUrl', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time' })
@@ -187,8 +186,7 @@ test('new Evaporate() should instantiate and not call timeUrl', (t) => {
 })
 test('new Evaporate() calls timeUrl only once', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time?testId=' + t.context.testId })
-  var evaporate = newEvaporate(t, config);
-  expect(evaporate.localTimeOffset).to.equal(0)
+  expect(new Evaporate(config).localTimeOffset).to.equal(0)
 })
 
 // Unsupported
@@ -414,17 +412,30 @@ test('should call a callback on successful add()', (t) => {
 // cancel
 
 test('should fail to cancel() when no id is present', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const result = evaporate.cancel()
-
-  expect(result).to.not.be.ok
+  Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.cancel()
+            .then(function () {
+              t.fail('Cancel did not fail.')
+            })
+            .catch(function (reason) {
+              expect(reason).to.match(/does not exist/i)
+            })
+      })
 })
 
 test('should fail to cancel() when non-existing id is present', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const result = evaporate.cancel('non-existent-file')
+  Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.cancel('non-existent-file')
+            .then(function () {
+              t.fail('Cancel did not fail.')
+            })
+            .catch(function (reason) {
+              expect(reason).to.match(/does not exist/i)
+            })
+      })
 
-  expect(result).to.not.be.ok
 })
 
 test('should cancel() an upload with correct object name', (t) => {
