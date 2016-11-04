@@ -36,20 +36,20 @@ test.beforeEach((t) => {
 })
 
 // Cached File Parts (some parts on S3), multipart upload not completed
-test('should check for parts when re-uploading a cached file and not call cryptoMd5', (t) => {
+test.serial('should check for parts when re-uploading a cached file and not call cryptoMd5', (t) => {
   return testCachedParts(t, {}, 1, 0)
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(0)
       })
 })
-test('should check for parts when re-uploading a cached file with S3 requests in the correct order', (t) => {
+test.serial('should check for parts when re-uploading a cached file with S3 requests in the correct order', (t) => {
 
   return testCachedParts(t, {}, 1, 0)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,check for parts,PUT:partNumber=2,complete')
       })
 })
-test('should only upload remaining parts for an interrupted upload', (t) => {
+test.serial('should only upload remaining parts for an interrupted upload', (t) => {
   return testCachedParts(t, { file: new File({
     path: '/tmp/file',
     size: 29690176,
@@ -63,7 +63,7 @@ test('should only upload remaining parts for an interrupted upload', (t) => {
             'PUT:partNumber=4,PUT:partNumber=5,complete')
       })
 })
-test('should check for parts when re-uploading a cached file when getParts 404s and callback started', (t) => {
+test.serial('should check for parts when re-uploading a cached file when getParts 404s and callback started', (t) => {
   t.context.getPartsStatus = 404
 
   return testCachedParts(t, {}, 1, 0)
@@ -71,7 +71,7 @@ test('should check for parts when re-uploading a cached file when getParts 404s 
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should check for parts when re-uploading a cached file when getParts 404s and return the correct file upload ID', (t) => {
+test.serial('should check for parts when re-uploading a cached file when getParts 404s and return the correct file upload ID', (t) => {
   t.context.getPartsStatus = 404
 
   return testCachedParts(t, {}, 1, 0)
@@ -79,7 +79,7 @@ test('should check for parts when re-uploading a cached file when getParts 404s 
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
-test('should check for parts when re-uploading a cached file when getParts 404s in the correct order', (t) => {
+test.serial('should check for parts when re-uploading a cached file when getParts 404s in the correct order', (t) => {
   t.context.getPartsStatus = 404
   return testCachedParts(t, {}, 1, 0)
       .then(function () {
@@ -89,7 +89,7 @@ test('should check for parts when re-uploading a cached file when getParts 404s 
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test('should check for parts when re-uploading a cached file when getParts 404s with the correct status', (t) => {
+test.serial('should check for parts when re-uploading a cached file when getParts 404s with the correct status', (t) => {
   t.context.getPartsStatus = 404
   return testCachedParts(t, {}, 1, 0)
       .then(function () {
@@ -97,13 +97,13 @@ test('should check for parts when re-uploading a cached file when getParts 404s 
       })
 })
 
-test('should check for parts when re-uploading a cached file, when getParts returns none and callback started', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts returns none and callback started', (t) => {
   return testCachedParts(t, { }, 0, 0)
       .then(function () {
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should check for parts when re-uploading a cached file, when getParts returns none in the correct order', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts returns none in the correct order', (t) => {
   return testCachedParts(t, { }, 0, 0)
       .then(function () {
         expect(requestOrder(t)).to.equal(
@@ -111,14 +111,14 @@ test('should check for parts when re-uploading a cached file, when getParts retu
             'check for parts,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test('should check for parts when re-uploading a cached file, when getParts returns none and return the correct file upload ID', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts returns none and return the correct file upload ID', (t) => {
   return testCachedParts(t, { }, 0, 0)
       .then(function () {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 
-test('should check for parts when re-uploading a cached file, when getParts is not truncated and callback started', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is not truncated and callback started', (t) => {
   return testCachedParts(t, {
     file: new File({
       path: '/tmp/file',
@@ -130,7 +130,7 @@ test('should check for parts when re-uploading a cached file, when getParts is n
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should check for parts when re-uploading a cached file, when getParts is not truncated in the correct order', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is not truncated in the correct order', (t) => {
   return testCachedParts(t, {
     file: new File({
       path: '/tmp/file',
@@ -142,7 +142,7 @@ test('should check for parts when re-uploading a cached file, when getParts is n
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,complete,check for parts,complete')
       })
 })
-test('should check for parts when re-uploading a cached file, when getParts is not truncated and return the correct file upload ID', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is not truncated and return the correct file upload ID', (t) => {
   return testCachedParts(t, {
     file: new File({
       path: '/tmp/file',
@@ -155,7 +155,7 @@ test('should check for parts when re-uploading a cached file, when getParts is n
       })
 })
 
-test('should check for parts when re-uploading a cached file, when getParts is truncated and callback started', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is truncated and callback started', (t) => {
   const Parts5AddConfig = {
     name: t.context.requestedAwsObjectKey,
     file: new File({
@@ -177,7 +177,7 @@ test('should check for parts when re-uploading a cached file, when getParts is t
         expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should check for parts when re-uploading a cached file, when getParts is truncated in the correct order', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is truncated in the correct order', (t) => {
   const Parts5AddConfig = {
     name: t.context.requestedAwsObjectKey,
     file: new File({
@@ -201,7 +201,7 @@ test('should check for parts when re-uploading a cached file, when getParts is t
             'check for parts,check for parts,check for parts,check for parts,check for parts,complete')
       })
 })
-test('should check for parts when re-uploading a cached file, when getParts is truncated and return the correct file upload ID', (t) => {
+test.serial('should check for parts when re-uploading a cached file, when getParts is truncated and return the correct file upload ID', (t) => {
   const Parts5AddConfig = {
     name: t.context.requestedAwsObjectKey,
     file: new File({
@@ -225,7 +225,7 @@ test('should check for parts when re-uploading a cached file, when getParts is t
 })
 
 // Retry on error
-test('should not retry check for remaining uploaded parts if status is 404', (t) => {
+test.serial('should not retry check for remaining uploaded parts if status is 404', (t) => {
   t.context.getPartsStatus = 404
   return testCachedParts(t, {})
       .then(function () {
@@ -235,7 +235,7 @@ test('should not retry check for remaining uploaded parts if status is 404', (t)
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test('should retry check for parts twice if status is non-404 error', (t) => {
+test.skip('should retry check for parts twice if status is non-404 error', (t) => {
   t.context.getPartsStatus = 403
   return testCachedParts(t, {})
       .then(function () {
@@ -247,7 +247,7 @@ test('should retry check for parts twice if status is non-404 error', (t) => {
 })
 
 // getParts (xAmzHeadersCommon)
-test('should set xAmzHeadersCommon when re-uploading a cached file', (t) => {
+test.serial('should set xAmzHeadersCommon when re-uploading a cached file', (t) => {
   return testCachedParts(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'reused' }
   }, 0, 0)

@@ -35,10 +35,14 @@ test.before(() => {
 
   function partRequestHandler(xhr, context)  {
     if (xhr.url.indexOf('partNumber=1') > -1) {
-      context.pause()
-          .then(function () {
-            context.resume()
-          });
+      if (context.pauseHandler) {
+        context.pauseHandler();
+      } else {
+        context.pausePromise = context.pause()
+            .then(function () {
+              context.resumePromise = context.resume()
+            })
+      }
     }
     xhr.respond(200)
   }
@@ -49,56 +53,130 @@ test.before(() => {
 test.beforeEach((t) => {
   beforeEachSetup(t)
 
-  t.context.pause = function (force) {
-    return t.context.evaporate.pause(t.context.uploadId, {force: force})
+  t.context.pause = function () {
+    return t.context.evaporate.pause(t.context.pauseFileId || t.context.uploadId, {force: t.context.force})
   }
 
   t.context.resume = function () {
-    return t.context.evaporate.resume(t.context.uploadId)
+    return t.context.evaporate.resume(t.context.resumeFileId || t.context.uploadId)
   }
 })
 
 // Default Setup: V2 signatures: Pause & Resume
-test('should Resume an upload and not call cryptoMd5', (t) => {
+test.serial('should Resume an upload and not call cryptoMd5', (t) => {
   return testPauseResume(t)
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(0)
       })
 })
-test('should Resume an upload and callback started', (t) => {
+test.serial('should Resume an upload and callback started', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.started.callCount).to.equal(2)
+        expect(t.context.config.started.callCount).to.equal(1)
       })
 })
-test('should Resume an upload and callback pausing', (t) => {
+test.serial('should Resume an upload and callback pausing', (t) => {
   return testPauseResume(t)
       .then(function () {
         expect(t.context.config.pausing.callCount).to.equal(1)
       })
 })
-test('should Resume an upload and callback paused', (t) => {
+test.serial('should Resume an upload and callback paused', (t) => {
   return testPauseResume(t)
       .then(function () {
         expect(t.context.config.paused.callCount).to.equal(1)
       })
 })
-test('should Resume an upload and callback resumed', (t) => {
+test.serial('should Resume an upload and callback resumed', (t) => {
   return testPauseResume(t)
       .then(function () {
         expect(t.context.config.resumed.callCount).to.equal(1)
       })
 })
-test('should Resume an upload with S3 requests in the correct order', (t) => {
+test.serial('should Resume an upload with S3 requests in the correct order', (t) => {
   return testPauseResume(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test('should Resume an upload and return the correct file upload ID', (t) => {
+test.serial('should Resume an upload and return the correct file upload ID', (t) => {
   return testPauseResume(t)
       .then(function () {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 
+test.serial('should fail to pause() when file not added', (t) => {
+  t.context.pauseFileId = 'nonexistent'
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.pausePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/has not been added/i)
+                }
+            )
+      })
+});
+test.serial.skip('should fail to pause() when file already paused', (t) => {
+  t.context.pauseHandler = function () {
+    t.context.pause()
+        .then(function () {
+          t.context.pausePromise =  t.context.pause()
+        })
+  }
+
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.pausePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/already paused/i)
+                }
+            )
+      })
+});
+
+test.serial('should fail to resume() when file not added', (t) => {
+  t.context.resumeFileId = 'nonexistent'
+  t.context.pauseHandler = function () {
+    t.context.resumePromise = t.context.resume()
+  }
+
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.resumePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/does not exist/i)
+                }
+            )
+      })
+});
+test.serial('should fail to resume() when file not paused', (t) => {
+  t.context.pauseHandler = function () {
+    t.context.resumePromise = t.context.resume()
+  }
+
+  return testPauseResume(t)
+      .then(function () {
+        return t.context.resumePromise
+            .then(
+                function () {
+                  t.fail('Expected test to fail.')
+                },
+                function (reason) {
+                  expect(reason).to.match(/not been paused/i)
+                }
+            )
+      })
+});

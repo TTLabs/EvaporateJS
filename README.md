@@ -477,13 +477,16 @@ promise resolves when the upload pauses and rejects with a message if the upload
 
 #### Evaporate#resume()
 
-`evaporate.resume([file_key])`
+`var resumptionPromise = evaporate.resume([file_key])`
 
 Resumes the upload for the file identified by the file key, or all files if the file key is not
 passed. The `.resumed` callback is invoked when a file upload resumes.
 
 `file_key` is the optional file key of the upload that you want to resume. If `file_key` is not defined, then all
 files will be paused. File key is constructed as `bucket + '/' + object_name`.
+
+The `resumptionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The
+promise resolves when the upload resumes and rejects with a message if the upload could not be resumed.
 
 After resumption of the upload, the completion promise returned for the added file, will be resolved or rejected depending
 on the final outcome of the upload.
@@ -504,9 +507,18 @@ on the final outcome of the upload.
             evaporate.pause('mybucket/myFile', {force: true}) // or 'evaporate.pause()' to pause all
                 .then(function () {
                     console.log('Paused!');
-                });
+                })
+                .catch(function (reason) {
+                    console.log('Failed to pause:', reason);
+                };
             
-            evaporate.resume('mybucket/myFile');            
+            evaporate.resume('mybucket/myFile')
+                .then(function () {
+                    console.log('Resumed!');
+                })
+                .catch(function (reason) {
+                    console.log('Failed to resume:', reason);
+                };
         })
 ```
   

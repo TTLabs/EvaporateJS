@@ -174,8 +174,7 @@ test('#create evaporate calls timeUrl only once', (t) => {
 })
 test('new Evaporate() should instantiate and return default offset before timeUrl', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time' })
-  var evaporate = newEvaporate(t, config);
-  expect(evaporate.localTimeOffset).to.equal(0)
+  expect(new Evaporate(config).localTimeOffset).to.equal(0)
 })
 test('new Evaporate() should instantiate and not call timeUrl', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time' })
@@ -187,8 +186,7 @@ test('new Evaporate() should instantiate and not call timeUrl', (t) => {
 })
 test('new Evaporate() calls timeUrl only once', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time?testId=' + t.context.testId })
-  var evaporate = newEvaporate(t, config);
-  expect(evaporate.localTimeOffset).to.equal(0)
+  expect(new Evaporate(config).localTimeOffset).to.equal(0)
 })
 
 // Unsupported
@@ -284,7 +282,7 @@ test('should fail to add() when no file is present', (t) => {
                   t.fail('Evaporate added a new file but should not have.')
                 },
                 function (reason) {
-                  t.pass(reason)
+                  expect(reason).to.match(/missing file/i)
                 })
       })
 });
@@ -414,17 +412,30 @@ test('should call a callback on successful add()', (t) => {
 // cancel
 
 test('should fail to cancel() when no id is present', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const result = evaporate.cancel()
-
-  expect(result).to.not.be.ok
+  Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.cancel()
+            .then(function () {
+              t.fail('Cancel did not fail.')
+            })
+            .catch(function (reason) {
+              expect(reason).to.match(/does not exist/i)
+            })
+      })
 })
 
 test('should fail to cancel() when non-existing id is present', (t) => {
-  const evaporate = newEvaporate(t, baseConfig)
-  const result = evaporate.cancel('non-existent-file')
+  Evaporate.create(baseConfig)
+      .then(function (evaporate) {
+        evaporate.cancel('non-existent-file')
+            .then(function () {
+              t.fail('Cancel did not fail.')
+            })
+            .catch(function (reason) {
+              expect(reason).to.match(/does not exist/i)
+            })
+      })
 
-  expect(result).to.not.be.ok
 })
 
 test('should cancel() an upload with correct object name', (t) => {
@@ -463,31 +474,31 @@ test('should cancel() two uploads with correct id, first result OK', (t) => {
 })
 
 test('should call a callbacks on cancel(): canceled', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
     .then(function () {
       expect(t.context.config.cancelled).to.have.been.called
     })
 })
 test('should call a callbacks on cancel(): evaporateChanged', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
         expect(t.context.evapConfig.evaporateChanged).to.have.been.called
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged call count', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
-        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(2)
+        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(3)
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged first call args', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
         expect(t.context.evapConfig.evaporateChanged.firstCall.args[1]).to.eql(1)
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged second call args', (t) => {
-  testCancelCallbacks(t)
+  return testCancelCallbacks(t)
       .then(function () {
         expect(t.context.evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
       })

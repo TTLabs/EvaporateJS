@@ -389,9 +389,22 @@ test('should abort on 404 in V2 Signature PUT should return errors and return er
         t.fail('Cancel promise should have rejected, but did not.')
       },
       function (reason) {
-        console.log(reason)
         expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT. The part and the file will abort/i)
       })
+})
+test('should abort on 404 in V2 Signature PUT promise should reject with reason', (t) => {
+  t.context.retry = function (type) {
+    return type === 'part'
+  }
+  t.context.errorStatus = 404
+
+  return testV2Authorization(t)
+      .then(function () {
+            t.fail('Cancel promise should have rejected, but did not.')
+          },
+          function (reason) {
+            expect(reason).to.match(/part failing to upload/i)
+          })
 })
 
 test('should return error when ABORT fails and call the correct signing url', (t) => {
