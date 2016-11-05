@@ -473,6 +473,35 @@
             this.resumed();
         }
     };
+    FileUpload.prototype.processNextPart = function () {
+        if (this.status !== EVAPORATING) {
+            this.info('will not process parts list, as not currently evaporating');
+            return;
+        }
+
+        function retry(self, part) {
+            return function () {
+                if (!part.awsRequest.errorExceptionStatus()) {
+                    if (self.evaporate.evaporatingCount < self.con.maxConcurrentParts) {
+                        return part.awsRequest.send();
+                    }
+                }
+            };
+        }
+        for (var i = 0; i < this.partsToUpload.length; i++) {
+            var part = this.s3Parts[this.partsToUpload[i]];
+            if (part.status === EVAPORATING) {
+                // bytesLoaded.push(part.loadedBytes);
+            } else {
+                var backOffWait = (part.awsRequest.attempts === 1) ? 0 : 1000 * Math.min(
+                    this.con.maxRetryBackoffSecs,
+                    Math.pow(this.con.retryBackoffPower, part.awsRequest.attempts - 2)
+                );
+                part.awsRequest.attempts += 1;
+                setTimeout(retry(this, part), backOffWait);
+            }
+        }
+    };
     FileUpload.prototype.processPartsToUpload = function () {
         var bytesLoaded = [],
             limit = this.con.maxConcurrentParts - this.evaporate.evaporatingCount;
@@ -535,8 +564,19 @@
 
         var self = this;
 
-        function resolve(s3Part) { return function () { self.retirePartFromProcessing(s3Part); } }
-        function reject(s3Part) { return function () { self.retirePartFromProcessing(s3Part); } }
+        function resolve(s3Part) { return function () {
+                self.retirePartFromProcessing(s3Part);
+                if ([PAUSED, PAUSING].indexOf(self.status) === -1) {
+                    return self.processNextPart();
+                }
+            };
+        }
+        function reject(s3Part) { return function () {
+            console.log('reject part', s3Part.part)
+                self.retirePartFromProcessing(s3Part);
+                self.evaporate.processQueue();
+            };
+        }
 
         var limit = firstPart ? 1 : this.numParts;
 
@@ -573,7 +613,7 @@
     };
     FileUpload.prototype.startFileProcessing =function () {
         this.monitorProgress();
-        this.processPartsToUpload();
+        this.processNextPart();
     };
     FileUpload.prototype.monitorTotalProgress = function () {
         var self = this;
@@ -625,7 +665,7 @@
                         self.s3Parts[partIdx].awsRequest.abort();
                         part.status = PENDING;
                         self.removePartFromProcessing(partIdx);
-                        self.processPartsToUpload();
+                        self.processNextPart();
                     }, 0);
                 }
 
@@ -1426,7 +1466,6 @@
                 .then(function () {
                     l.d('Sending', self.request.step);
                     SignedS3AWSRequest.prototype.send.call(self);
-                    self.fileUpload.processPartsToUpload();
                 });
         }
 
@@ -1449,9 +1488,6 @@
             l.w(msg);
             this.fileUpload.warn(msg);
         }
-        if ([PAUSED, PAUSING].indexOf(this.fileUpload.status) === -1) {
-            this.fileUpload.processPartsToUpload();
-        }
     };
     PutPart.prototype.errorExceptionStatus = function () {
         return [CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1;
@@ -1468,7 +1504,8 @@
         this.part.loadedBytes = 0;
         this.part.status = ERROR;
         this.fileUpload.removePartFromProcessing(this.partNumber);
-        this.fileUpload.processPartsToUpload();
+        this.fileUpload.processNextPart();
+        return true;
     };
     PutPart.prototype.abort = function (reject) {
         if (this.currentXhr) {
