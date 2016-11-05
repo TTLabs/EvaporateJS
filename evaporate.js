@@ -1453,14 +1453,10 @@
             this.fileUpload.processPartsToUpload();
         }
     };
-    PutPart.prototype.error =  function (reason) {
-        this.part.loadedBytes = 0;
-
-        this.part.status = ERROR;
-
-        if ([CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1) {
-            return;
-        }
+    PutPart.prototype.errorExceptionStatus = function () {
+        return [CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1;
+    };
+    PutPart.prototype.errorHandler = function (reason) {
         if (reason.match(/status:404/)) {
             var errMsg = '404 error on part PUT. The part and the file will abort. ' + reason;
             l.w(errMsg);
@@ -1468,15 +1464,13 @@
             this.part.status = ABORTED;
             this.awsDeferred.reject(errMsg);
             return true;
-        } else {
-            var msg = 'problem uploading part #' + this.partNumber + ',  reason: ' + reason;
-
-            l.w(msg);
-            this.fileUpload.warn(msg);
-
-            this.fileUpload.removePartFromProcessing(this.partNumber);
-            this.fileUpload.processPartsToUpload();
         }
+    };
+    PutPart.prototype.error =  function (reason) {
+        this.part.loadedBytes = 0;
+        this.part.status = ERROR;
+
+        SignedS3AWSRequest.prototype.error.call(this, reason);
     };
     PutPart.prototype.abort = function (reject) {
         if (this.currentXhr) {
