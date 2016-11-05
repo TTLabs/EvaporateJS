@@ -492,7 +492,7 @@
                 bytesLoaded.push(part.loadedBytes);
             } else {
                 if (this.evaporate.evaporatingCount < this.con.maxConcurrentParts && this.partsInProcess.indexOf(part.part) === -1) {
-                    return part.awsRequest.dispatch();
+                    return part.awsRequest.send();
                 }
                 limit -= 1;
                 if (limit === 0) {
@@ -1405,7 +1405,7 @@
                 }
             });
     };
-    PutPart.prototype.dispatch = function () {
+    PutPart.prototype.send = function () {
         if (this.part.status !== COMPLETE &&
             [ABORTED, PAUSED, CANCELED].indexOf(this.fileUpload.status) === -1 &&
             this.fileUpload.partsInProcess.indexOf(this.partNumber) === -1) {
@@ -1425,7 +1425,7 @@
             return this.getPartMd5Digest()
                 .then(function () {
                     l.d('Sending', self.request.step);
-                    self.send();
+                    SignedS3AWSRequest.prototype.send.call(self);
                     self.fileUpload.processPartsToUpload();
                 });
         }
@@ -1465,12 +1465,10 @@
             this.awsDeferred.reject(errMsg);
             return true;
         }
-    };
-    PutPart.prototype.error =  function (reason) {
         this.part.loadedBytes = 0;
         this.part.status = ERROR;
-
-        SignedS3AWSRequest.prototype.error.call(this, reason);
+        this.fileUpload.removePartFromProcessing(this.partNumber);
+        this.fileUpload.processPartsToUpload();
     };
     PutPart.prototype.abort = function (reject) {
         if (this.currentXhr) {
