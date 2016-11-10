@@ -1257,9 +1257,10 @@
     SignedS3AWSRequestWithRetryLimit.prototype.maxRetries = 1;
     SignedS3AWSRequestWithRetryLimit.prototype.errorHandler =  function (reason) {
         if (this.attempts > this.maxRetries) {
-            var msg = ['MaxRetries exceeded. Will re-upload file id ', this.fileUpload.id, ', ', reason];
-            l.w(msg.join(""));
-            return this.fileUpload.uploadFile(this.awsKey);
+            var msg = ['MaxRetries exceeded. Will re-upload file id ', this.fileUpload.id, ', ', reason].join("");
+            l.w(msg);
+            this.awsDeferred.reject(msg);
+            return true;
         }
     };
 
@@ -1339,14 +1340,6 @@
     ReuseS3Object.prototype = Object.create(SignedS3AWSRequestWithRetryLimit.prototype);
     ReuseS3Object.prototype.constructor = ReuseS3Object;
     ReuseS3Object.prototype.awsKey = undefined;
-    ReuseS3Object.prototype.errorHandler =  function (reason) {
-        if (this.attempts > this.maxRetries) {
-            var msg = ['MaxRetries exceeded. Will re-upload file id ', this.fileUpload.id, ', ', reason];
-            l.w(msg.join(""));
-            this.awsDeferred.reject(msg);
-            return true;
-        }
-    };
     ReuseS3Object.prototype.success = function (xhr) {
         var eTag = xhr.getResponseHeader('Etag');
         if (eTag !== this.fileUpload.eTag) {

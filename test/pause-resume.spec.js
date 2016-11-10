@@ -121,7 +121,7 @@ test('should fail to pause() when file not added', (t) => {
             )
       })
 });
-test.skip('should fail to pause() when file already paused', (t) => {
+test('should fail to pause() when file already paused', (t) => {
   t.context.pauseHandler = function () {
     t.context.pause()
         .then(function () {

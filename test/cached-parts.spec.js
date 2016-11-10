@@ -235,7 +235,7 @@ test('should not retry check for remaining uploaded parts if status is 404', (t)
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.skip('should retry check for parts twice if status is non-404 error', (t) => {
+test('should retry check for parts twice if status is non-404 error', (t) => {
   t.context.getPartsStatus = 403
   return testCachedParts(t, {})
       .then(function () {
