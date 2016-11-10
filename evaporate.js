@@ -229,7 +229,7 @@
                 .then(
                     function () {
                         self.fileCleanup(fileUpload);
-                        resolve(fileUpload.name);
+                        resolve(decodeURIComponent(fileUpload.name));
                     },
                     function (reason) {
                         self.fileCleanup(fileUpload);
