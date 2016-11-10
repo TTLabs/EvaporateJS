@@ -40,33 +40,33 @@ test.beforeEach((t) => {
 })
 
 // S3 Object re-use
-test.serial('should re-use S3 object and callback complete', (t) => {
+test('should re-use S3 object and callback complete', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
       .then(function () {
         expect(t.context.config.complete.callCount).to.equal(1)
       })
 })
-test.serial('should re-use S3 object with S3 requests correctly ordered', (t) => {
+test('should re-use S3 object with S3 requests correctly ordered', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
       .then(function () {
         expect(requestOrder(t)).to.equal(
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete,HEAD')
       })
 })
-test.serial('should re-use S3 object calling cryptomd5 correctly', (t) => {
+test('should re-use S3 object calling cryptomd5 correctly', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
       .then(function () {
         expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
       })
 })
-test.serial('should re-use S3 object returning the S3 file upload ID', (t) => {
+test('should re-use S3 object returning the S3 file upload ID', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
       .then(function () {
         expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
       })
 })
 
-test.serial('should not re-use S3 object if the first part\'s md5 digest do not match', (t) => {
+test('should not re-use S3 object if the first part\'s md5 digest do not match', (t) => {
   var cryptoMd5 = sinon.spy(function () { return 'md5Mismatch'; })
 
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"', {cryptoMd5Method: cryptoMd5})
@@ -75,7 +75,7 @@ test.serial('should not re-use S3 object if the first part\'s md5 digest do not 
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete,initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('should not re-use S3 object if the first part\'s md5 digest do not match calling cryptomd5 correctly', (t) => {
+test('should not re-use S3 object if the first part\'s md5 digest do not match calling cryptomd5 correctly', (t) => {
   var cryptoMd5 = sinon.spy(function () { return 'md5Mismatch'; })
 
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"', {cryptoMd5Method: cryptoMd5})
@@ -84,13 +84,13 @@ test.serial('should not re-use S3 object if the first part\'s md5 digest do not 
       })
 })
 
-test.serial('should not re-use S3 object because the Etag does not match and callback complete', (t) => {
+test('should not re-use S3 object because the Etag does not match and callback complete', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892eeunmatched-1"')
       .then(function () {
         expect(t.context.config.complete.callCount).to.equal(1)
       })
 })
-test.serial('should not re-use S3 object because the Etag does not match in the correct order', (t) => {
+test('should not re-use S3 object because the Etag does not match in the correct order', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892eeunmatched-1"')
       .then(function () {
         expect(requestOrder(t)).to.equal(
@@ -99,19 +99,19 @@ test.serial('should not re-use S3 object because the Etag does not match in the 
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('should not re-use S3 object because the Etag does not match calling cryptomd5 correctly', (t) => {
+test('should not re-use S3 object because the Etag does not match calling cryptomd5 correctly', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892eeunmatched-1"')
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(4)
       })
 })
-test.serial('should not re-use S3 object because the Etag does not match returning the S3 file upload ID', (t) => {
+test('should not re-use S3 object because the Etag does not match returning the S3 file upload ID', (t) => {
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892eeunmatched-1"')
       .then(function () {
         expect(t.context.completedAwsKey).to.not.equal(t.context.requestedAwsObjectKey)
       })
 })
-test.serial('should not re-use S3 object if headObject returns 404', (t) => {
+test('should not re-use S3 object if headObject returns 404', (t) => {
   t.context.headStatus = 404
 
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
@@ -122,7 +122,7 @@ test.serial('should not re-use S3 object if headObject returns 404', (t) => {
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('should not re-use S3 object if headObject returns 404 status correctly', (t) => {
+test('should not re-use S3 object if headObject returns 404 status correctly', (t) => {
   t.context.headStatus = 404
 
   return testS3Reuse(t, {}, '"b2969107bdcfc6aa30892ee0867ebe79-1"')
@@ -132,7 +132,7 @@ test.serial('should not re-use S3 object if headObject returns 404 status correc
 })
 
 // headObject (xAmzHeadersCommon)
-test.serial('should set xAmzHeadersCommon when re-using S3 object', (t) => {
+test('should set xAmzHeadersCommon when re-using S3 object', (t) => {
   const config = {
     xAmzHeadersCommon: { 'x-custom-header': 'head-reuse' }
   }
@@ -143,7 +143,7 @@ test.serial('should set xAmzHeadersCommon when re-using S3 object', (t) => {
 })
 
 // Retry
-test.serial('should not retry HEAD when trying to reuse S3 object and status is 404 with complete callback', (t) => {
+test('should not retry HEAD when trying to reuse S3 object and status is 404 with complete callback', (t) => {
   t.context.headStatus = 404
 
   return testS3Reuse(t, {})
@@ -151,7 +151,7 @@ test.serial('should not retry HEAD when trying to reuse S3 object and status is 
         expect(t.context.config.complete.callCount).to.equal(1)
       })
 })
-test.serial('should not retry HEAD when trying to reuse S3 object and status is 404 in the correct order', (t) => {
+test('should not retry HEAD when trying to reuse S3 object and status is 404 in the correct order', (t) => {
   t.context.headStatus = 404
 
   return testS3Reuse(t, {})
@@ -161,7 +161,7 @@ test.serial('should not retry HEAD when trying to reuse S3 object and status is 
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('should not retry HEAD when trying to reuse S3 object and status is 404 with a changed upload ID', (t) => {
+test('should not retry HEAD when trying to reuse S3 object and status is 404 with a changed upload ID', (t) => {
   t.context.headStatus = 404
 
   return testS3Reuse(t, {})
@@ -171,7 +171,7 @@ test.serial('should not retry HEAD when trying to reuse S3 object and status is 
 })
 
 
-test.serial('should retry HEAD twice when trying to reuse S3 object and status is non-404 error with complete callback', (t) => {
+test('should retry HEAD twice when trying to reuse S3 object and status is non-404 error with complete callback', (t) => {
   t.context.headStatus = 403
 
   return testS3Reuse(t, {})
@@ -179,7 +179,7 @@ test.serial('should retry HEAD twice when trying to reuse S3 object and status i
         expect(t.context.config.complete.callCount).to.equal(1)
       })
 })
-test.serial('should retry HEAD twice when trying to reuse S3 object and status is non-404 error in the correct order', (t) => {
+test('should retry HEAD twice when trying to reuse S3 object and status is non-404 error in the correct order', (t) => {
   t.context.headStatus = 403
 
   return testS3Reuse(t, {})
@@ -189,7 +189,7 @@ test.serial('should retry HEAD twice when trying to reuse S3 object and status i
             'initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('should retry HEAD twice when trying to reuse S3 object and status is non-404 error with a changed upload ID', (t) => {
+test('should retry HEAD twice when trying to reuse S3 object and status is non-404 error with a changed upload ID', (t) => {
   t.context.headStatus = 403
 
   return testS3Reuse(t, {})

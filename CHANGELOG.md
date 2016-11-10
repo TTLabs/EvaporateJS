@@ -1,3 +1,36 @@
+# v2.0.0-rc.1#
+
+Refer to the README file for more information on using Evaporate. This version
+is a near re-write of 1.6.0. There are some changes to usage but they should
+be relatively easy to apply.
+
+## Enhancements ##
+- File processing is now distributed. Previously, Evaporate would upload
+  one file at a time. If you uploaded 5 files, each with a total size
+  less than the part size, that unused "slots" would go unused. This
+  version will distribute unused slots to the next file to upload, meaning
+  that Evaporate can upload several files simultaneously, up to the value
+  of `maxConcurrentParts`. In other words, if `maxConcurrentParts` is 6,
+  and you want to upload many files whose size is less then the part size,
+  then evaporate will upload 6 files conconcurrently with each file using
+  one upload "slot". Evaporate will ensure that no more than
+  `maxConcurrentParts` are in play at any one time.
+- Adds more test coverage.
+
+## Breaking Changes ##
+- Evaporate now requires support for ES6 Promises. Use a polyfill for browsers that that don't support them.
+- Instantiate Evaporate using its create class method.
+- Evaporate#add no longer returns a numeric id referencing the file upload. It now
+  returns a Promise when adding a file to upload. To act on the file upload, for
+  example, to Pause, Resume or Cancel, use a composed key consisting of the
+  bucket and object name. Refer to the README for for more information.
+- Evaporate#cancel, Evaporate#pause and #Evaporate#resume now return promises
+  that resolve when the action is complete, or reject with a reason.
+
+## Bug Fixes ##
+- Evaporate was not fetching all uploaded parts from S3 if the file had
+  more then 1,000 parts.
+
 # v1.6.3#
 - Corrects license name for compatibility with webjars.org.
 - Addresses file.lastModifiedDate deprecation warning in FireFox

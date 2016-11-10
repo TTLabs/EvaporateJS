@@ -42,6 +42,12 @@ Evaporate uses to calculate MD5 checksums through the `readAsArrayBuffer`
 method. Refer to this [list of browsers that support the File API](http://caniuse.com/#feat=fileapi).
 Evaporate does not invoke the `File` constructor.
 
+As of v2.0.0, Evaporate requires a browser that supports
+[ES6 Promises](http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-constructor). To use Evaporate on
+those browsers, you must include a compliant Promise polyfill such as
+[es6-promise](https://github.com/stefanpenner/es6-promise). Refer to this [list of browsers that support
+Promises](http://caniuse.com/#feat=promises).
+
 ## Authors
 
   - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))
@@ -300,7 +306,8 @@ Available onfiguration options:
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
-* **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
+* **progressMod**: default=5, the ratio of progress events to filter before reporting progress. The default is `5`
+    which means 1 call to `progress` will be made for each progress event when parts are uploading.
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
     Standard, you will need to change this to the correct endpoint from the 
     [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
@@ -386,8 +393,31 @@ You can instantiate still Evaporate using the new keyword but you should prefer 
   object to upload.
 
   The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
-  promise resolves with the file_key on sucessful file upload and rejects with a message as to why the file could not
+  promise resolves with the AWS object key of the uploaded object. This object key may be different than the requested
+  object key if `allowS3ExistenceOptimization` is enabled and Evaporate was able to identify the already uploaded
+  object in the requested bucket. The promise rejects with a message as to why the file could not
   be uploaded.
+
+  ```javascript
+      Evaporate.create({
+        bucket: 'mybucket'
+      })
+      .then(function (evaporate) {
+        evaporate.add({
+          name: 'myFile',
+          file: new File()
+        })
+        .then(
+          function (awsS3ObjectKey) {
+            // "Sucessfully uploaded to: mybucket/myfile"
+            console.log('Successfully uploaded to:', awsS3ObjectKey);
+          },
+          function (reason) {
+            console.log('Failed to upload because:', reason);
+          }
+        );
+  ```
+
 
 And a number of optional parameters:
 
@@ -433,7 +463,9 @@ to pause.
 
 * **error**: _function(msg)_. a function that will be called on an irrecoverable error.
 
-* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
+* **progress**: _function(p)_. a function that will be called at a frequency determined by _progressMod_ as the file
+    uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will
+    increase or decrease depending on the status of uploading parts.
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 

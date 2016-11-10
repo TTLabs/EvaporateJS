@@ -45,8 +45,7 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
-  abortCompletionThrottlingMs: 0,
-  progressIntervalMS: 5
+  abortCompletionThrottlingMs: 0
 }
 
 function LocalStorage() {
@@ -291,7 +290,7 @@ global.newEvaporate = function (t, evapConfig) {
   return t.context.evaporate;
 }
 
-global.evaporateAdd = function (t, evaporate, addConfig) {
+global.evaporateAdd = function (t, evaporate, addConfig, configOverrides) {
   if (typeof addConfig.started === "function") {
     addConfig.user_started = addConfig.started;
     delete addConfig.started;
@@ -334,7 +333,7 @@ global.evaporateAdd = function (t, evaporate, addConfig) {
     })
   })
 
-  return evaporate.add(t.context.config)
+  return evaporate.add(t.context.config, configOverrides || {})
 
 }
 global.testBase = function (t, addConfig, evapConfig) {
@@ -348,10 +347,12 @@ global.testBase = function (t, addConfig, evapConfig) {
         }, evapConfig.signHeaders)
       })
 
+  let configOverrides = addConfig.configOverrides;
+
   return Evaporate.create(t.context.evapConfig)
       .then(function (evaporate) {
         t.context.evaporate = evaporate
 
-        return evaporateAdd(t, evaporate, addConfig)
+        return evaporateAdd(t, evaporate, addConfig, configOverrides)
       })
 }

@@ -1,13 +1,13 @@
 {
   "name": "evaporate",
-  "version": "1.6.3",
+  "version": "2.0.0-rc.1",
   "description": "Javascript library for browser to S3 multipart resumable uploads",
   "main": "evaporate.js",
   "directories": {
     "example": "example"
   },
   "scripts": {
-    "test": "nyc ava -v test/*.spec.js"
+    "test": "ava -v test/*.spec.js"
   },
   "repository": {
     "type": "git",
@@ -45,7 +45,7 @@
     "file-api": "^0.10.4",
     "jsdom": "^9.4.2",
     "nyc": "^7.1.0",
-    "sinon": "^1.17.5",
+    "sinon": "^1.17.6",
     "sinon-chai": "^2.8.0",
     "xmldom": "^0.1.22"
   },
@@ -54,6 +54,9 @@
       "babel-register",
       "./test/helpers/browser-env.js"
     ]
+  },
+  "nyc": {
+    "include": ["evaporate.js"]
   },
   "babel": {
     "presets": [

@@ -33,19 +33,19 @@ test.beforeEach((t) => {
 })
 
 // Default Setup: V2 signatures: Common Case
-test.serial('should not call cryptoMd5 upload a file with defaults', (t) => {
+test('should not call cryptoMd5 upload a file with defaults', (t) => {
   return testBase(t)
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(0)
       })
 })
-test.serial('should upload a file with S3 requests in the correct order', (t) => {
+test('should upload a file with S3 requests in the correct order', (t) => {
   return testBase(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('should upload a file and return the correct file upload ID', (t) => {
+test('should upload a file and return the correct file upload ID', (t) => {
   return testBase(t)
       .then(function () {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
@@ -53,38 +53,38 @@ test.serial('should upload a file and return the correct file upload ID', (t) =>
 })
 
 // md5Digest tests
-test.serial('V2 should call cryptoMd5 when uploading a file with defaults', (t) => {
+test('V2 should call cryptoMd5 when uploading a file with defaults', (t) => {
   return testMd5V2(t)
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(2)
       })
 })
-test.serial('V2 should upload a file with MD5Digests with S3 requests in the correct order', (t) => {
+test('V2 should upload a file with MD5Digests with S3 requests in the correct order', (t) => {
   return testMd5V2(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('V2 should upload a file and return the correct file upload ID', (t) => {
+test('V2 should upload a file and return the correct file upload ID', (t) => {
   return testMd5V2(t)
       .then(function () {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 
-test.serial('V4 should call cryptoMd5 when uploading a file with defaults', (t) => {
+test('V4 should call cryptoMd5 when uploading a file with defaults', (t) => {
   return testMd5V4(t)
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(2)
       })
 })
-test.serial('V4 should upload a file with MD5Digests with S3 requests in the correct order', (t) => {
+test('V4 should upload a file with MD5Digests with S3 requests in the correct order', (t) => {
   return testMd5V4(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
-test.serial('V4 should upload a file and return the correct file upload ID', (t) => {
+test('V4 should upload a file and return the correct file upload ID', (t) => {
   return testMd5V4(t)
       .then(function () {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
@@ -92,7 +92,7 @@ test.serial('V4 should upload a file and return the correct file upload ID', (t)
 })
 
 // Cover xAmzHeader Options
-test.serial('should pass xAmzHeadersAtInitiate headers', (t) => {
+test('should pass xAmzHeadersAtInitiate headers', (t) => {
   return testBase(t, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' }
   })
@@ -100,7 +100,7 @@ test.serial('should pass xAmzHeadersAtInitiate headers', (t) => {
         expect(headersForMethod(t, 'POST', /^.*\?uploads.*$/)['x-custom-header']).to.equal('peanuts')
       })
 })
-test.serial('should pass xAmzHeadersAtUpload headers', (t) => {
+test('should pass xAmzHeadersAtUpload headers', (t) => {
   return testBase(t, {
     xAmzHeadersAtUpload: { 'x-custom-header': 'phooey' }
   })
@@ -108,7 +108,7 @@ test.serial('should pass xAmzHeadersAtUpload headers', (t) => {
         expect(headersForMethod(t, 'PUT')['x-custom-header']).to.equal('phooey')
       })
 })
-test.serial('should pass xAmzHeadersAtComplete headers', (t) => {
+test('should pass xAmzHeadersAtComplete headers', (t) => {
   return testBase(t, {
     xAmzHeadersAtComplete: { 'x-custom-header': 'eindelijk' }
   })
@@ -117,7 +117,7 @@ test.serial('should pass xAmzHeadersAtComplete headers', (t) => {
       })
 })
 
-test.serial('should not use xAmzHeadersCommon headers for Initiate', (t) => {
+test('should not use xAmzHeadersCommon headers for Initiate', (t) => {
   return testBase(t, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
@@ -126,7 +126,7 @@ test.serial('should not use xAmzHeadersCommon headers for Initiate', (t) => {
         expect(headersForMethod(t, 'POST', /^.*\?uploads.*$/)['x-custom-header']).to.equal('peanuts')
       })
 })
-test.serial('should use xAmzHeadersCommon headers for Parts', (t) => {
+test('should use xAmzHeadersCommon headers for Parts', (t) => {
   return testBase(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
@@ -134,7 +134,7 @@ test.serial('should use xAmzHeadersCommon headers for Parts', (t) => {
         expect(headersForMethod(t, 'PUT')['x-custom-header']).to.equal('phooey')
       })
 })
-test.serial('should use xAmzHeadersCommon headers for Complete', (t) => {
+test('should use xAmzHeadersCommon headers for Complete', (t) => {
   return testBase(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
@@ -143,7 +143,7 @@ test.serial('should use xAmzHeadersCommon headers for Complete', (t) => {
       })
 })
 
-test.serial('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t) => {
+test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t) => {
   return testBase(t, {
     xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
@@ -152,7 +152,7 @@ test.serial('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t)
         expect(headersForMethod(t, 'PUT')['x-custom-header3']).to.equal('phooey')
       })
 })
-test.serial('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t) => {
+test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t) => {
   return testBase(t, {
     xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
@@ -161,7 +161,7 @@ test.serial('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t)
         expect(headersForMethod(t, 'PUT')['x-custom-header1']).to.equal(undefined)
       })
 })
-test.serial('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (t) => {
+test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (t) => {
   return testBase(t, {
     xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
@@ -170,7 +170,7 @@ test.serial('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (
         expect(headersForMethod(t, 'POST', /.*\?uploadId.*$/)['x-custom-header3']).to.equal('phooey')
       })
 })
-test.serial('should let xAmzHeadersCommon override xAmzHeadersAtComplete (2)', (t) => {
+test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (2)', (t) => {
   return testBase(t, {
     xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
@@ -181,18 +181,19 @@ test.serial('should let xAmzHeadersCommon override xAmzHeadersAtComplete (2)', (
 })
 
 // Retry on Errors
-test.serial('should retry Initiate', (t) => {
+test('should retry Initiate', (t) => {
   t.context.retry = function (type) {
     return type === 'init'
   }
 
   return testBase(t, {})
       .then(function () {
-        expect(requestOrder(t)).to.equal('initiate,initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
+        expect(['initiate,initiate,PUT:partNumber=1,PUT:partNumber=2,complete',
+          'initiate,initiate,PUT:partNumber=2,PUT:partNumber=1,complete']).to.include('initiate,initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
 
-test.serial('should retry Complete', (t) => {
+test('should retry Complete', (t) => {
   t.context.retry = function (type) {
     return type === 'complete'
   }
@@ -203,7 +204,7 @@ test.serial('should retry Complete', (t) => {
       })
 })
 
-test.serial('should retry Upload Part', (t) => {
+test('should retry Upload Part', (t) => {
   t.context.retry = function (type) {
     return type === 'part'
   }
@@ -220,7 +221,7 @@ test.serial('should retry Upload Part', (t) => {
 })
 
 // Retry get authorization / Initiate Upload
-test.serial('should retry get signature for common case: Initiate, Put, Complete (authorization)', (t) => {
+test('should retry get signature for common case: Initiate, Put, Complete (authorization)', (t) => {
   t.context.retry = function (type) {
     return type === 'sign'
   }
@@ -262,7 +263,7 @@ test.serial('should retry get signature for common case: Initiate, Put, Complete
 })
 
 // Failures to upload because PUT Part 404
-test.serial('should fail if PUT part 404s', (t) => {
+test('should fail if PUT part 404s', (t) => {
   t.context.retry = function (type) {
     return type === 'part'
   }
@@ -276,7 +277,7 @@ test.serial('should fail if PUT part 404s', (t) => {
         expect(reason).to.match(/File upload aborted/i)
       })
 })
-test.serial('should call cancelled() if PUT part 404s', (t) => {
+test('should call cancelled() if PUT part 404s', (t) => {
   t.context.retry = function (type) {
     return type === 'part'
   }
@@ -290,7 +291,7 @@ test.serial('should call cancelled() if PUT part 404s', (t) => {
         expect(t.context.config.cancelled.callCount).to.equal(1)
       })
 })
-test.serial('should call the correctly ordered requests if PUT part 404s', (t) => {
+test('should call the correctly ordered requests if PUT part 404s', (t) => {
   t.context.retry = function (type) {
     return type === 'part'
   }
@@ -301,10 +302,10 @@ test.serial('should call the correctly ordered requests if PUT part 404s', (t) =
         t.fail('Expected upload to fail but it did not.')
       })
       .catch(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,cancel')
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,cancel')
       })
 })
-test.serial('should fail with a message when PUT part 404s and DELETE fails', (t) => {
+test('should fail with a message when PUT part 404s and DELETE fails', (t) => {
   t.context.retry = function (type) {
     return type === 'part'
   }
@@ -319,7 +320,7 @@ test.serial('should fail with a message when PUT part 404s and DELETE fails', (t
         expect(reason).to.match(/Error aborting upload/i)
       })
 })
-test.serial('should fail with the correctly ordered requests when PUT part 404s and DELETE fails', (t) => {
+test('should fail with the correctly ordered requests when PUT part 404s and DELETE fails', (t) => {
   t.context.retry = function (type) {
     return type === 'part'
   }
@@ -331,6 +332,6 @@ test.serial('should fail with the correctly ordered requests when PUT part 404s 
         t.fail('Expected upload to fail but it did not.')
       })
       .catch(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,cancel,cancel')
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,cancel,cancel')
       })
 })

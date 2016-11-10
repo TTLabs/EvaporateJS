@@ -362,6 +362,25 @@ test('should fetch V4 authorization using awsLambda', (t) => {
       })
 })
 
+test('should fetch V4 authorization with header "x-amz-content-sha256" for INIT', (t) => {
+  return testV4Authorization(t)
+      .then(function () {
+        expect(headersForMethod(t, 'POST', /^.*\?uploads.*$/)['x-amz-content-sha256']).to.equal('SHA256Value')
+      })
+})
+test('should fetch V4 authorization with header "x-amz-content-sha256" for PUT', (t) => {
+  return testV4Authorization(t)
+      .then(function () {
+        expect(headersForMethod(t, 'PUT', /^.*$/)['x-amz-content-sha256']).to.equal('UNSIGNED-PAYLOAD')
+      })
+})
+test('should fetch V4 authorization with header "x-amz-content-sha256" for COMPLETE', (t) => {
+  return testV4Authorization(t)
+      .then(function () {
+        expect(headersForMethod(t, 'POST', /.*\?uploadId.*$/)['x-amz-content-sha256']).to.equal('SHA256Value')
+      })
+})
+
 // Auth Error Handling
 
 test('should abort on 404 in V2 Signature PUT should return errors and call the correct signer url', (t) => {
