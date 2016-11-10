@@ -373,8 +373,31 @@ You can instantiate still Evaporate using the new keyword but you should prefer 
   object to upload.
 
   The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
-  promise resolves with the file_key on sucessful file upload and rejects with a message as to why the file could not
+  promise resolves with the AWS object key of the uploaded object. This object key may be different than the requested
+  object key if `allowS3ExistenceOptimization` is enabled and Evaporate was able to identify the already uploaded
+  object in the requested bucket. The promise rejects with a message as to why the file could not
   be uploaded.
+
+  ```javascript
+      Evaporate.create({
+        bucket: 'mybucket'
+      })
+      .then(function (evaporate) {
+        evaporate.add({
+          name: 'myFile',
+          file: new File()
+        })
+        .then(
+          function (awsS3ObjectKey) {
+            // "Sucessfully uploaded to: mybucket/myfile"
+            console.log('Successfully uploaded to:', awsS3ObjectKey);
+          },
+          function (reason) {
+            console.log('Failed to upload because:', reason);
+          }
+        );
+  ```
+
 
 And a number of optional parameters:
 

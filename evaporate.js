@@ -104,9 +104,6 @@
             l = noOpLogger();
         }
 
-        this.awsUrl = awsUrl(this.config);
-        this.awsHost = uri(this.awsUrl).hostname;
-
         var _d = new Date();
         HOURS_AGO = new Date(_d.setHours(_d.getHours() - (this.config.s3FileCacheHoursAgo || -100)));
         if (typeof config.localTimeOffset === 'number') {
@@ -175,19 +172,30 @@
     Evaporate.prototype.supported = false;
     Evaporate.prototype._instantiationError = undefined;
     Evaporate.prototype.evaporatingCount = 0;
-    Evaporate.prototype.awsUrl = '';
+    Evaporate.prototype.lastFileSatisfied = Promise.resolve('onStart');
     Evaporate.prototype.pendingFiles = {};
-    Evaporate.prototype.pendingFilesCount = 0;
+    Evaporate.prototype.filesInProcess = [];
     Evaporate.prototype.partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
-    Evaporate.prototype.successFile = function () {
-        this.evaporatingCnt(-1); // evaporate#successFile
-        this.processFileQueue(); // Success
+    Evaporate.prototype.fileCleanup = function (fileUpload) {
+        if (this.evaporatingCount > 0) {
+            this.evaporatingCnt(-1);
+        }
+        removeAtIndex(this.filesInProcess, fileUpload);
+        fileUpload.primed.resolve('file processing ended');
         // this.processFileQueue(fileUpload);
     };
-    Evaporate.prototype.errorFile = function (fileUpload, reason) {
-        this.evaporatingCnt(-1); // evaporate#errorFile
-        this.processFileQueue();
-        // this.processFileQueue(fileUpload);
+    Evaporate.prototype.startUpload = function (fileUpload) {
+        fileUpload.primeCalled= false;
+        var self = this;
+        this.lastFileSatisfied
+            .then(function () {
+                fileUpload.primedCalled = true;
+                if (fileUpload.status === PENDING && self.evaporatingCount < self.config.maxConcurrentParts) {
+                    self.filesInProcess.push(fileUpload);
+                    fileUpload.start();
+                }
+            });
+        this.lastFileSatisfied = fileUpload.primed.promise;
     };
     Evaporate.prototype.add = function (file,  pConfig) {
         var self = this,
@@ -215,17 +223,16 @@
             }
 
             var fileUpload = self.addFile(file, fileConfig);
-            fileUpload.setStatus(PENDING);
-            self.processFileQueue(); // Start/Add
-            // TODO: Unify this with .start()
+            self.startUpload(fileUpload);
+
             fileUpload.deferredCompletion.promise
                 .then(
-                    function (id) {
-                        self.successFile(fileUpload);
-                        resolve(id);
+                    function () {
+                        self.fileCleanup(fileUpload);
+                        resolve(fileUpload.name);
                     },
                     function (reason) {
-                        self.errorFile(fileUpload, reason);
+                        self.fileCleanup(fileUpload);
                         reject(reason);
                     }
                 );
@@ -300,8 +307,7 @@
     };
     Evaporate.prototype.forceRetry = function () {};
     Evaporate.prototype.addFile = function (file, fileConfig) {
-        var fileKey = this.config.bucket + '/' + file.name,
-            fileUpload = new FileUpload(extend({
+        var fileUpload = new FileUpload(extend({
                 started: function () {},
                 progress: function () {},
                 complete: function () {},
@@ -318,70 +324,52 @@
                 xAmzHeadersAtUpload: {},
                 xAmzHeadersAtComplete: {}
             }, file, {
-                id: fileKey,
                 status: PENDING,
                 priority: 0,
                 loadedBytes: 0,
                 sizeBytes: file.file.size,
                 eTag: ''
             }), fileConfig, this);
+        var fileKey = fileUpload.id;
+
         this.pendingFiles[fileKey] = fileUpload;
-        this.pendingFilesCount += 1;
         return fileUpload;
     };
+    // TODO: Address removal
     Evaporate.prototype.removeFile = function (file) {
         if (file) {
             var fileKey = this.config.bucket + '/' + file.name;
             if (this.pendingFiles[fileKey]) {
                 delete this.pendingFiles[fileKey];
-                this.pendingFilesCount -= 1;
             }
         }
     };
-    Evaporate.prototype.primed = false;
-    Evaporate.prototype.processFileQueue = function (completedFileUpload) {
-        l.d('processFileQueue size:', this.pendingFilesCount);
-//        console.log('Process Queue pending:', this.pendingFilesCount)
-        this.removeFile(completedFileUpload);
-
-
-        var self = this;
-        function tryForNext() {
-            setTimeout(function () {
-                self.primed = false;
-                if (self.pendingFilesCount > 1) {
-                    self.processFileQueue();
-                }
-            }, 100)
+    Evaporate.prototype.consumeRemainingSlots = function () {
+        var avail = this.config.maxConcurrentParts - this.evaporatingCount;
+        if (!avail) { return; }
+        for (var i = 0; i < this.filesInProcess.length; i++) {
+            var file = this.filesInProcess[i];
+            if (file.partsToUpload.length === 0) { continue; }
+            if (file.partsToUpload.length !== file.partsInProcess.length &&
+                [PAUSED, PAUSING, ABORTED, CANCELED, COMPLETE].indexOf(file.status) === -1) {
+                avail -= file.processNextPart();
+                if (!avail) { return; }
+            }
         }
-
-        for (var key in this.pendingFiles) {
+        if (avail) {
+          // we still have some parts, let's start the next unfinished file
+          for (var key in this.pendingFiles) {
             if (this.pendingFiles.hasOwnProperty(key)) {
-                var file = this.pendingFiles[key];
-                //console.log(file.status , 'Testing', file.name, this.evaporatingCount, this.primed)
-                if (this.evaporatingCount < this.config.maxConcurrentParts) {
-                    if (file.status === PENDING) {
-                        if (!this.primed) {
-                            file.primed.promise
-                                .then(tryForNext);
-                            //console.log('starting', decodeURIComponent(file.name), this.evaporatingCount)
-                            this.primed = true;
-                            return file.start();
-                        }
-                    } else if (file.partsToUpload.length
-                        && file.partsToUpload.length !== file.partsInProcess.length
-                        && [ABORTED, CANCELED].indexOf(file.status) === -1) {
-                        if (file.partsToUpload.length !== file.partsInProcess.length) {
-                            file.processNextPart();
-                        }
-                    }
+              var f = this.pendingFiles[key];
+              if (f.status === PENDING)  {
+                if (f.primedCalled) {
+                  // tried to start earlier but didn't, so let's restart it
+                  this.startUpload(f);
                 }
+              }
             }
+          }
         }
-    };
-    Evaporate.prototype.signingClass = function (request, payload) {
-        var SigningClass = signingVersion(this.config, l, this.awsHost);
-        return new SigningClass(request, payload);
     };
     Evaporate.prototype.validateEvaporateOptions = function () {
         this.supported = !(
@@ -425,16 +413,24 @@
         }
         return true;
     };
-    Evaporate.prototype.getPath = function (fileUpload) {
-        var path = '/' + this.config.bucket + '/' + fileUpload.name;
-        if (this.config.cloudfront || this.awsUrl.indexOf('cloudfront') > -1) {
-            path = '/' + fileUpload.name;
+    Evaporate.prototype.getRemainingSlots = function (partsInProcess) {
+        var evapCount = this.evaporatingCount;
+        if (!partsInProcess) {
+            // we can use our file slot
+            evapCount -= 1;
         }
-        return path;
+        return this.config.maxConcurrentParts - evapCount;
     };
+    Evaporate.prototype.getPartsToUpload = function (partsInProcess, partsToUpload) {
+        return Math.min(this.getRemainingSlots(partsInProcess), partsToUpload);
+    };
+
     Evaporate.prototype.evaporatingCnt = function (incr) {
         this.evaporatingCount = Math.max(0, this.evaporatingCount + incr);
         this.config.evaporateChanged(this, this.evaporatingCount);
+        if (this.evaporatingCount > 6) {
+            console.error('EXCEEDED', this.evaporatingCount)
+        }
     };
 
 
@@ -452,10 +448,18 @@
 
         extend(this, file);
 
+        this.awsUrl = awsUrl(this.con);
+        this.awsHost = uri(this.awsUrl).hostname;
+        this.id = decodeURIComponent(this.con.bucket + '/' + this.name);
+
         this.signParams = con.signParams;
     }
     FileUpload.prototype.con = undefined;
     FileUpload.prototype.evaporate = undefined;
+    FileUpload.prototype.awsUrl = undefined;
+    FileUpload.prototype.awsHost = undefined;
+    FileUpload.prototype.id = undefined;
+    FileUpload.prototype.status = PENDING;
     FileUpload.prototype.numParts = -1;
     FileUpload.prototype.fileTotalBytesUploaded = 0;
     FileUpload.prototype.partsInProcess = [];
@@ -477,7 +481,6 @@
             var awsKey = self.name;
 
             self.getUnfinishedFileUpload();
-//            console.log('start test', self.con.computeContentMd5, self.firstMd5Digest, self.eTag )
             if (self.con.computeContentMd5 && typeof self.firstMd5Digest !== 'undefined' && typeof self.eTag !== 'undefined' ) {
                 // Attempt to reuse entire uploaded object on S3
                 return self.reuseObject(awsKey)
@@ -490,17 +493,18 @@
                     .then(resolve, reject);
             }
 
+            if (self.partsOnS3.length) {
+                // Resume after Pause
+                self.status = EVAPORATING;
+                return self.startFileProcessing();
+            }
             return self.restartFromUploadedParts()
                 .then(resolve, reject);
         })
-            .then(
-                function () {
-                    self.deferredCompletion.resolve(self.id);
-                },
-                function (reason) {
-                    self.deferredCompletion.reject(reason);
-                }
-            );
+        .then(
+            self.deferredCompletion.resolve.bind(self),
+            self.deferredCompletion.reject.bind(self)
+        );
 
     };
     FileUpload.prototype.stop = function () {
@@ -530,7 +534,7 @@
             .then(function () {
                 self.status = PAUSED;
                 self.evaporate.evaporatingCnt(-1); // fileUpload Paused
-                self.primed.resolve();
+                self.primed.resolve('add parts paused');
                 self.paused();
             });
     };
@@ -538,9 +542,16 @@
         if ([PAUSING, PAUSED].indexOf(this.status) > -1) {
             l.d('resuming FileUpload ', this.id);
             this.setStatus(PENDING);
-            this.evaporate.processFileQueue();
+            this.evaporate.startUpload(this);
             this.resumed();
         }
+    };
+    FileUpload.prototype.resolveForNext = function () {
+        var allInProcess = this.partsToUpload.length === this.partsInProcess.length,
+            remainingSlots = this.evaporate.getRemainingSlots(this.partsInProcess.length);
+
+        // If we can now move to the next file's parts...
+        return allInProcess && remainingSlots && remainingSlots > 1;
     };
     FileUpload.prototype.processNextPart = function () {
         if (this.status !== EVAPORATING) {
@@ -548,84 +559,36 @@
             return;
         }
 
-        var self = this;
-        function sendPart(part, isError) {
-            return function () {
-                if (!part.awsRequest.errorExceptionStatus()) {
-                    if (isError || self.evaporate.evaporatingCount < self.con.maxConcurrentParts) {
-                        part.awsRequest.send(isError);
-                    }
-                }
-            };
-        }
-        var stopAt = Math.min(this.con.maxConcurrentParts, this.partsToUpload.length);
-        //console.log('Peek', this.partsInProcess.length === this.con.maxConcurrentParts - 1);
-        if(stopAt === this.partsToUpload.length) {
-            // We can now move to the next file's parts...
-            if (this.evaporate.pendingFilesCount > 1) {
-                this.primed.resolve();
-            }
-        }
-        for (var i = 0; i < stopAt; i++) {
-            var part = this.s3Parts[this.partsToUpload[i]];
+        var partsToUpload = this.evaporate.getPartsToUpload(this.partsInProcess.length, this.partsToUpload.length);
+        if (!partsToUpload) { return; }
 
-            var backOffWait, isError;
-            if (part.status === EVAPORATING) {
-                // bytesLoaded.push(part.loadedBytes);
-            } else {
-                if (part.status === ERROR) {
-                    backOffWait = (part.awsRequest.attempts === 1) ? 0 : 1000 * Math.min(
-                        this.con.maxRetryBackoffSecs,
-                        Math.pow(this.con.retryBackoffPower, part.awsRequest.attempts - 2)
-                    );
-                    part.status = EVAPORATING;
-                    isError = true;
-                } else {
-                    backOffWait = i * 250;
-                }
-                part.awsRequest.attempts += 1;
-                //console.log('PAUSE sending', self.name, self.status)
+        var satisfied = 0,
+            remainingSlots = this.evaporate.getRemainingSlots(this.partsInProcess.length);
 
-                setTimeout(sendPart(part, isError), backOffWait);
-            }
-        }
-    };
-    FileUpload.prototype.processPartsToUpload = function () {
-        var bytesLoaded = [],
-            limit = this.con.maxConcurrentParts - this.evaporate.evaporatingCount;
-
-        if (limit === 0) {
-            return;
-        }
-        if (this.status !== EVAPORATING) {
-            this.info('will not process parts list, as not currently evaporating');
-            return;
-        }
         for (var i = 0; i < this.partsToUpload.length; i++) {
             var part = this.s3Parts[this.partsToUpload[i]];
-            if (part.status === EVAPORATING) {
-                bytesLoaded.push(part.loadedBytes);
-            } else {
-                if (this.evaporate.evaporatingCount < this.con.maxConcurrentParts && this.partsInProcess.indexOf(part.part) === -1) {
-                    return part.awsRequest.send();
-                }
-                limit -= 1;
-                if (limit === 0) {
-                    break;
-                }
-            }
-        }
 
-        if (!bytesLoaded.length) {
-            // we're probably offline or in a very bad state
-            l.w('processPartsList() No bytes loaded for any parts. We may be offline.');
-            if (this.evaporate.partsMonitorInterval === PARTS_MONITOR_INTERVALS.online) {
-                this.evaporate.partsMonitorInterval = PARTS_MONITOR_INTERVALS.offline;
+            if (part.status === EVAPORATING) { continue; }
+
+            if (this.partsInProcess.indexOf(part.part) === -1) {
+                if (this.partsInProcess.length) {
+                this.evaporate.evaporatingCnt(+1);
+                }
+                this.partsInProcess.push(part.part);
+            } else { continue; }
+
+            if (!part.awsRequest.errorExceptionStatus()) {
+                part.awsRequest.delaySend();
             }
-        } else if (this.evaporate.partsMonitorInterval === PARTS_MONITOR_INTERVALS.offline) {
-            l.d('processPartsList() Back online.');
-            this.evaporate.partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
+
+            satisfied += 1;
+
+            if (satisfied === partsToUpload) {
+                break;
+            }
+
         }
+        return remainingSlots;
     };
     FileUpload.prototype.removePartFromProcessing = function (partIdx) {
         removeAtIndex(this.partsInProcess, partIdx)
@@ -648,21 +611,22 @@
 
         var self = this;
 
+        function cleanUpAfterPart(s3Part) {
+            self.retirePartFromProcessing(s3Part);
+            if (self.partsToUpload.length) { self.evaporate.evaporatingCnt(-1); }
+        }
+
         function resolve(s3Part) { return function () {
-                self.retirePartFromProcessing(s3Part);
-                if (s3Part.part !== self.partsToUpload[self.partsToUpload.length -1]) {
-                    self.evaporate.evaporatingCnt(-1); // resolve Part (not last)
-                }
+                cleanUpAfterPart(s3Part);
                 if ([PAUSED, PAUSING].indexOf(self.status) === -1) {
-                    return self.processNextPart();
+                    if (self.partsToUpload.length) {
+                      self.evaporate.consumeRemainingSlots();
+                    }
                 }
             };
         }
         function reject(s3Part) { return function () {
-            if (s3Part.part !== self.partsToUpload[self.partsToUpload.length -1]) {
-                self.evaporate.evaporatingCnt(-1); // reject Part (not last)
-            }
-            self.retirePartFromProcessing(s3Part);
+                cleanUpAfterPart(s3Part);
             };
         }
 
@@ -701,7 +665,6 @@
     };
     FileUpload.prototype.startFileProcessing =function () {
         this.monitorProgress();
-        // console.log('calling process next in startfileprocessing')
         this.processNextPart();
     };
     FileUpload.prototype.monitorTotalProgress = function () {
@@ -844,6 +807,13 @@
             this.con.bucket === u.bucket &&
             (this.con.onlyRetryForSameFileName ? this.name === u.awsKey : true);
     };
+    FileUpload.prototype.getPath = function () {
+        var path = '/' + this.con.bucket + '/' + this.name;
+        if (this.con.cloudfront || this.awsUrl.indexOf('cloudfront') > -1) {
+            path = '/' + this.name;
+        }
+        return path;
+    };
 
     FileUpload.prototype.completeUpload = function () {
         var self = this;
@@ -914,9 +884,6 @@
                     self.setStatus(ABORTED);
                     self.cancelled();
                     if (!partError) {
-                        if (self.evaporate.pendingFilesCount > 1) {
-                            self.primed.resolve();
-                        }
                         self.deferredCompletion.reject('User aborted the upload');
                     }
                     self.removeUploadFile();
@@ -953,6 +920,11 @@
                 });
         });
     };
+    FileUpload.prototype.signingClass = function (request, payload) {
+        var SigningClass = signingVersion(this.con, l, this.awsHost);
+        return new SigningClass(request, payload);
+    };
+
     FileUpload.prototype.reuseObject = function (awsKey) {
         var self = this;
         // Attempt to reuse entire uploaded object on S3
@@ -970,7 +942,6 @@
                                 .then(
                                     function (xhr) {
                                         l.d('headObject found matching object on S3.');
-                                        self.primed.resolve();
                                         self.completeUploadFile(xhr);
                                         resolve(xhr);
                                     }, reject);
@@ -998,7 +969,7 @@
         this.con = fileUpload.con;
         this.request = request;
         this.attempts = 1;
-        this.signer = this.evaporate.signingClass(request, this.getPayload());
+        this.signer = fileUpload.signingClass(request, this.getPayload());
         this.awsDeferred = defer();
     }
     SignedS3AWSRequest.prototype.fileUpload = 0;
@@ -1011,7 +982,7 @@
             return;
         }
 
-        l.d(this.request.step, 'error:', this.fileUpload.id);
+        l.d(this.request.step, 'error:', this.fileUpload.id, reason);
 
         if (typeof this.errorHandler(reason) !== 'undefined' ) {
             return;
@@ -1089,7 +1060,7 @@
             self.currentXhr = xhr;
 
             var payload = self.getPayload(),
-                url = self.evaporate.awsUrl + self.request.path,
+                url = self.fileUpload.awsUrl + self.request.path,
                 all_headers = {};
 
             if (self.request.query_string) {
@@ -1296,7 +1267,7 @@
     function InitiateMultipartUpload(fileUpload, awsKey) {
         var request = {
             method: 'POST',
-            path: fileUpload.evaporate.getPath(fileUpload) + '?uploads',
+            path: fileUpload.getPath() + '?uploads',
             step: 'initiate',
             x_amz_headers: fileUpload.xAmzHeadersAtInitiate,
             not_signed_headers: fileUpload.notSignedHeadersAtInitiate,
@@ -1328,7 +1299,7 @@
         var request = {
             method: 'POST',
             contentType: 'application/xml; charset=UTF-8',
-            path: fileUpload.evaporate.getPath(fileUpload) + '?uploadId=' + fileUpload.uploadId,
+            path: fileUpload.getPath() + '?uploadId=' + fileUpload.uploadId,
             x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtComplete,
             step: 'complete'
         };
@@ -1357,7 +1328,7 @@
 
         var request = {
             method: 'HEAD',
-            path: fileUpload.evaporate.getPath(fileUpload),
+            path: fileUpload.getPath(),
             x_amz_headers: fileUpload.xAmzHeadersCommon,
             success404: true,
             step: 'head_object'
@@ -1404,7 +1375,7 @@
         this.awsKey = this.fileUpload.name;
         this.partNumberMarker = partNumberMarker;
 
-        var path = this.fileUpload.evaporate.getPath(this.fileUpload);
+        var path = this.fileUpload.getPath();
         var request = {
             method: 'GET',
             path: path + '?uploadId=' + this.fileUpload.uploadId,
@@ -1478,7 +1449,7 @@
 
         var request = {
             method: 'PUT',
-            path: fileUpload.evaporate.getPath(fileUpload) + '?partNumber=' + this.partNumber + '&uploadId=' + fileUpload.uploadId,
+            path: fileUpload.getPath() + '?partNumber=' + this.partNumber + '&uploadId=' + fileUpload.uploadId,
             step: 'upload #' + this.partNumber,
             x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtUpload,
             contentSha256: "UNSIGNED-PAYLOAD",
@@ -1524,7 +1495,7 @@
                 }
             });
     };
-    PutPart.prototype.send = function (retry) {
+    PutPart.prototype.send = function () {
         if (this.part.status !== COMPLETE &&
             [ABORTED, PAUSED, CANCELED].indexOf(this.fileUpload.status) === -1
         ) {
@@ -1534,14 +1505,6 @@
             this.attempts += 1;
             this.part.loadedBytesPrevious = null;
 
-            if (this.fileUpload.partsInProcess.indexOf(this.partNumber) === -1) {
-                this.fileUpload.partsInProcess.push(this.partNumber);
-            }
-
-            if (!retry && this.partNumber !== this.fileUpload.partsToUpload[0]) {
-                this.evaporate.evaporatingCnt(+1); // start Part (not first)
-            }
-
             var self = this;
             return this.getPartMd5Digest()
                 .then(function () {
@@ -1549,7 +1512,6 @@
                     SignedS3AWSRequest.prototype.send.call(self);
                 });
         }
-
     };
     PutPart.prototype.success = function (xhr) {
         var eTag = xhr.getResponseHeader('ETag'), msg;
@@ -1561,7 +1523,6 @@
 
             this.fileUpload.partsOnS3.push(this.part);
             this.fileUpload.fileTotalBytesUploaded += this.part.loadedBytes;
-            // console.log('Part finished. files left:', this.evaporate.filesProcessingCount, 'evaporating count', this.evaporate.evaporatingCount)
             return true;
         } else {
             this.part.status = ERROR;
@@ -1574,6 +1535,30 @@
     PutPart.prototype.errorExceptionStatus = function () {
         return [CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1;
     };
+    PutPart.prototype.delaySend = function () {
+        var backOffWait;
+
+        if (this.part.status === ERROR) {
+            backOffWait = (this.attempts === 1) ? 0 : 1000 * Math.min(
+                this.con.maxRetryBackoffSecs,
+                Math.pow(this.con.retryBackoffPower, this.attempts - 2)
+            );
+
+            this.attempts += 1;
+        } else {
+            backOffWait = 0;
+        }
+
+        var self = this,
+            resolvePrimed = this.fileUpload.resolveForNext();
+
+        setTimeout(function () {
+            self.send();
+
+            if (resolvePrimed) {
+                self.fileUpload.primed.resolve('part needs satisfied'); }
+        }, backOffWait);
+    };
     PutPart.prototype.errorHandler = function (reason) {
         if (reason.match(/status:404/)) {
             var errMsg = '404 error on part PUT. The part and the file will abort. ' + reason;
@@ -1585,9 +1570,10 @@
         }
         this.part.loadedBytes = 0;
         this.part.status = ERROR;
-        //this.fileUpload.removePartFromProcessing(this.partNumber);
-        //this.evaporate.evaporatingCnt(-1); // part error retry
-        this.fileUpload.processNextPart();
+
+        if (!this.errorExceptionStatus()) {
+            this.delaySend();
+        }
         return true;
     };
     PutPart.prototype.abort = function (reject) {
@@ -1616,7 +1602,7 @@
 
         var request = {
             method: 'DELETE',
-            path: fileUpload.evaporate.getPath(fileUpload) + '?uploadId=' + fileUpload.uploadId,
+            path: fileUpload.getPath() + '?uploadId=' + fileUpload.uploadId,
             x_amz_headers: fileUpload.xAmzHeadersCommon,
             success404: true,
             step: 'abort'

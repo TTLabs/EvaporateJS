@@ -349,20 +349,28 @@ test('should add() new upload with correct config', (t) => {
   return testBase(t)
       .then(function (fileKey) {
         let id = fileKey;
-        expect(id).to.equal(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey)
+        expect(id).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 
-test('should return fileKeys correctly for common cases started, resolve', (t) => {
+test('should return fileKeys correctly for common cases started', (t) => {
   let config = Object.assign({}, baseAddConfig, {
     started: function (fileKey) { start_id = fileKey; }
   })
 
   let start_id
   return testBase(t, config)
-      .then(function (fileKey) {
+      .then(function () {
         let expected = baseConfig.bucket + '/' + config.name
-        expect(start_id + fileKey).to.equal(expected + expected)
+        expect(start_id).to.equal(expected)
+      })
+})
+
+test('should return fileKeys correctly for common cases resolve', (t) => {
+  return testBase(t)
+      .then(function (fileKey) {
+        let expected = t.context.config.name
+        expect(fileKey).to.equal(expected)
       })
 })
 
@@ -488,7 +496,7 @@ test('should call a callbacks on cancel(): evaporateChanged', (t) => {
 test('should call a callbacks on cancel(): evaporateChanged call count', (t) => {
   return testCancelCallbacks(t)
       .then(function () {
-        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(3)
+        expect(t.context.evapConfig.evaporateChanged.callCount).to.equal(2)
       })
 })
 test('should call a callbacks on cancel(): evaporateChanged first call args', (t) => {
@@ -503,3 +511,17 @@ test('should call a callbacks on cancel(): evaporateChanged second call args', (
         expect(t.context.evapConfig.evaporateChanged.secondCall.args[1]).to.eql(0)
       })
 })
+
+// configuration overrides
+test('should add() new upload with correct config with custom bucket on add', (t) => {
+  const customBucket = 'fileCustomBucket'
+  let config = {
+    configOverrides: { bucket: customBucket }
+  }
+
+  return testBase(t, config)
+      .then(function () {
+        expect(testRequests[t.context.testId][1].url).to.match(new RegExp(customBucket))
+      })
+})
+
