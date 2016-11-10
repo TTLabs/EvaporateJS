@@ -45,8 +45,7 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
-  abortCompletionThrottlingMs: 0,
-  progressIntervalMS: 5
+  abortCompletionThrottlingMs: 0
 }
 
 function LocalStorage() {

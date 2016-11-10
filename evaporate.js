@@ -55,7 +55,7 @@
             partSize: 6 * 1024 * 1024,
             retryBackoffPower: 2,
             maxRetryBackoffSecs: 300,
-            progressIntervalMS: 500,
+            progressMod: 5,
             cloudfront: false,
             s3Acceleration: false,
             encodeFilename: true,
@@ -467,7 +467,6 @@
     FileUpload.prototype.s3Parts = [];
     FileUpload.prototype.partsOnS3 = [];
     FileUpload.prototype.deferredCompletion = undefined;
-    FileUpload.prototype.progressTotalInterval = -1;
     FileUpload.prototype.progressPartsInterval = -1;
     FileUpload.prototype.primed = undefined;
     FileUpload.prototype.start = function () {
@@ -603,7 +602,6 @@
             var part = self.s3Parts[i];
             if (part) { part.awsRequest.abort(reject); }
         });
-        this.monitorTotalProgress();
     };
     FileUpload.prototype.makeParts = function (firstPart) {
         this.numParts = Math.ceil(this.file.size / this.con.partSize) || 1; // issue #58
@@ -667,19 +665,6 @@
         this.monitorProgress();
         this.processNextPart();
     };
-    FileUpload.prototype.monitorTotalProgress = function () {
-        var self = this;
-        clearInterval(this.progressTotalInterval);
-        this.progressTotalInterval = setInterval(function () {
-
-            var totalBytesLoaded = self.fileTotalBytesUploaded;
-            self.partsInProcess.forEach(function (i) {
-                totalBytesLoaded += self.s3Parts[i].loadedBytes;
-            });
-
-            self.progress(totalBytesLoaded / self.sizeBytes);
-        }, this.con.progressIntervalMS);
-    };
     FileUpload.prototype.monitorPartsProgress = function () {
         /*
          Issue #6 identified that some parts would stall silently.
@@ -726,7 +711,6 @@
         }, this.evaporate.partsMonitorInterval);
     };
     FileUpload.prototype.monitorProgress =function () {
-        this.monitorTotalProgress();
         this.monitorPartsProgress();
     };
     FileUpload.prototype.setStatus = function (s) {
@@ -736,7 +720,6 @@
         this.status = s;
     };
     FileUpload.prototype.stopMonitorProgress = function () {
-        clearInterval(this.progressTotalInterval);
         clearInterval(this.progressPartsInterval);
     };
     FileUpload.prototype.createUploadFile = function () {
@@ -1118,9 +1101,7 @@
             };
 
             if (typeof self.request.onProgress === 'function') {
-                xhr.upload.onprogress = function (evt) {
-                    self.request.onProgress(evt);
-                };
+                xhr.upload.onprogress = self.request.onProgress;
             }
 
             xhr.send(payload);
@@ -1439,16 +1420,14 @@
         this.end = this.partNumber * fileUpload.con.partSize;
 
         var self = this;
-
+        this.progressTracker = 0;
         var request = {
             method: 'PUT',
             path: fileUpload.getPath() + '?partNumber=' + this.partNumber + '&uploadId=' + fileUpload.uploadId,
             step: 'upload #' + this.partNumber,
             x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtUpload,
             contentSha256: "UNSIGNED-PAYLOAD",
-            onProgress: function (evt) {
-                self.part.loadedBytes = evt.loaded;
-            }
+            onProgress: this.onProgress.bind(this)
         };
 
         SignedS3AWSRequest.call(this, fileUpload, request);
@@ -1513,17 +1492,29 @@
         if (this.part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
             this.part.eTag = eTag;
             this.part.status = COMPLETE;
-
             this.fileUpload.partsOnS3.push(this.part);
-            this.fileUpload.fileTotalBytesUploaded += this.part.loadedBytes;
             return true;
         } else {
             this.part.status = ERROR;
-            this.part.loadedBytes = 0;
+            this.resetLoadedBytes(0);
             msg = ['eTag matches MD5 of 0 length blob for part #', this.partNumber, 'Retrying part.'].join(" ");
             l.w(msg);
             this.fileUpload.warn(msg);
         }
+    };
+    PutPart.prototype.onProgress = function (evt) {
+        var loadedNow = evt.loaded - this.part.loadedBytes;
+        this.part.loadedBytes = evt.loaded;
+        this.fileUpload.fileTotalBytesUploaded += loadedNow;
+        if (this.progressTracker%this.con.progressMod === 0) {
+            this.fileUpload.progress(this.fileUpload.fileTotalBytesUploaded / this.fileUpload.sizeBytes)
+        }
+        this.progressTracker++;
+    };
+    PutPart.prototype.resetLoadedBytes = function (v) {
+        this.fileUpload.fileTotalBytesUploaded -= this.part.loadedBytes;
+        this.part.loadedBytes = v;
+        this.fileUpload.progress(this.fileUpload.fileTotalBytesUploaded / this.fileUpload.sizeBytes)
     };
     PutPart.prototype.errorExceptionStatus = function () {
         return [CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1;
@@ -1561,7 +1552,7 @@
             this.awsDeferred.reject(errMsg);
             return true;
         }
-        this.part.loadedBytes = 0;
+        this.resetLoadedBytes(0);
         this.part.status = ERROR;
 
         if (!this.errorExceptionStatus()) {
@@ -1572,7 +1563,7 @@
     PutPart.prototype.abort = function (reject) {
         if (this.currentXhr) {
             this.currentXhr.abort();
-            this.part.loadedBytes = 0;
+            this.resetLoadedBytes(0);
         }
         if (reject) {
             this.awsDeferred.reject('Upload is aborted.')

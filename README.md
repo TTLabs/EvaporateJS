@@ -287,7 +287,8 @@ Available onfiguration options:
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
-* **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
+* **progressMod**: default=5, the ratio of progress events to filter before reporting progress. The default is `5`
+    which means 1 call to `progress` will be made for each progress event when parts are uploading.
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
     Standard, you will need to change this to the correct endpoint from the 
     [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
@@ -443,7 +444,9 @@ to pause.
 
 * **error**: _function(msg)_. a function that will be called on an irrecoverable error.
 
-* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
+* **progress**: _function(p)_. a function that will be called at a frequency determined by _progressMod_ as the file
+    uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will
+    increase or decrease depending on the status of uploading parts.
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 
