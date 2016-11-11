@@ -416,13 +416,9 @@
     Evaporate.prototype.getPartsToUpload = function (partsInProcess, partsToUpload) {
         return Math.min(this.getRemainingSlots(partsInProcess), partsToUpload);
     };
-
     Evaporate.prototype.evaporatingCnt = function (incr) {
         this.evaporatingCount = Math.max(0, this.evaporatingCount + incr);
         this.config.evaporateChanged(this, this.evaporatingCount);
-        if (this.evaporatingCount > 6) {
-            console.error('EXCEEDED', this.evaporatingCount)
-        }
     };
 
 
