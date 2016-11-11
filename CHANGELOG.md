@@ -1,3 +1,8 @@
+# v1.6.1#
+
+## Bug Fixes ##
+- Correctly calculates the local time offset
+
 # v1.6.0#
 
 ## Bug Fixes ##
