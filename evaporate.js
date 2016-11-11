@@ -344,12 +344,10 @@
         if (!avail) { return; }
         for (var i = 0; i < this.filesInProcess.length; i++) {
             var file = this.filesInProcess[i];
-            if (file.partsToUpload.length === 0) { continue; }
-            if (file.partsToUpload.length !== file.partsInProcess.length &&
-                [PAUSED, PAUSING, ABORTED, CANCELED, COMPLETE].indexOf(file.status) === -1) {
-                avail -= file.processNextPart();
-                if (!avail) { return; }
-            }
+            var consumed = file.consumeSlots();
+            if (consumed < 0) { continue; }
+            avail -= consumed;
+            if (!avail) { return; }
         }
         if (avail) {
           // we still have some parts, let's start the next unfinished file
@@ -814,6 +812,14 @@
         completeDoc.push('</CompleteMultipartUpload>');
 
         return completeDoc.join("");
+    };
+    FileUpload.prototype.consumeSlots = function () {
+        if (this.partsToUpload.length === 0) { return -1 }
+        if (this.partsToUpload.length !== this.partsInProcess.length &&
+            [PAUSED, PAUSING, ABORTED, CANCELED, COMPLETE].indexOf(this.status) === -1) {
+            return this.processNextPart();
+        }
+        return 0;
     };
 
     FileUpload.prototype.uploadFile = function (awsKey) {
