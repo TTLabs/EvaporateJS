@@ -6,7 +6,9 @@ Evaporate
 
 ## ATTENTION
 There is a release candidate of Evaporate that is rebuild of the original code. The primary changes are its
-suport for ES6 Promises and parallel file uploading. To preview the release candidate:
+suport for ES6 Promises and parallel file uploading. The branch code is here tagged as [r2.0.0-rc.1](https://github.com/TTLabs/EvaporateJS/tree/r2.0.0-rc.1).
+
+To install the release candidate:
 
 ```bash
 $ npm install evaporate@r2.0.0-rc.1
