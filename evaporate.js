@@ -462,7 +462,6 @@
     FileUpload.prototype.s3Parts = [];
     FileUpload.prototype.partsOnS3 = [];
     FileUpload.prototype.deferredCompletion = undefined;
-    FileUpload.prototype.progressPartsInterval = -1;
     FileUpload.prototype.primed = undefined;
     FileUpload.prototype.start = function () {
         this.evaporate.evaporatingCnt(+1); // fileUpload#start
@@ -657,13 +656,7 @@
         return part;
     };
     FileUpload.prototype.setStatus = function (s) {
-        if ([COMPLETE, ERROR, CANCELED, ABORTED, PAUSED].indexOf(s) > -1) {
-            this.stopMonitorProgress();
-        }
         this.status = s;
-    };
-    FileUpload.prototype.stopMonitorProgress = function () {
-        clearInterval(this.progressPartsInterval);
     };
     FileUpload.prototype.createUploadFile = function () {
         var fileKey = uploadKey(this),
@@ -1277,7 +1270,6 @@
     //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
     function CompleteMultipartUpload(fileUpload) {
         fileUpload.info('will attempt to complete upload');
-        fileUpload.stopMonitorProgress();
         var request = {
             method: 'POST',
             contentType: 'application/xml; charset=UTF-8',
