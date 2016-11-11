@@ -41,10 +41,6 @@
             'awsSignatureVersion',
             'evaporateChanged'
         ],
-        PARTS_MONITOR_INTERVALS = {
-            online: 2 * 60 * 1000, // 2 minutes
-            offline: 20 * 1000 // 20 seconds
-        },
         l;
 
     var Evaporate = function (config) {
@@ -175,7 +171,6 @@
     Evaporate.prototype.lastFileSatisfied = Promise.resolve('onStart');
     Evaporate.prototype.pendingFiles = {};
     Evaporate.prototype.filesInProcess = [];
-    Evaporate.prototype.partsMonitorInterval = PARTS_MONITOR_INTERVALS.online;
     Evaporate.prototype.fileCleanup = function (fileUpload) {
         if (this.evaporatingCount > 0) {
             this.evaporatingCnt(-1);
@@ -495,7 +490,7 @@
             if (self.partsOnS3.length) {
                 // Resume after Pause
                 self.status = EVAPORATING;
-                return self.startFileProcessing();
+                return self.processNextPart();
             }
             return self.restartFromUploadedParts()
                 .then(resolve, reject);
@@ -661,58 +656,6 @@
 
         return part;
     };
-    FileUpload.prototype.startFileProcessing =function () {
-        this.monitorProgress();
-        this.processNextPart();
-    };
-    FileUpload.prototype.monitorPartsProgress = function () {
-        /*
-         Issue #6 identified that some parts would stall silently.
-         The issue was only noted on Safari on OSX. A bug was filed with Apple, #16136393
-         This function was added as a work-around. It checks the progress of each part every 2 minutes.
-         If it finds a part that has made no progress in the last 2 minutes then it aborts it. It will then be detected as an error, and restarted in the same manner of any other errored part
-         */
-        clearInterval(this.progressPartsInterval);
-        var self = this;
-        this.progressPartsInterval = setInterval(function () {
-
-            l.d('monitorPartsProgress()');
-            self.partsInProcess.forEach(function (partIdx) {
-
-                var part = self.s3Parts[partIdx],
-                    healthy;
-
-                if (part.loadedBytesPrevious === null) {
-                    part.loadedBytesPrevious = part.loadedBytes;
-                    return;
-                }
-
-                healthy = part.loadedBytesPrevious < part.loadedBytes;
-                if (self.con.simulateStalling && partIdx === 4) {
-                    if (Math.random() < 0.25) {
-                        healthy = false;
-                    }
-                }
-
-                l.d(partIdx, (healthy ? 'moving.' : 'stalled.'), part.loadedBytesPrevious, part.loadedBytes);
-
-                if (!healthy) {
-                    setTimeout(function () {
-                        self.info('part #' + partIdx, ' stalled. will abort.', part.loadedBytesPrevious, part.loadedBytes);
-                        self.s3Parts[partIdx].awsRequest.abort();
-                        part.status = PENDING;
-                        self.removePartFromProcessing(partIdx);
-                        self.processNextPart();
-                    }, 0);
-                }
-
-                part.loadedBytesPrevious = part.loadedBytes;
-            });
-        }, this.evaporate.partsMonitorInterval);
-    };
-    FileUpload.prototype.monitorProgress =function () {
-        this.monitorPartsProgress();
-    };
     FileUpload.prototype.setStatus = function (s) {
         if ([COMPLETE, ERROR, CANCELED, ABORTED, PAUSED].indexOf(s) > -1) {
             this.stopMonitorProgress();
@@ -845,7 +788,7 @@
     FileUpload.prototype.uploadParts = function () {
         var promises = this.makeParts();
         this.setStatus(EVAPORATING);
-        this.startFileProcessing();
+        this.processNextPart();
         return Promise.all(promises);
     };
     FileUpload.prototype.abortUpload = function (partError) {
@@ -1419,7 +1362,6 @@
         this.start = (this.partNumber - 1) * fileUpload.con.partSize;
         this.end = this.partNumber * fileUpload.con.partSize;
 
-        var self = this;
         this.progressTracker = 0;
         var request = {
             method: 'PUT',
