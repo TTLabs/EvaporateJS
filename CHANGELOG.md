@@ -1,3 +1,8 @@
+# v1.6.0#
+
+## Bug Fixes ##
+- Issue #264, properly encodes S3 object names containing single quotes (')
+
 # v1.5.9#
 
 ## Enhancements ##
