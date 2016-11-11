@@ -438,6 +438,7 @@
         this.numParts = -1;
         this.con = con;
         this.evaporate = evaporate;
+        this.localTimeOffset = evaporate.localTimeOffset;
         this.deferredCompletion = defer();
         this.primed = defer();
 
@@ -451,6 +452,7 @@
     }
     FileUpload.prototype.con = undefined;
     FileUpload.prototype.evaporate = undefined;
+    FileUpload.prototype.localTimeOffset = 0;
     FileUpload.prototype.awsUrl = undefined;
     FileUpload.prototype.awsHost = undefined;
     FileUpload.prototype.id = undefined;
@@ -890,17 +892,21 @@
 
     function SignedS3AWSRequest(fileUpload, request) {
         this.fileUpload = fileUpload;
-        this.evaporate = fileUpload.evaporate;
         this.con = fileUpload.con;
-        this.request = request;
         this.attempts = 1;
-        this.signer = fileUpload.signingClass(request, this.getPayload());
+        this.localTimeOffset = this.fileUpload.localTimeOffset;
         this.awsDeferred = defer();
+
+        this.updateRequest(request);
     }
-    SignedS3AWSRequest.prototype.fileUpload = 0;
+    SignedS3AWSRequest.prototype.fileUpload = undefined;
     SignedS3AWSRequest.prototype.con = undefined;
-    SignedS3AWSRequest.prototype.evaporate = undefined;
+    SignedS3AWSRequest.prototype.localTimeOffset = 0;
     SignedS3AWSRequest.prototype.awsDeferred = undefined;
+    SignedS3AWSRequest.prototype.updateRequest = function (request) {
+        this.request = request;
+        this.signer = this.fileUpload.signingClass(request, this.getPayload());
+    }
     SignedS3AWSRequest.prototype.success = function () { return true; };
     SignedS3AWSRequest.prototype.error =  function (reason) {
         if (this.errorExceptionStatus()) {
@@ -1261,8 +1267,8 @@
 
     //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
     function GetMultipartUploadParts(fileUpload) {
-        this.fileUpload = fileUpload;
-        SignedS3AWSRequestWithRetryLimit.call(this, fileUpload, this.setupRequest(0));
+        SignedS3AWSRequestWithRetryLimit.call(this, fileUpload);
+        this.updateRequest(this.setupRequest(0));
     }
     GetMultipartUploadParts.prototype = Object.create(SignedS3AWSRequestWithRetryLimit.prototype);
     GetMultipartUploadParts.prototype.constructor = GetMultipartUploadParts;
@@ -1280,16 +1286,12 @@
         var path = this.fileUpload.getPath();
         var request = {
             method: 'GET',
-            path: path + '?uploadId=' + this.fileUpload.uploadId,
+            path: this.signer.getListPartsPath(path, this.fileUpload.uploadId,partNumberMarker),
             query_string: "&part-number-marker=" + partNumberMarker,
             x_amz_headers: this.fileUpload.xAmzHeadersCommon,
             step: 'get upload parts',
             success404: true
         };
-
-        if (this.fileUpload.con.awsSignatureVersion === '4') {
-            request.path = [path, '?uploadId=', this.fileUpload.uploadId, "&part-number-marker=" + partNumberMarker].join("");
-        }
 
         this.request = request;
         return request;
@@ -1552,7 +1554,10 @@
         };
         AwsSignature.prototype.dateString = function (timeOffset) {
             return this.datetime(timeOffset).toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
-        }
+        };
+        AwsSignature.prototype.getListPartsPath = function (path, uploadId, partNumberMarker) {
+            return [path, '?uploadId=', uploadId, "&part-number-marker=", partNumberMarker].join("");
+        };
 
         function AwsSignatureV2(request) {
             AwsSignature.call(this, request);
@@ -1591,6 +1596,9 @@
         };
         AwsSignatureV2.prototype.dateString = function (timeOffset) {
             return this.datetime(timeOffset).toUTCString();
+        };
+        AwsSignatureV2.prototype.getListPartsPath = function (path, uploadId) {
+            return [path, '?uploadId=', uploadId].join("");
         };
 
         function AwsSignatureV4(request, payload) {
