@@ -755,6 +755,19 @@
                     self.completeUploadFile(xhr);
                 });
     };
+    FileUpload.prototype.getCompletedPayload = function () {
+        var completeDoc = [];
+        completeDoc.push('<CompleteMultipartUpload>');
+        this.s3Parts.forEach(function (part, partNumber) {
+            if (partNumber > 0) {
+                ['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>']
+                    .map(function (a) { completeDoc.push(a); });
+            }
+        });
+        completeDoc.push('</CompleteMultipartUpload>');
+
+        return completeDoc.join("");
+    };
 
     FileUpload.prototype.uploadFile = function (awsKey) {
         var self = this;
@@ -1224,16 +1237,7 @@
     CompleteMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
     CompleteMultipartUpload.prototype.constructor = CompleteMultipartUpload;
     CompleteMultipartUpload.prototype.getPayload = function () {
-        var completeDoc = [];
-        completeDoc.push('<CompleteMultipartUpload>');
-        this.fileUpload.s3Parts.forEach(function (part, partNumber) {
-            if (partNumber > 0) {
-                completeDoc.push(['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>'].join(""));
-            }
-        });
-        completeDoc.push('</CompleteMultipartUpload>');
-
-        return completeDoc.join("");
+        return this.fileUpload.getCompletedPayload();
     };
 
     //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html

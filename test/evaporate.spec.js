@@ -352,6 +352,12 @@ test('should add() new upload with correct config', (t) => {
         expect(id).to.equal(t.context.requestedAwsObjectKey)
       })
 })
+test('should add() new upload with correct completed XML', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(testRequests[t.context.testId][5].requestBody).to.equal('<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag></ETag></Part></CompleteMultipartUpload>')
+      })
+})
 
 test('should return fileKeys correctly for common cases started', (t) => {
   let config = Object.assign({}, baseAddConfig, {
