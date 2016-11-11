@@ -176,21 +176,20 @@
             this.evaporatingCnt(-1);
         }
         removeAtIndex(this.filesInProcess, fileUpload);
-        fileUpload.primed.resolve('file processing ended');
-        // this.processFileQueue(fileUpload);
+        fileUpload.done();
     };
     Evaporate.prototype.startUpload = function (fileUpload) {
-        fileUpload.primeCalled= false;
+        fileUpload.partNeedsCalled = false;
         var self = this;
         this.lastFileSatisfied
             .then(function () {
-                fileUpload.primedCalled = true;
+                fileUpload.partNeedsCalled = true;
                 if (fileUpload.status === PENDING && self.evaporatingCount < self.config.maxConcurrentParts) {
                     self.filesInProcess.push(fileUpload);
                     fileUpload.start();
                 }
             });
-        this.lastFileSatisfied = fileUpload.primed.promise;
+        this.lastFileSatisfied = fileUpload.getPartNeedsPromise();
     };
     Evaporate.prototype.add = function (file,  pConfig) {
         var self = this,
@@ -355,7 +354,7 @@
             if (this.pendingFiles.hasOwnProperty(key)) {
               var f = this.pendingFiles[key];
               if (f.status === PENDING)  {
-                if (f.primedCalled) {
+                if (f.partNeedsCalled) {
                   // tried to start earlier but didn't, so let's restart it
                   this.startUpload(f);
                 }
@@ -438,7 +437,7 @@
         this.evaporate = evaporate;
         this.localTimeOffset = evaporate.localTimeOffset;
         this.deferredCompletion = defer();
-        this.primed = defer();
+        this.partNeeds = defer();
 
         extend(this, file);
 
@@ -462,7 +461,8 @@
     FileUpload.prototype.s3Parts = [];
     FileUpload.prototype.partsOnS3 = [];
     FileUpload.prototype.deferredCompletion = undefined;
-    FileUpload.prototype.primed = undefined;
+    FileUpload.prototype.partNeeds = undefined;
+    FileUpload.prototype.partNeedsCalled = false;
     FileUpload.prototype.start = function () {
         this.evaporate.evaporatingCnt(+1); // fileUpload#start
         var self = this;
@@ -527,7 +527,7 @@
             .then(function () {
                 self.status = PAUSED;
                 self.evaporate.evaporatingCnt(-1); // fileUpload Paused
-                self.primed.resolve('add parts paused');
+                self.partNeeds.resolve('add parts paused');
                 self.paused();
             });
     };
@@ -813,6 +813,17 @@
             return this.processNextPart();
         }
         return 0;
+    };
+    FileUpload.prototype.resolvePartNeeds = function (reason) {
+        this.partNeeds.resolve(reason);
+    }
+    FileUpload.prototype.getPartNeedsPromise = function () {
+        return this.partNeeds.promise;
+    }
+    FileUpload.prototype.done = function () {
+        this.partNeeds.resolve('file processing ended');
+        this.partsOnS3 = [];
+        this.s3Parts = [];
     };
 
     FileUpload.prototype.uploadFile = function (awsKey) {
@@ -1474,13 +1485,13 @@
         }
 
         var self = this,
-            resolvePrimed = this.fileUpload.resolveForNext();
+            resolvePartNeeds = this.fileUpload.resolveForNext();
 
         setTimeout(function () {
             self.send();
 
-            if (resolvePrimed) {
-                self.fileUpload.primed.resolve('part needs satisfied'); }
+            if (resolvePartNeeds) {
+                self.fileUpload.resolvePartNeeds('part needs satisfied'); }
         }, backOffWait);
     };
     PutPart.prototype.errorHandler = function (reason) {
