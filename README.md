@@ -29,6 +29,12 @@ Evaporate uses to calculate MD5 checksums through the `readAsArrayBuffer`
 method. Refer to this [list of browsers that support the File API](http://caniuse.com/#feat=fileapi).
 Evaporate does not invoke the `File` constructor.
 
+As of v2.0.0, Evaporate requires a browser that supports
+[ES6 Promises](http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-constructor). To use Evaporate on
+those browsers, you must include a compliant Promise polyfill such as
+[es6-promise](https://github.com/stefanpenner/es6-promise). Refer to this [list of browsers that support
+Promises](http://caniuse.com/#feat=promises).
+
 ## Authors
 
   - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))

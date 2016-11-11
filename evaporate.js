@@ -367,6 +367,7 @@
         this.supported = !(
             typeof File === 'undefined' ||
             typeof Blob === 'undefined' ||
+            typeof Promise === 'undefined' ||
             typeof (
             Blob.prototype.webkitSlice ||
             Blob.prototype.mozSlice ||
