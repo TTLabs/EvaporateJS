@@ -846,11 +846,6 @@
                 });
         });
     };
-    FileUpload.prototype.signingClass = function (request, payload) {
-        var SigningClass = signingVersion(this.con, l, this.awsHost);
-        return new SigningClass(request, payload);
-    };
-
     FileUpload.prototype.reuseObject = function (awsKey) {
         var self = this;
         // Attempt to reuse entire uploaded object on S3
@@ -886,6 +881,10 @@
                         .then(resolveReuse, rejectReuse);
                 });
         });
+    };
+    FileUpload.prototype.signingClass = function (request, payload) {
+        var SigningClass = signingVersion(this.con, l, this.awsHost);
+        return new SigningClass(request, payload);
     };
 
 
@@ -1004,9 +1003,7 @@
                 }
             }
 
-            if (self.con.awsSignatureVersion === '4') {
-                xhr.setRequestHeader("x-amz-content-sha256", self.signer.getPayloadSha256Content());
-            }
+            self.signer.setHeaders(xhr);
 
             if (self.request.contentType) {
                 xhr.setRequestHeader('Content-Type', self.request.contentType);
@@ -1548,10 +1545,14 @@
         AwsSignature.prototype.request = {};
         AwsSignature.prototype.authorizationString = function () {};
         AwsSignature.prototype.stringToSign = function () {};
+        AwsSignature.prototype.setHeaders = function () {};
         AwsSignature.prototype.datetime = function (timeOffset) {
             return new Date(new Date().getTime() + timeOffset);
 
         };
+        AwsSignature.prototype.dateString = function (timeOffset) {
+            return this.datetime(timeOffset).toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
+        }
 
         function AwsSignatureV2(request) {
             AwsSignature.call(this, request);
@@ -1742,9 +1743,9 @@
             l.d(this.request.step, 'V4 CanonicalRequest:', result);
             return result;
         };
-        AwsSignatureV4.prototype.dateString = function (timeOffset) {
-            return this.datetime(timeOffset).toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
-        }
+        AwsSignatureV4.prototype.setHeaders = function (xhr) {
+            xhr.setRequestHeader("x-amz-content-sha256", this.getPayloadSha256Content());
+        };
 
         return con.awsSignatureVersion === '4' ? AwsSignatureV4 : AwsSignatureV2;
     }
