@@ -198,7 +198,7 @@
         return new Promise(function (resolve, reject) {
             var c = extend(pConfig, {});
 
-            IMMUTABLE_OPTIONS.map(function (a) { delete c[a]; });
+            IMMUTABLE_OPTIONS.forEach(function (a) { delete c[a]; });
 
             fileConfig = extend(self.config, c);
 
@@ -742,7 +742,54 @@
         }
         return path;
     };
+    FileUpload.prototype.partSuccess = function (eTag, putRequest) {
+        var part = putRequest.part;
+        l.d(putRequest.request.step, 'ETag:', eTag);
+        if (part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
+            part.eTag = eTag;
+            part.status = COMPLETE;
+            this.partsOnS3.push(part);
+            return true;
+        } else {
+            part.status = ERROR;
+            putRequest.resetLoadedBytes(0); // TODO: this sticks out
+            var msg = ['eTag matches MD5 of 0 length blob for part #', putRequest.partNumber, 'Retrying part.'].join(" ");
+            l.w(msg);
+            this.warn(msg);
+        }
+    };
+    FileUpload.prototype.uploadPartsSuccess = function (listPartsRequest, partsXml) {
+        this.info('uploadId', this.uploadId, 'is not complete. Fetching parts from part marker', listPartsRequest.partNumberMarker);
+        var oDOM = parseXml(partsXml),
+            listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
+            uploadedParts = oDOM.getElementsByTagName("Part"),
+            parts_len = uploadedParts.length,
+            cp, partSize;
 
+        for (var i = 0; i < parts_len; i++) {
+            cp = uploadedParts[i];
+            partSize = parseInt(nodeValue(cp, "Size"), 10);
+            this.fileTotalBytesUploaded += partSize;
+            this.partsOnS3.push({
+                eTag: nodeValue(cp, "ETag"),
+                partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
+                size: partSize,
+                LastModified: nodeValue(cp, "LastModified")
+            });
+        }
+
+        return listPartsResult;
+    };
+    FileUpload.prototype.makePartsfromPartsOnS3 = function () {
+        var self = this;
+        this.partsOnS3.forEach(function (cp) {
+            var uploadedPart = self.makePart(cp.partNumber, COMPLETE, cp.size);
+            uploadedPart.eTag = cp.eTag;
+            uploadedPart.loadedBytes = cp.size;
+            uploadedPart.loadedBytesPrevious = cp.size;
+            uploadedPart.finishedUploadingAt = cp.LastModified;
+        });
+    };
     FileUpload.prototype.completeUpload = function () {
         var self = this;
         return new CompleteMultipartUpload(this)
@@ -761,7 +808,7 @@
         this.s3Parts.forEach(function (part, partNumber) {
             if (partNumber > 0) {
                 ['<Part><PartNumber>', partNumber, '</PartNumber><ETag>', part.eTag, '</ETag></Part>']
-                    .map(function (a) { completeDoc.push(a); });
+                    .forEach(function (a) { completeDoc.push(a); });
             }
         });
         completeDoc.push('</CompleteMultipartUpload>');
@@ -1308,39 +1355,14 @@
             return false;
         }
 
-        this.fileUpload.info('uploadId', this.fileUpload.uploadId, 'is not complete. Fetching parts from part marker', this.partNumberMarker);
-        var oDOM = parseXml(xhr.responseText),
-            listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
-            isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true',
-            uploadedParts = oDOM.getElementsByTagName("Part"),
-            parts_len = uploadedParts.length,
-            cp, partSize;
-
-        for (var i = 0; i < parts_len; i++) {
-            cp = uploadedParts[i];
-            partSize = parseInt(nodeValue(cp, "Size"), 10);
-            this.fileUpload.fileTotalBytesUploaded += partSize;
-            this.fileUpload.partsOnS3.push({
-                eTag: nodeValue(cp, "ETag"),
-                partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
-                size: partSize,
-                LastModified: nodeValue(cp, "LastModified")
-            });
-        }
+        var listPartsResult = this.fileUpload.uploadPartsSuccess(this, xhr.responseText);
+        var isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true';
 
         if (isTruncated) {
             this.setupRequest(nodeValue(listPartsResult, "NextPartNumberMarker")); // let's fetch the next set of parts
             this.trySend();
-            listPartsResult = null;  // We don't need these potentially large object any longer
         } else {
-            var self = this;
-            this.fileUpload.partsOnS3.forEach(function (cp) {
-                var uploadedPart = self.fileUpload.makePart(cp.partNumber, COMPLETE, cp.size);
-                uploadedPart.eTag = cp.eTag;
-                uploadedPart.loadedBytes = cp.size;
-                uploadedPart.loadedBytesPrevious = cp.size;
-                uploadedPart.finishedUploadingAt = cp.LastModified;
-            });
+            this.fileUpload.makePartsfromPartsOnS3();
             return true;
         }
     };
@@ -1419,21 +1441,8 @@
         }
     };
     PutPart.prototype.success = function (xhr) {
-        var eTag = xhr.getResponseHeader('ETag'), msg;
-
-        l.d(this.request.step, 'ETag:', eTag);
-        if (this.part.isEmpty || (eTag !== ETAG_OF_0_LENGTH_BLOB)) { // issue #58
-            this.part.eTag = eTag;
-            this.part.status = COMPLETE;
-            this.fileUpload.partsOnS3.push(this.part);
-            return true;
-        } else {
-            this.part.status = ERROR;
-            this.resetLoadedBytes(0);
-            msg = ['eTag matches MD5 of 0 length blob for part #', this.partNumber, 'Retrying part.'].join(" ");
-            l.w(msg);
-            this.fileUpload.warn(msg);
-        }
+        var eTag = xhr.getResponseHeader('ETag');
+        return this.fileUpload.partSuccess(eTag, this);
     };
     PutPart.prototype.onProgress = function (evt) {
         var loadedNow = evt.loaded - this.part.loadedBytes;
