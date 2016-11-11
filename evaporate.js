@@ -1116,13 +1116,7 @@
         });
     };
     SignedS3AWSRequest.prototype.sendAuthorizedRequest = function () {
-        var datetime = this.con.timeUrl ? new Date(new Date().getTime() + this.evaporate.localTimeOffset) : new Date();
-        if (this.con.awsSignatureVersion === '4') {
-            this.request.dateString = datetime.toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
-        } else {
-            this.request.dateString = datetime.toUTCString();
-        }
-
+        this.request.dateString = this.signer.dateString(this.localTimeOffset);
         this.request.x_amz_headers = extend(this.request.x_amz_headers, {
             'x-amz-date': this.request.dateString
         });
@@ -1554,6 +1548,10 @@
         AwsSignature.prototype.request = {};
         AwsSignature.prototype.authorizationString = function () {};
         AwsSignature.prototype.stringToSign = function () {};
+        AwsSignature.prototype.datetime = function (timeOffset) {
+            return new Date(new Date().getTime() + timeOffset);
+
+        };
 
         function AwsSignatureV2(request) {
             AwsSignature.call(this, request);
@@ -1589,6 +1587,9 @@
             l.d('V2 stringToSign:', result);
             return result;
 
+        };
+        AwsSignatureV2.prototype.dateString = function (timeOffset) {
+            return this.datetime(timeOffset).toUTCString();
         };
 
         function AwsSignatureV4(request, payload) {
@@ -1741,6 +1742,9 @@
             l.d(this.request.step, 'V4 CanonicalRequest:', result);
             return result;
         };
+        AwsSignatureV4.prototype.dateString = function (timeOffset) {
+            return this.datetime(timeOffset).toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
+        }
 
         return con.awsSignatureVersion === '4' ? AwsSignatureV4 : AwsSignatureV2;
     }
