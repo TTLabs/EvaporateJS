@@ -51,6 +51,30 @@ test('should upload a file and return the correct file upload ID', (t) => {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
+test('should upload a file and callback complete once', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(t.context.config.complete.calledOnce).to.be.true
+      })
+})
+test('should upload a file and callback complete with first param instance of xhr', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(t.context.config.complete.firstCall.args[0]).to.be.instanceOf(sinon.FakeXMLHttpRequest)
+      })
+})
+test('should upload a file and callback complete with second param the awsKey', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(t.context.config.complete.firstCall.args[1]).to.equal(t.context.requestedAwsObjectKey)
+      })
+})
+test('should upload a file and not callback with a changed object name', (t) => {
+  return testBase(t, {nameChanged: sinon.spy()})
+      .then(function () {
+        expect(t.context.config.nameChanged.callCount).to.equal(0)
+      })
+})
 
 // md5Digest tests
 test('V2 should call cryptoMd5 when uploading a file with defaults', (t) => {
@@ -302,7 +326,7 @@ test('should call the correctly ordered requests if PUT part 404s', (t) => {
         t.fail('Expected upload to fail but it did not.')
       })
       .catch(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,cancel')
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,cancel')
       })
 })
 test('should fail with a message when PUT part 404s and DELETE fails', (t) => {
@@ -332,6 +356,6 @@ test('should fail with the correctly ordered requests when PUT part 404s and DEL
         t.fail('Expected upload to fail but it did not.')
       })
       .catch(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,cancel,cancel')
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,cancel,cancel')
       })
 })

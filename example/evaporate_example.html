@@ -44,7 +44,7 @@
 
    $("#awsKey").text(AWS_KEY);
    $("#s3Bucket").text(AWS_BUCKET);
-   $("#SIGNERURL").text(SIGNER_URL);
+   $("#signerUrl").text(SIGNER_URL);
 
    Evaporate.create({
       signerUrl: SIGNER_URL,
@@ -54,6 +54,8 @@
       computeContentMd5: true,
       cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
       logging: true,
+      s3FileCacheHoursAgo: 1,
+      allowS3ExistenceOptimization: true,
       evaporateChanged: function (file, evaporatingCount) {
          $('#totalParts').text(evaporatingCount);
          if (evaporatingCount > 0) {
@@ -68,10 +70,14 @@
            files = evt.target.files;
 
            for (var i = 0; i < files.length; i++) {
-              callback_methods = callbacks(files[i], i);
+              var name = files[i].name + Math.random() * 100;
+
+               var fileKey = AWS_BUCKET + '/' + name;
+
+               callback_methods = callbacks(files[i], fileKey, i);
 
               var promise = _e_.add({
-                         name: files[i].name,
+                         name: name,
                          file: files[i],
                          started: callback_methods.started,
                          complete: callback_methods.complete,
@@ -81,16 +87,22 @@
                          warn: callback_methods.warn,
                          paused: callback_methods.paused,
                          pausing: callback_methods.pausing,
-                         resumed: callback_methods.resumed
+                         resumed: callback_methods.resumed,
+                         nameChanged: callback_methods.nameChanged
                       },
                       {
                          bucket: AWS_BUCKET // Shows that the bucket can be changed per
                       }
               )
-              .then(
-                      function (awsKey) {
-                        console.log(awsKey, 'successfully uploaded!');
-                      }
+              .then((function (requestedName) {
+                 return function (awsKey) {
+                       if (awsKey === requestedName) {
+                          console.log(awsKey, 'successfully uploaded!');
+                       } else {
+                          console.log('Did not re-upload', requestedName, 'because it exists as', awsKey);
+                       }
+                    }
+                 })(name)
               );
 
               filePromises.push(promise);
@@ -124,7 +136,7 @@
            $("#resume").hide();
         });
 
-        function callbacks(file, idx) {
+        function callbacks(file, fileKey, idx) {
 
            var progress_clock = $('<div class="progress-clock"/>'),
                    clock,
@@ -139,21 +151,23 @@
                    .append('<div class="circle"/>');
            var cancel = $('<button class="cancel btn btn-danger btn-xs glyphicon glyphicon-stop" title="Cancel"></button>')
                    .click(function () {
-                      _e_.cancel(file_id);
+                       console.log('canceling', fileKey);
+                      _e_.cancel(fileKey);
                    });
            progress_clock.append(cancel);
 
            var pause = $('<button class="pause btn btn-warning btn-xs glyphicon glyphicon-pause" title="Pause"></button>')
-                   .hide()
                    .click(function () {
-                      _e_.pause(file_id);
+                       console.log('pausing', fileKey);
+                      _e_.pause(fileKey);
                    });
            progress_clock.append(pause);
 
            var resume = $('<button class="resume btn btn-success btn-xs glyphicon glyphicon-play" title="Resume"></button>').hide()
                    .hide()
                    .click(function () {
-                      _e_.resume(file_id);
+                       console.log('resuming', fileKey);
+                      _e_.resume(fileKey);
                    });
            progress_clock.append(resume);
 
@@ -233,6 +247,10 @@
                  var m = $('<small/>').html(msg);
                  var html = $('<div/>').append(m);
                  clock.animate(progress)
+              },
+              nameChanged: function (awsKey) {
+                 console.log('Evaporate will use existing S3 upload for', awsKey,
+                         'rather than the requested object name', file_id)
               },
               complete: function (_xhr, awsKey){
                  var m = $('<small/>').html(awsKey + ' - Completed');

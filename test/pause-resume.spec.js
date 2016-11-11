@@ -72,7 +72,7 @@ test('should Resume an upload and not call cryptoMd5', (t) => {
 test('should Resume an upload and callback started', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.started.callCount).to.equal(1)
+        expect(t.context.config.started.callCount).to.equal(2)
       })
 })
 test('should Resume an upload and callback pausing', (t) => {
@@ -122,25 +122,25 @@ test('should fail to pause() when file not added', (t) => {
       })
 });
 test('should fail to pause() when file already paused', (t) => {
-  t.context.pauseHandler = function () {
-    t.context.pause()
-        .then(function () {
-          t.context.pausePromise =  t.context.pause()
-        })
-  }
+  let pausePromise = new Promise(function (resolve, reject) {
+    t.context.pauseHandler = function () {
+      t.context.pause()
+          .then(function () {
+            t.context.pausePromise =  t.context.pause()
+            t.context.pausePromise.then(resolve, reject)
+          })
+    }
+  });
 
-  return testPauseResume(t)
-      .then(function () {
-        return t.context.pausePromise
-            .then(
-                function () {
-                  t.fail('Expected test to fail.')
-                },
-                function (reason) {
-                  expect(reason).to.match(/already paused/i)
-                }
-            )
-      })
+  return Promise.race([testPauseResume(t), pausePromise])
+      .then(
+          function () {
+            t.fail('Expected test to fail.')
+          },
+          function (reason) {
+            expect(reason).to.match(/already paused/i)
+          }
+      )
 });
 
 test('should fail to resume() when file not added', (t) => {

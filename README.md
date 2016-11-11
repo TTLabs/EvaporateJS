@@ -457,6 +457,10 @@ to pause.
     Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
     the object already exists on S3.
 
+* **nameChanged**: _function(awsObjectKey)_. a function that will be called when the requested AWS S3 object key changes
+    because either because the requested object was previously interrupted (and is being resumed) or because the entire
+    object already exists on S3.
+
 * **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
 
 * **warn**: _function(msg)_. a function that will be called on a potentially recoverable error, and will be retried (e.g. part upload).
