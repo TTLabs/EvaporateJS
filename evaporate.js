@@ -1091,13 +1091,7 @@
                 if (xhr.readyState === 4) {
 
                     if (xhr.status === 200) {
-                        var payload = self.signResponse(xhr.response);
-
-                        if (self.con.awsSignatureVersion === '2' &&  payload.length !== 28) {
-                            reject("V2 signature length !== 28");
-                        } else {
-                            return resolve(payload);
-                        }
+                        return resolve(self.signResponse(xhr.response));
                     } else {
                         reject("Signature fetch returned status: " + xhr.status);
                     }
