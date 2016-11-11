@@ -142,7 +142,7 @@
                         if (xhr.status === 200) {
                             var server_date = new Date(Date.parse(xhr.responseText)),
                                 now = new Date();
-                            resolve(now - server_date);
+                            resolve(server_date - now);
                         }
                     }
                 };

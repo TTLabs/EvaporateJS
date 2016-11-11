@@ -199,7 +199,8 @@ global.serverCommonCase = function (partRequestHandler) {
   })
 
   server.respondWith('GET', /\/time.*$/, (xhr) => {
-    let match = xhr.url.match(/testId=(.+)\?/)
+    let match = xhr.url.match(/testId=(.+)\?/),
+        payload
     if (match) {
       let testId = match[1],
           context = storeTestRequest(xhr, testId)
@@ -207,8 +208,8 @@ global.serverCommonCase = function (partRequestHandler) {
         context.timeUrlCalled = 0
       }
       context.timeUrlCalled += 1
+      payload = (context.timeUrlDate || new Date()).toISOString()
     }
-    let payload = new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toISOString()
     xhr.respond(retryStatus(xhr, 'time'), CONTENT_TYPE_TEXT, payload)
   })
 

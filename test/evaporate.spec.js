@@ -149,12 +149,24 @@ test('#create evaporate should respect localTimeOffset', (t) => {
           })
 
 })
-test('#create evaporate should respect returned server time from timeUrl', (t) => {
+test('#create evaporate should respect returned server time from timeUrl when local is behind server', (t) => {
   var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time?testId=' + t.context.testId })
+  t.context.timeUrlDate = new Date(new Date().setTime(new Date().getTime() + (60 * 60 * 1000)))
   return Evaporate.create(config)
       .then(function (evaporate) {
-        let oneYear = new Date() - new Date().setFullYear(new Date().getFullYear() - 1)
-            expect(evaporate.localTimeOffset).to.be.closeTo(oneYear, 5000)
+            expect(evaporate.localTimeOffset).to.be.closeTo(+3600000, 100)
+          },
+          function (reason) {
+            t.fail(reason)
+          })
+
+})
+test('#create evaporate should respect returned server time from timeUrl when server is behind local', (t) => {
+  var config = Object.assign({}, baseConfig, { timeUrl: 'http://example.com/time?testId=' + t.context.testId })
+  t.context.timeUrlDate = new Date(new Date().setTime(new Date().getTime() - (60 * 60 * 1000)))
+  return Evaporate.create(config)
+      .then(function (evaporate) {
+            expect(evaporate.localTimeOffset).to.be.closeTo(-3600000, 100)
           },
           function (reason) {
             t.fail(reason)
