@@ -4,6 +4,17 @@ Evaporate
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
+## ATTENTION
+There is a release candidate of Evaporate that is rebuild of the original code. The primary changes are its
+suport for ES6 Promises and parallel file uploading. To preview the release candidate:
+
+```bash
+$ npm install evaporate@r2.0.0-rc.1
+```
+
+Send feedback as an Issue on this project.
+
+
 ### File Upload API for AWS S3
 
 Evaporate is a javascript library for uploading files from a browser to
