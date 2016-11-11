@@ -235,7 +235,7 @@
                     if (xhr.status === 200) {
                         var server_date = new Date(Date.parse(xhr.responseText)),
                             now = new Date();
-                        localTimeOffset = now - server_date;
+                        localTimeOffset = server_date - now;
                         l.d('localTimeOffset is', localTimeOffset, 'ms');
                     }
                 }
