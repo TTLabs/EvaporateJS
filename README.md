@@ -11,7 +11,7 @@ suport for ES6 Promises and parallel file uploading. The branch code is here tag
 To install the release candidate:
 
 ```bash
-$ npm install evaporate@r2.0.0-rc.1
+$ npm install evaporate@r2.0.0-rc.2
 ```
 
 Send feedback as an Issue on this project.
