@@ -4,9 +4,9 @@ Evaporate
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
-## ATTENTION
+## ATTENTION -- Updated 14 November 2016
 There is a release candidate of Evaporate that is rebuild of the original code. The primary changes are its
-suport for ES6 Promises and parallel file uploading. The branch code is here tagged as [r2.0.0-rc.1](https://github.com/TTLabs/EvaporateJS/tree/r2.0.0-rc.1).
+suport for ES6 Promises and parallel file uploading. The branch code is here tagged as [r2.0.0-rc.2](https://github.com/TTLabs/EvaporateJS/tree/r2.0.0-rc.2).
 
 To install the release candidate:
 
