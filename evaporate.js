@@ -14,7 +14,7 @@
 
 /***************************************************************************************************
  *                                                                                                 *
- *  version 2.0.0-rc.1                                                                                  *
+ *  version 2.0.0-rc.2                                                                                  *
  *                                                                                                 *
  ***************************************************************************************************/
 
@@ -24,6 +24,7 @@
     var FAR_FUTURE = new Date('2060-10-22'),
         HOURS_AGO,
         PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30, ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"',
+        PARTS_MONITOR_INTERVAL_MS = 2 * 60 * 1000,
         IMMUTABLE_OPTIONS = [
             'maxConcurrentParts',
             'logging',
@@ -74,8 +75,6 @@
             xhrWithCredentials: false,
             // undocumented
             localTimeOffset: undefined,
-            testUnsupported: false,
-            simulateStalling: false,
             evaporateChanged: function () {},
             abortCompletionThrottlingMs: 1000
         }, config);
@@ -329,15 +328,6 @@
         this.pendingFiles[fileKey] = fileUpload;
         return fileUpload;
     };
-    // TODO: Address removal
-    Evaporate.prototype.removeFile = function (file) {
-        if (file) {
-            var fileKey = this.config.bucket + '/' + file.name;
-            if (this.pendingFiles[fileKey]) {
-                delete this.pendingFiles[fileKey];
-            }
-        }
-    };
     Evaporate.prototype.consumeRemainingSlots = function () {
         var avail = this.config.maxConcurrentParts - this.evaporatingCount;
         if (!avail) { return; }
@@ -371,8 +361,7 @@
             typeof (
             Blob.prototype.webkitSlice ||
             Blob.prototype.mozSlice ||
-            Blob.prototype.slice) === 'undefined' ||
-            !!this.config.testUnsupported);
+            Blob.prototype.slice) === 'undefined');
 
         if (!this.config.signerUrl && typeof this.config.signResponseHandler !== 'function') {
             return "Option signerUrl is required unless signResponseHandler is present.";
@@ -453,6 +442,7 @@
     FileUpload.prototype.status = PENDING;
     FileUpload.prototype.numParts = -1;
     FileUpload.prototype.fileTotalBytesUploaded = 0;
+    FileUpload.prototype.lastPartSatisfied = Promise.resolve('onStart');
     FileUpload.prototype.partsInProcess = [];
     FileUpload.prototype.partsToUpload = [];
     FileUpload.prototype.s3Parts = [];
@@ -519,7 +509,6 @@
             });
             this.pausing();
         }
-
         return Promise.all(promises)
             .then(function () {
                 self.status = PAUSED;
@@ -568,7 +557,7 @@
             } else { continue; }
 
             if (!part.awsRequest.errorExceptionStatus()) {
-                part.awsRequest.delaySend();
+                this.startPartUpload(part.awsRequest);
             }
 
             satisfied += 1;
@@ -579,6 +568,11 @@
 
         }
         return remainingSlots;
+    };
+    FileUpload.prototype.startPartUpload = function (part) {
+        this.lastPartSatisfied
+            .then(part.delaySend.bind(part));
+        this.lastPartSatisfied = part.getStartedPromise();
     };
     FileUpload.prototype.removePartFromProcessing = function (partIdx) {
         removeAtIndex(this.partsInProcess, partIdx)
@@ -740,7 +734,7 @@
             return true;
         } else {
             part.status = ERROR;
-            putRequest.resetLoadedBytes(0); // TODO: this sticks out
+            putRequest.resetLoadedBytes(0);
             var msg = ['eTag matches MD5 of 0 length blob for part #', putRequest.partNumber, 'Retrying part.'].join(" ");
             l.w(msg);
             this.warn(msg);
@@ -813,10 +807,10 @@
     };
     FileUpload.prototype.resolvePartNeeds = function (reason) {
         this.partNeeds.resolve(reason);
-    }
+    };
     FileUpload.prototype.getPartNeedsPromise = function () {
         return this.partNeeds.promise;
-    }
+    };
     FileUpload.prototype.done = function () {
         this.partNeeds.resolve('file processing ended');
         this.partsOnS3 = [];
@@ -963,6 +957,7 @@
         this.attempts = 1;
         this.localTimeOffset = this.fileUpload.localTimeOffset;
         this.awsDeferred = defer();
+        this.started = defer();
 
         this.updateRequest(request);
     }
@@ -970,10 +965,11 @@
     SignedS3AWSRequest.prototype.con = undefined;
     SignedS3AWSRequest.prototype.localTimeOffset = 0;
     SignedS3AWSRequest.prototype.awsDeferred = undefined;
+    SignedS3AWSRequest.prototype.started = undefined;
     SignedS3AWSRequest.prototype.updateRequest = function (request) {
         this.request = request;
         this.signer = this.fileUpload.signingClass(request, this.getPayload());
-    }
+    };
     SignedS3AWSRequest.prototype.success = function () { return true; };
     SignedS3AWSRequest.prototype.error =  function (reason) {
         if (this.errorExceptionStatus()) {
@@ -1067,24 +1063,6 @@
             extend(all_headers, self.request.not_signed_headers);
             extend(all_headers, self.request.x_amz_headers);
 
-            xhr.open(self.request.method, url);
-            xhr.setRequestHeader('Authorization', self.signer.authorizationString());
-
-            for (var key in all_headers) {
-                if (all_headers.hasOwnProperty(key)) {
-                    xhr.setRequestHeader(key, all_headers[key]);
-                }
-            }
-
-            self.signer.setHeaders(xhr);
-
-            if (self.request.contentType) {
-                xhr.setRequestHeader('Content-Type', self.request.contentType);
-            }
-
-            if (self.request.md5_digest) {
-                xhr.setRequestHeader('Content-MD5', self.request.md5_digest);
-            }
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4) {
 
@@ -1108,6 +1086,24 @@
                 }
             };
 
+            xhr.open(self.request.method, url);
+            xhr.setRequestHeader('Authorization', self.signer.authorizationString());
+
+            for (var key in all_headers) {
+                if (all_headers.hasOwnProperty(key)) {
+                    xhr.setRequestHeader(key, all_headers[key]);
+                }
+            }
+
+            self.signer.setHeaders(xhr);
+
+            if (self.request.contentType) {
+                xhr.setRequestHeader('Content-Type', self.request.contentType);
+            }
+
+            if (self.request.md5_digest) {
+                xhr.setRequestHeader('Content-MD5', self.request.md5_digest);
+            }
             xhr.onerror = function (xhr) {
                 var reason = xhr.responseText ? getAwsResponse(xhr) : 'transport error';
                 reject(reason);
@@ -1118,6 +1114,10 @@
             }
 
             xhr.send(payload);
+
+            setTimeout(function () { // We have to delay here or Safari will hang
+                self.started.resolve('request sent ' + self.request.step);
+            }, 20)
         });
     };
     //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
@@ -1428,6 +1428,11 @@
                 }
             });
     };
+    PutPart.prototype.sendRequestToAWS = function () {
+        this.stalledInterval = setInterval(this.stalledPartMonitor(), PARTS_MONITOR_INTERVAL_MS);
+        this.stalledPartMonitor();
+        return SignedS3AWSRequest.prototype.sendRequestToAWS.call(this);
+    };
     PutPart.prototype.send = function () {
         if (this.part.status !== COMPLETE &&
             [ABORTED, PAUSED, CANCELED].indexOf(this.fileUpload.status) === -1
@@ -1447,17 +1452,41 @@
         }
     };
     PutPart.prototype.success = function (xhr) {
+        clearInterval(this.stalledInterval);
         var eTag = xhr.getResponseHeader('ETag');
         return this.fileUpload.partSuccess(eTag, this);
     };
     PutPart.prototype.onProgress = function (evt) {
         var loadedNow = evt.loaded - this.part.loadedBytes;
-        this.part.loadedBytes = evt.loaded;
-        this.fileUpload.fileTotalBytesUploaded += loadedNow;
-        if (this.progressTracker%this.con.progressMod === 0) {
-            this.fileUpload.progress(this.fileUpload.fileTotalBytesUploaded / this.fileUpload.sizeBytes)
+        if (loadedNow) {
+            this.part.loadedBytes = evt.loaded;
+            this.fileUpload.fileTotalBytesUploaded += loadedNow;
+            if (this.progressTracker%this.con.progressMod === 0) {
+                this.fileUpload.progress(this.fileUpload.fileTotalBytesUploaded / this.fileUpload.sizeBytes)
+            }
+            this.progressTracker++;
         }
-        this.progressTracker++;
+    };
+    PutPart.prototype.stalledPartMonitor = function () {
+        var lastLoaded = this.part.loadedBytes;
+        var self = this;
+        return function () {
+            clearInterval(self.stalledInterval);
+            if ([EVAPORATING, ERROR, PAUSING, PAUSED].indexOf(self.fileUpload.status) === -1 &&
+                self.part.status !== ABORTED &&
+                self.part.loadedBytes < this.size) {
+                if (lastLoaded === self.part.loadedBytes) {
+                    l.w('Part stalled. Will abort and retry:', self.partNumber, decodeURIComponent(self.fileUpload.name));
+                    self.abort();
+                    if (!self.errorExceptionStatus()) {
+                        self.delaySend();
+                    }
+                } else {
+                    this.stalledInterval = setInterval(self.stalledPartMonitor(), PARTS_MONITOR_INTERVAL_MS);
+                }
+            }
+
+        }
     };
     PutPart.prototype.resetLoadedBytes = function (v) {
         this.fileUpload.fileTotalBytesUploaded -= this.part.loadedBytes;
@@ -1492,6 +1521,7 @@
         }, backOffWait);
     };
     PutPart.prototype.errorHandler = function (reason) {
+        clearInterval(this.stalledInterval);
         if (reason.match(/status:404/)) {
             var errMsg = '404 error on part PUT. The part and the file will abort. ' + reason;
             l.w(errMsg);
@@ -1513,24 +1543,29 @@
             this.currentXhr.abort();
             this.resetLoadedBytes(0);
         }
-        if (reject) {
-            this.awsDeferred.reject('Upload is aborted.')
-        }
+        this.attempts = 1;
     };
+    PutPart.size = 0;
     PutPart.prototype.getPayload = function () {
         var slice = getFilePart(this.fileUpload.file, this.start, this.end);
         l.d(this.partNumber, 'payload bytes:', this.start, '->', this.end, ', size:', slice.size);
         if (!this.part.isEmpty && slice.size === 0) { // issue #58
             l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
         }
+        this.size = slice.size;
         return slice;
     };
+    PutPart.prototype.stalledInterval = -1;
+    PutPart.prototype.getStartedPromise = function () {
+        return this.started.promise;
+    };
+
 
     //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
     function DeleteMultipartUpload(fileUpload) {
         fileUpload.info('will attempt to abort the upload');
 
-        fileUpload.abortParts(true);
+        fileUpload.abortParts();
 
         var request = {
             method: 'DELETE',

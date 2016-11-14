@@ -1,5 +1,5 @@
 application: evaporatejs
-version: evaporate-200-rc1
+version: evaporate-200-rc2
 runtime: python27
 api_version: 1
 threadsafe: true

@@ -1,3 +1,8 @@
+# v2.0.0-rc.2#
+
+Fixes an issue where Safari hung starting an upload. Also added logic to
+detect if a part upload stalled.
+
 # v2.0.0-rc.1#
 
 Refer to the README file for more information on using Evaporate. This version
