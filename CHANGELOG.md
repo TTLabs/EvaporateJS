@@ -1,7 +1,15 @@
+# v2.0.0-rc.3#
+
+- Corrects complete callback for when reusing S3 object
+- Adds new callback "nameChanged" called when the requested S3 object key
+  was not used because an interrupted upload was resumed or a previously
+  uploaded object was used instead.
+
+
 # v2.0.0-rc.2#
 
-Fixes an issue where Safari hung starting an upload. Also added logic to
-detect if a part upload stalled.
+- Fixes an issue where Safari hung starting an upload. Also added logic to
+  detect if a part upload stalled.
 
 # v2.0.0-rc.1#
 
