@@ -224,6 +224,7 @@
                 paused: function () {},
                 resumed: function () {},
                 pausing: function () {},
+                nameChanged: function () {},
                 info: function () {},
                 warn: function () {},
                 error: function () {},
@@ -451,9 +452,12 @@
     FileUpload.prototype.deferredCompletion = undefined;
     FileUpload.prototype.partNeeds = undefined;
     FileUpload.prototype.partNeedsCalled = false;
+    FileUpload.prototype.abortedByUser = false;
 
     FileUpload.prototype.start = function () {
-        var self = this;
+        var self = this,
+            callComplete = false;
+
         return new Promise(function (resolve, reject) {
             self.status = EVAPORATING;
 
@@ -462,29 +466,53 @@
             var awsKey = self.name;
 
             self.getUnfinishedFileUpload();
-            if (self.con.computeContentMd5 && typeof self.firstMd5Digest !== 'undefined' && typeof self.eTag !== 'undefined' ) {
-                // Attempt to reuse entire uploaded object on S3
-                return self.reuseObject(awsKey)
-                    .then(resolve, reject);
-            }
 
-            if (typeof self.uploadId === 'undefined') {
-                // New File
-                return self.uploadFile(awsKey)
-                    .then(resolve, reject);
-            }
+            new Promise(function (resolve, rejectToUploadNew) {
+                if (self.uploadId) {
+                    if (self.con.computeContentMd5 &&
+                        self.con.allowS3ExistenceOptimization &&
+                        typeof self.firstMd5Digest !== 'undefined' &&
+                        typeof self.eTag !== 'undefined' ) {
 
-            if (self.partsOnS3.length) {
-                // Resume after Pause
-                self.status = EVAPORATING;
-                return self.processNextPart();
-            }
-            return self.restartFromUploadedParts()
-                .then(resolve, reject);
+                        return self.reuseS3Object(awsKey)
+                            .then(resolve, rejectToUploadNew);
+                    }
+
+                    if (self.partsOnS3.length) {
+                        // Resume after Pause
+                        self.status = EVAPORATING;
+                        return self.processNextPart();
+                    }
+
+                    callComplete = true;
+                    self.resumeInterruptedUpload()
+                        .then(resolve, rejectToUploadNew);
+                } else {
+                    throw("")
+                }
+            })
+                .then(resolve,
+                    function (reason) { // rejectToUploadNew
+                        l.d(reason);
+                        self.uploadId = undefined;
+                        callComplete = true;
+                        self.uploadFile(awsKey)
+                            .then(resolve, reject);
+                    });
         })
         .then(
-            self.deferredCompletion.resolve.bind(self),
-            self.deferredCompletion.reject.bind(self)
+            function () {
+                var promise = callComplete ? self.completeUpload() : Promise.resolve();
+                promise.then(self.deferredCompletion.resolve.bind(self));
+            },
+            function () { // uploadFile failed
+                    if (!self.abortedByUser) {
+                        self.abortUpload()
+                            .then(
+                                function () { self.deferredCompletion.reject('File upload aborted due to a part failing to upload'); },
+                                self.deferredCompletion.reject.bind(self));
+                    }
+            }
         );
 
     };
@@ -492,7 +520,15 @@
         l.d('stopping FileUpload ', this.id);
         this.setStatus(CANCELED);
         this.info('Canceling uploads...');
-        return this.abortUpload();
+        this.abortedByUser = true;
+        var self = this;
+        return this.abortUpload()
+            .then(function () {
+                throw("User aborted the upload");
+            })
+            .catch(function (reason) {
+                self.deferredCompletion.reject(reason);
+            });
     };
     FileUpload.prototype.pause = function (force) {
         l.d('pausing FileUpload, force:', !!force, this.id);
@@ -829,20 +865,9 @@
                     self.partsToUpload = [];
                     return self.uploadParts()
                         .then(
-                            function () {
-                                return self.completeUpload();
-                            },
+                            function () {},
                             function (reason) {
-                                if (self.userTriggereAbort) {
                                     throw(reason);
-                                }
-                                return self.abortUpload(true)
-                                    .then(function () {
-                                        throw('File upload aborted due to a part failing to upload');
-                                    },
-                                    function (reason) {
-                                        throw('File upload canceled with errors. ' + reason);
-                                    });
                             })
                 });
     };
@@ -852,7 +877,7 @@
         this.processNextPart();
         return Promise.all(promises);
     };
-    FileUpload.prototype.abortUpload = function (partError) {
+    FileUpload.prototype.abortUpload = function () {
         var self = this;
         return new Promise(function (resolve, reject) {
 
@@ -870,72 +895,44 @@
                 function () {
                     self.setStatus(ABORTED);
                     self.cancelled();
-                    if (!partError) {
-                        self.deferredCompletion.reject('User aborted the upload');
-                    }
                     self.removeUploadFile();
                 },
                 self.deferredCompletion.reject.bind(self));
     };
-    FileUpload.prototype.restartFromUploadedParts = function () {
+    FileUpload.prototype.resumeInterruptedUpload = function () {
         var self = this;
-        return new Promise(function (resolve, reject) {
-            new GetMultipartUploadParts(self)
-                .send()
-                .then(
-                    function (xhr) {
-                        return self.uploadParts()
-                            .then(
-                                function () {
-                                    return self.completeUpload()
-                                        .then(function () { resolve(xhr); });
-                                },
-                                function (reason) {
-                                    self.abortUpload(true);
-                                    reject(reason);
-                                }
-                            );
-                    }, function (reason) {
-                        self.info(reason);
-                        self.removeUploadFile();
-                        return self.uploadFile(self.name)
-                            .then(resolve, reject);
-                    })
-        });
+        return new GetMultipartUploadParts(self)
+            .send()
+            .then(self.uploadParts.bind(self));
     };
-    FileUpload.prototype.reuseObject = function (awsKey) {
+    FileUpload.prototype.reuseS3Object = function (awsKey) {
         var self = this;
         // Attempt to reuse entire uploaded object on S3
         this.makeParts(1);
         this.partsToUpload = [];
         var firstPart = this.s3Parts[1];
-        return new Promise(function (resolve, reject) {
-            firstPart.awsRequest.getPartMd5Digest()
-                .then(function () {
-                    if (self.con.allowS3ExistenceOptimization &&
-                        self.firstMd5Digest === self.s3Parts[1].md5_digest) {
-                        return new ReuseS3Object(self, awsKey)
-                            .send()
-                            .then(
-                                function (xhr) {
-                                    l.d('headObject found matching object on S3.');
-                                    self.completeUploadFile(xhr);
-                                    resolve(xhr);
-                                },
-                                function (reason) {
-                                    l.d(reason);
-                                    self.uploadFile(awsKey)
-                                        .then(resolve, reject);
-                                });
+        function reject(reason) {
+            self.name = awsKey;
+            throw(reason);
+        }
+        return firstPart.awsRequest.getPartMd5Digest()
+            .then(function () {
+                    if (self.firstMd5Digest === self.s3Parts[1].md5_digest) {
+                    return new ReuseS3Object(self, awsKey)
+                        .send()
+                        .then(
+                            function (xhr) {
+                                l.d('headObject found matching object on S3.');
+                                self.completeUploadFile(xhr);
+                                self.nameChanged(self.name);
+                            })
+                        .catch(reject);
 
-                    } else {
-                        var msg = self.con.allowS3ExistenceOptimization ? 'File\'s first part MD5 digest does not match what was stored.' : 'allowS3ExistenceOptimization is not enabled.';
-                        l.d(msg);
-                        return self.uploadFile(awsKey)
-                            .then(resolve, reject);
-                    }
-                });
-        });
+                } else {
+                    var msg = self.con.allowS3ExistenceOptimization ? 'File\'s first part MD5 digest does not match what was stored.' : 'allowS3ExistenceOptimization is not enabled.';
+                    reject(msg);
+                }
+            });
     };
     FileUpload.prototype.signingClass = function (request, payload) {
         var SigningClass = signingVersion(this.con, l, this.awsHost);
@@ -1360,6 +1357,7 @@
             this.setupRequest(nodeValue(listPartsResult, "NextPartNumberMarker")); // let's fetch the next set of parts
             this.trySend();
         } else {
+            this.fileUpload.nameChanged(this.fileUpload.name);
             this.fileUpload.makePartsfromPartsOnS3();
             return true;
         }
@@ -1530,7 +1528,7 @@
         }
         return true;
     };
-    PutPart.prototype.abort = function (reject) {
+    PutPart.prototype.abort = function () {
         if (this.currentXhr) {
             this.currentXhr.abort();
             this.resetLoadedBytes(0);

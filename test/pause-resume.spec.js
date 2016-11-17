@@ -72,7 +72,7 @@ test('should Resume an upload and not call cryptoMd5', (t) => {
 test('should Resume an upload and callback started', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.started.callCount).to.equal(1)
+        expect(t.context.config.started.callCount).to.equal(2)
       })
 })
 test('should Resume an upload and callback pausing', (t) => {

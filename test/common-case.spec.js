@@ -51,6 +51,30 @@ test('should upload a file and return the correct file upload ID', (t) => {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
+test('should upload a file and callback complete once', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(t.context.config.complete.calledOnce).to.be.true
+      })
+})
+test('should upload a file and callback complete with first param instance of xhr', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(t.context.config.complete.firstCall.args[0]).to.be.instanceOf(sinon.FakeXMLHttpRequest)
+      })
+})
+test('should upload a file and callback complete with second param the awsKey', (t) => {
+  return testBase(t)
+      .then(function () {
+        expect(t.context.config.complete.firstCall.args[1]).to.equal(t.context.requestedAwsObjectKey)
+      })
+})
+test('should upload a file and not callback with a changed object name', (t) => {
+  return testBase(t, {nameChanged: sinon.spy()})
+      .then(function () {
+        expect(t.context.config.nameChanged.callCount).to.equal(0)
+      })
+})
 
 // md5Digest tests
 test('V2 should call cryptoMd5 when uploading a file with defaults', (t) => {
