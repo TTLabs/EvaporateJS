@@ -28,6 +28,7 @@
    <button type="button" id="pause-all" class="btn btn-warning btn-sm glyphicon glyphicon-pause" title="Pause All"></button>
    <button type="button" id="pause-all-force" class="btn btn-primary btn-sm glyphicon glyphicon-off" title="Force Pause All"></button>
    <button type="button" id="resume" class="btn btn-success btn-sm glyphicon glyphicon-play" title="Resume All"></button>
+   <button type="button" id="cancel-all" class="btn btn-danger btn-sm glyphicon glyphicon-stop" title="Cancel All"></button>
    <div><br/>Total parts in-progress: <span id="totalParts">0</span></div>
    <div id="progress-container"></div>
 </div>
@@ -54,14 +55,16 @@
       computeContentMd5: true,
       cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
       logging: true,
+      cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); },
+      logging: false,
       s3FileCacheHoursAgo: 1,
       allowS3ExistenceOptimization: true,
       evaporateChanged: function (file, evaporatingCount) {
          $('#totalParts').text(evaporatingCount);
          if (evaporatingCount > 0) {
-            $("#pause-all, #pause-all-force").show();
+            $("#pause-all, #pause-all-force, #cancel-all").show();
          } else if (evaporatingCount === 0) {
-            $("#pause-all, #pause-all-force, #resume").hide();
+            $("#pause-all, #pause-all-force, #resume, #cancel-all").hide();
          }
       }
    })
@@ -109,7 +112,7 @@
 
               callback_methods.progress_clock.attr('file_id', file_id);
 
-              ["#pause-all",  "#pause-all-force", "resume"].forEach(function (v) { $(v).show(); });
+              ["#pause-all",  "#pause-all-force", "#resume", "#cancel-all"].forEach(function (v) { $(v).show(); });
            }
 
            allCompleted = Promise.all(filePromises)
@@ -127,8 +130,12 @@
            _e_.pause();
         });
 
+        $("#cancel-all").hide().click(function () {
+           _e_.cancel();
+        });
+
         $("#pause-all-force").hide().click(function () {
-           _e_.pause(undefined, {force: true});
+            _e_.pause(undefined, {force: true});
         });
 
         $("#resume").hide().click(function () {
@@ -162,6 +169,13 @@
                       _e_.pause(fileKey);
                    });
            progress_clock.append(pause);
+
+           var forcePause = $('<button class="pause btn btn-primary btn-xs glyphicon glyphicon glyphicon-off" title="Force Pause"></button>')
+                   .click(function () {
+                      console.log('force pausing', fileKey);
+                      _e_.pause(fileKey, {force: true});
+                   });
+           progress_clock.append(forcePause);
 
            var resume = $('<button class="resume btn btn-success btn-xs glyphicon glyphicon-play" title="Resume"></button>').hide()
                    .hide()
@@ -201,8 +215,10 @@
                  clock.animate(progressValue);
               },
               started: function (fid) {
+                  console.log('started', fid)
                  file_id = fid;
                  pause.show();
+                 forcePause.show();
                  resume.hide();
                  progress_clock.addClass('evaporating');
                  status.text('evaporating');
@@ -221,17 +237,23 @@
                  cancel.hide();
                  resume.hide();
                  pause.hide();
+                 forcePause.hide();
               },
               pausing: function () {
                  clock.animate(progress);
                  markComplete('pausing');
                  $("#resume").show();
+                 pause.hide();
+                 forcePause.hide();
+
                  progress_clock.removeClass('evaporating warning');
               },
               paused: function () {
                  clock.animate(progress);
                  markComplete('paused');
                  pause.hide();
+                 forcePause.hide();
+
                  resume.show();
                  $("#resume").show();
                  progress_clock.removeClass('evaporating warning pausing');
@@ -240,6 +262,7 @@
                  clock.animate(progress);
                  markComplete('evaporating');
                  pause.show();
+                 forcePause.show();
                  resume.hide();
                  progress_clock.removeClass('pausing paused');
               },
