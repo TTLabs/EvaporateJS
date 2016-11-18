@@ -14,6 +14,7 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
+  awsSignatureVersion: '2',
   abortCompletionThrottlingMs: 0
 }
 
@@ -27,6 +28,11 @@ const baseAddConfig = {
 
 let server
 
+function testCommon(t, addConfig, initConfig) {
+  let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, initConfig)
+  return testBase(t, addConfig, evapConfig)
+}
+
 function testCancelCallbacks(t) {
   const evapConfig = Object.assign({}, baseConfig, {
     evaporateChanged: sinon.spy()
@@ -39,7 +45,7 @@ function testCancelCallbacks(t) {
 
   let id
 
-  return testBase(t, config, evapConfig)
+  return testCommon(t, config, evapConfig)
       .then(function () {
         return t.context.evaporate.cancel(id)
       })
@@ -358,14 +364,14 @@ test('should respect maxFileSize', (t) => {
 });
 
 test('should add() new upload with correct config', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function (fileKey) {
         let id = fileKey;
         expect(id).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 test('should add() new upload with correct completed XML', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(testRequests[t.context.testId][5].requestBody).to.equal('<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag></ETag></Part></CompleteMultipartUpload>')
       })
@@ -377,7 +383,7 @@ test('should return fileKeys correctly for common cases started', (t) => {
   })
 
   let start_id
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(function () {
         let expected = baseConfig.bucket + '/' + config.name
         expect(start_id).to.equal(expected)
@@ -385,7 +391,7 @@ test('should return fileKeys correctly for common cases started', (t) => {
 })
 
 test('should return fileKeys correctly for common cases resolve', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function (fileKey) {
         let expected = t.context.config.name
         expect(fileKey).to.equal(expected)
@@ -399,7 +405,7 @@ test('should return the object key in the complete callback', (t) => {
     complete: function (xhr, name) { complete_id = name;}
   })
 
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(function () {
         expect(complete_id).to.equal(config.name)
       })
@@ -417,8 +423,8 @@ test('should add() two new uploads with correct config', (t) => {
     started: function (fileId) { id1 = fileId;},
   })
 
-  let promise1 = testBase(t, config1)
-  let promise2 = testBase(t, config2)
+  let promise1 = testCommon(t, config1)
+  let promise2 = testCommon(t, config2)
 
   return Promise.all([promise1, promise2])
       .then (function () {
@@ -428,7 +434,7 @@ test('should add() two new uploads with correct config', (t) => {
 })
 
 test('should call a callback on successful add()', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(t.context.config.started).to.have.been.called
         expect(t.context.config.started).to.have.been.calledWithExactly(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey)
@@ -472,7 +478,7 @@ test('should cancel() an upload with correct object name', (t) => {
 
   let id
 
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(function () {
         const result = t.context.evaporate.cancel(id)
         expect(result).to.be.ok
@@ -490,8 +496,8 @@ test('should cancel() two uploads with correct id, first result OK', (t) => {
   })
   let id0, id1
 
-  let promise0 = testBase(t, config1)
-  let promise1 = testBase(t, config2)
+  let promise0 = testCommon(t, config1)
+  let promise1 = testCommon(t, config2)
 
   return Promise.all([promise0, promise1])
       .catch(function (reason) {
@@ -537,7 +543,7 @@ test('should add() new upload with correct config with custom bucket on add', (t
     configOverrides: { bucket: customBucket }
   }
 
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(function () {
         expect(testRequests[t.context.testId][1].url).to.match(new RegExp(customBucket))
       })

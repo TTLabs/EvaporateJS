@@ -199,6 +199,20 @@ test('should correctly create V4 string to sign for PUT with amzHeaders', (t) =>
       })
 })
 
+test('should default to V4 signature', (t) => {
+  const config = {
+    signerUrl: 'http://what.ever/signv4'
+  }
+
+  return testBase(t, {}, config)
+      .then(function () {
+        t.fail('Test succeeded but should have failed.')
+      })
+      .catch(function (reason) {
+        expect(reason).to.match(/awsSignatureVersion is 4/)
+      })
+})
+
 test('should fetch V2 authorization from the signerUrl without errors', (t) => {
   return testV2Authorization(t)
       .then(function () {
@@ -520,16 +534,36 @@ test('should return error when listParts fails in Abort after part upload failur
 })
 
 // signParams and signHeaders
-test('should apply signParams in the signature request', (t) => {
-  return testBase(t, {}, {
+test('should apply signParams in the V2 signature request', (t) => {
+  return testV2Authorization(t, {
+    awsSignatureVersion: '2',
     signParams: { 'signing-auth': 'token' }
   })
       .then(function () {
         expect(testRequests[t.context.testId][0].url).to.match(/signing-auth=token/)
       })
 })
-test('should pass signHeaders to the signature request', (t) => {
-  return testBase(t, {}, {
+test('should pass signHeaders to the V2 signature request', (t) => {
+  return testV2Authorization(t, {
+    awsSignatureVersion: '2',
+    signHeaders: { 'signing-auth': 'token' }
+  })
+      .then(function () {
+        expect(headersForMethod(t, 'GET', /\/sign.*$/)['signing-auth']).to.equal('token')
+      })
+})
+test('should apply signParams in the V4 signature request', (t) => {
+  return testV4Authorization(t, {
+    awsSignatureVersion: '2',
+    signParams: { 'signing-auth': 'token' }
+  })
+      .then(function () {
+        expect(testRequests[t.context.testId][0].url).to.match(/signing-auth=token/)
+      })
+})
+test('should pass signHeaders to the V4 signature request', (t) => {
+  return testV4Authorization(t, {
+    awsSignatureVersion: '2',
     signHeaders: { 'signing-auth': 'token' }
   })
       .then(function () {

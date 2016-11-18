@@ -64,7 +64,7 @@
             cryptoHexEncodedHash256: null,
             aws_key: null,
             awsRegion: 'us-east-1',
-            awsSignatureVersion: '2',
+            awsSignatureVersion: '4',
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
             signParams: {},
             signHeaders: {},
@@ -73,7 +73,7 @@
             maxFileSize: null,
             signResponseHandler: null,
             xhrWithCredentials: false,
-            // undocumented
+            // undocumented, experimental
             localTimeOffset: undefined,
             evaporateChanged: function () {},
             abortCompletionThrottlingMs: 1000

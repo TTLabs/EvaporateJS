@@ -22,7 +22,7 @@ function testPauseResume(t) {
   }
   t.context.name = config.name
 
-  return testBase(t, config, {})
+  return testBase(t, config, { awsSignatureVersion: '2' })
 }
 
 test.before(() => {

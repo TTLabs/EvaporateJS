@@ -11,6 +11,7 @@ function testS3Reuse(t, addConfig2, headEtag, evapConfig2) {
   let evapConfig = {
     allowS3ExistenceOptimization: true,
     s3FileCacheHoursAgo: 24,
+    awsSignatureVersion: '2',
     computeContentMd5: true
   }
 

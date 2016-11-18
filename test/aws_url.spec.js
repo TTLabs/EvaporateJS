@@ -9,7 +9,8 @@ let server
 
 function testAwsUrl(t, input) {
   return new Promise(function (resolve) {
-    testBase(t, {}, input)
+    let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, input)
+    testBase(t, {}, evapConfig)
         .then(function () {
           resolve(testRequests[t.context.testId][1].url)
         })
