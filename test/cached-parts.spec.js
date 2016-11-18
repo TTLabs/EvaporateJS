@@ -11,6 +11,7 @@ function testCachedParts(t, addConfig, maxGetParts, partNumberMarker) {
   t.context.maxGetParts = maxGetParts
 
   const evapConfig = {
+    awsSignatureVersion: '2',
     s3FileCacheHoursAgo: 24
   }
   return testBase(t, addConfig, evapConfig)

@@ -64,7 +64,7 @@
             cryptoHexEncodedHash256: null,
             aws_key: null,
             awsRegion: 'us-east-1',
-            awsSignatureVersion: '2',
+            awsSignatureVersion: '4',
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
             signParams: {},
             signHeaders: {},
@@ -73,7 +73,7 @@
             maxFileSize: null,
             signResponseHandler: null,
             xhrWithCredentials: false,
-            // undocumented
+            // undocumented, experimental
             localTimeOffset: undefined,
             evaporateChanged: function () {},
             abortCompletionThrottlingMs: 1000
@@ -583,11 +583,17 @@
             .then(part.delaySend.bind(part));
         this.lastPartSatisfied = part.getStartedPromise();
     };
-    FileUpload.prototype.abortParts = function (reject) {
+    FileUpload.prototype.abortParts = function () {
         var self = this;
         this.partsInProcess.forEach(function (i) {
             var part = self.s3Parts[i];
-            if (part) { part.awsRequest.abort(reject); }
+            if (part) {
+                part.awsRequest.abort();
+                part.awsRequest.awsDeferred.resolve();
+                if (!self.userTriggereAbort) {
+                    part.awsRequest.awsDeferred = defer();
+                }
+            }
         });
     };
     FileUpload.prototype.makeParts = function (firstPart) {

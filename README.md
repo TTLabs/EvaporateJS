@@ -328,7 +328,7 @@ Available onfiguration options:
 * **aws_key**: default=undefined, the AWS Account key to use. Required when `awsSignatureVersion` is `'4'`.
 * **awsRegion**: default='us-east-1', Required when `awsSignatureVersion` is `'4'`. When set, the awsRegion will help
     determine the default aws_url to use. See notes above for `aws_url`.
-* **awsSignatureVersion**: default='2', Determines the AWS Signature signing process version to use. Set this option to `'4'` for Version 4 signatures.
+* **awsSignatureVersion**: default='4', Determines the AWS Signature signing process version to use. Set this option to `'2'` for Version 2 signatures.
 * **cloudfront**: default=false, When `true`, Evaporate creates an S3
     [virtual host](http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html) format `aws_url`. For example,
     for `awsRegion` 'us-east-1', the bucket appears in the path `https://s3.amazonaws.com/<bucket>` by default but

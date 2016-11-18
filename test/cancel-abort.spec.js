@@ -17,6 +17,11 @@ function defer() {
     promise: promise
   }
 }
+function testCommon(t, addConfig, initConfig) {
+  let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, initConfig)
+  return testBase(t, addConfig, evapConfig)
+}
+
 function testCancel(t, addConfig) {
   addConfig = addConfig || {}
 
@@ -26,7 +31,7 @@ function testCancel(t, addConfig) {
   },
       addConfig)
 
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(function () {
         t.context.cancelPromise = t.context.cancel()
         return t.context.cancelPromise
@@ -95,7 +100,7 @@ test('should Cancel an upload and reduce evaporating count to 0', (t) => {
   const config = {
     file: new File({
       path: '/tmp/file',
-      size: 990000000, // we need lots of parts so that we exceed the maxConcurrentParts
+      size: 99000000, // we need lots of parts so that we exceed the maxConcurrentParts
       name: randomAwsKey()
     })
   }
@@ -124,7 +129,7 @@ test('should Cancel an upload after it is paused', (t) => {
             t.context.cancel()
           })
 
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(
           function () {
             t.fail('Expected upload to fail but it did not.')
@@ -154,7 +159,7 @@ test('should Cancel an upload after it is paused if the cancel fails', (t) => {
             t.context.cancel()
           })
 
-  return testBase(t, config)
+  return testCommon(t, config)
       .then(
           function () {
             t.fail('Expected upload to fail but it did not.')

@@ -6,12 +6,16 @@ import test from 'ava'
 
 let server
 
+function testCommon(t, addConfig, initConfig) {
+  let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, initConfig)
+  return testBase(t, addConfig, evapConfig)
+}
 function testMd5V2(t) {
-  return testBase(t, {}, { computeContentMd5: true })
+  return testCommon(t, {}, { awsSignatureVersion: '2', computeContentMd5: true })
 }
 
 function testMd5V4(t) {
-  return testBase(t, {}, {
+  return testCommon(t, {}, {
     computeContentMd5: true,
     cryptoHexEncodedHash256: function (d) { return d; }
   })
@@ -33,44 +37,44 @@ test.beforeEach((t) => {
 })
 
 // Default Setup: V2 signatures: Common Case
-test('should not call cryptoMd5 upload a file with defaults', (t) => {
-  return testBase(t)
+test('should not call cryptoMd5 upload a file with defaults and V2 signature', (t) => {
+  return testCommon(t, {}, { awsSignatureVersion: '2' })
       .then(function () {
         expect(t.context.cryptoMd5.callCount).to.equal(0)
       })
 })
 test('should upload a file with S3 requests in the correct order', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
 test('should upload a file and return the correct file upload ID', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(t.context.completedAwsKey).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 test('should upload a file and callback complete once', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(t.context.config.complete.calledOnce).to.be.true
       })
 })
 test('should upload a file and callback complete with first param instance of xhr', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(t.context.config.complete.firstCall.args[0]).to.be.instanceOf(sinon.FakeXMLHttpRequest)
       })
 })
 test('should upload a file and callback complete with second param the awsKey', (t) => {
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         expect(t.context.config.complete.firstCall.args[1]).to.equal(t.context.requestedAwsObjectKey)
       })
 })
 test('should upload a file and not callback with a changed object name', (t) => {
-  return testBase(t, {nameChanged: sinon.spy()})
+  return testCommon(t, {nameChanged: sinon.spy()})
       .then(function () {
         expect(t.context.config.nameChanged.callCount).to.equal(0)
       })
@@ -117,7 +121,7 @@ test('V4 should upload a file and return the correct file upload ID', (t) => {
 
 // Cover xAmzHeader Options
 test('should pass xAmzHeadersAtInitiate headers', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' }
   })
       .then(function () {
@@ -125,7 +129,7 @@ test('should pass xAmzHeadersAtInitiate headers', (t) => {
       })
 })
 test('should pass xAmzHeadersAtUpload headers', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtUpload: { 'x-custom-header': 'phooey' }
   })
       .then(function () {
@@ -133,7 +137,7 @@ test('should pass xAmzHeadersAtUpload headers', (t) => {
       })
 })
 test('should pass xAmzHeadersAtComplete headers', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtComplete: { 'x-custom-header': 'eindelijk' }
   })
       .then(function () {
@@ -142,7 +146,7 @@ test('should pass xAmzHeadersAtComplete headers', (t) => {
 })
 
 test('should not use xAmzHeadersCommon headers for Initiate', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtInitiate: { 'x-custom-header': 'peanuts' },
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
@@ -151,7 +155,7 @@ test('should not use xAmzHeadersCommon headers for Initiate', (t) => {
       })
 })
 test('should use xAmzHeadersCommon headers for Parts', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
       .then(function () {
@@ -159,7 +163,7 @@ test('should use xAmzHeadersCommon headers for Parts', (t) => {
       })
 })
 test('should use xAmzHeadersCommon headers for Complete', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersCommon: { 'x-custom-header': 'phooey' }
   })
       .then(function () {
@@ -168,7 +172,7 @@ test('should use xAmzHeadersCommon headers for Complete', (t) => {
 })
 
 test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -177,7 +181,7 @@ test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (1)', (t) => {
       })
 })
 test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtUpload: { 'x-custom-header1': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -186,7 +190,7 @@ test('should let xAmzHeadersCommon override xAmzHeadersAtUpload (2)', (t) => {
       })
 })
 test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -195,7 +199,7 @@ test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (1)', (t) => {
       })
 })
 test('should let xAmzHeadersCommon override xAmzHeadersAtComplete (2)', (t) => {
-  return testBase(t, {
+  return testCommon(t, {
     xAmzHeadersAtComplete: { 'x-custom-header2': 'phooey' },
     xAmzHeadersCommon: { 'x-custom-header3': 'phooey' }
   })
@@ -210,7 +214,7 @@ test('should retry Initiate', (t) => {
     return type === 'init'
   }
 
-  return testBase(t, {})
+  return testCommon(t, {})
       .then(function () {
         expect(['initiate,initiate,PUT:partNumber=1,PUT:partNumber=2,complete',
           'initiate,initiate,PUT:partNumber=2,PUT:partNumber=1,complete']).to.include('initiate,initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
@@ -222,7 +226,7 @@ test('should retry Complete', (t) => {
     return type === 'complete'
   }
 
-  return testBase(t, {})
+  return testCommon(t, {})
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,complete')
       })
@@ -233,7 +237,7 @@ test('should retry Upload Part', (t) => {
     return type === 'part'
   }
 
-  return testBase(t, { file: new File({
+  return testCommon(t, { file: new File({
         path: '/tmp/file',
         size: 50,
         name: 'tests'
@@ -275,7 +279,7 @@ test('should retry get signature for common case: Initiate, Put, Complete (autho
     return request_order.join(',')
   }
 
-  return testBase(t, { file: new File({
+  return testCommon(t, { file: new File({
       path: '/tmp/file',
       size: 50,
       name: 'tests'
@@ -293,7 +297,7 @@ test('should fail if PUT part 404s', (t) => {
   }
   t.context.errorStatus = 404
 
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         t.fail('Expected upload to fail but it did not.')
       })
@@ -307,7 +311,7 @@ test('should call cancelled() if PUT part 404s', (t) => {
   }
   t.context.errorStatus = 404
 
-  return testBase(t, { cancelled: sinon.spy() })
+  return testCommon(t, { cancelled: sinon.spy() })
       .then(function () {
         t.fail('Expected upload to fail but it did not.')
       })
@@ -321,7 +325,7 @@ test('should call the correctly ordered requests if PUT part 404s', (t) => {
   }
   t.context.errorStatus = 404
 
-  return testBase(t)
+  return testCommon(t)
       .then(function () {
         t.fail('Expected upload to fail but it did not.')
       })
@@ -336,7 +340,7 @@ test('should fail with a message when PUT part 404s and DELETE fails', (t) => {
   t.context.errorStatus = 404
   t.context.deleteStatus = 403
 
-  return testBase(t, { cancelled: sinon.spy() })
+  return testCommon(t, { cancelled: sinon.spy() })
       .then(function () {
         t.fail('Expected upload to fail but it did not.')
       })
@@ -351,7 +355,7 @@ test('should fail with the correctly ordered requests when PUT part 404s and DEL
   t.context.errorStatus = 404
   t.context.deleteStatus = 403
 
-  return testBase(t, { cancelled: sinon.spy() })
+  return testCommon(t, { cancelled: sinon.spy() })
       .then(function () {
         t.fail('Expected upload to fail but it did not.')
       })
