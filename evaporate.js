@@ -583,11 +583,17 @@
             .then(part.delaySend.bind(part));
         this.lastPartSatisfied = part.getStartedPromise();
     };
-    FileUpload.prototype.abortParts = function (reject) {
+    FileUpload.prototype.abortParts = function () {
         var self = this;
         this.partsInProcess.forEach(function (i) {
             var part = self.s3Parts[i];
-            if (part) { part.awsRequest.abort(reject); }
+            if (part) {
+                part.awsRequest.abort();
+                part.awsRequest.awsDeferred.resolve();
+                if (!self.userTriggereAbort) {
+                    part.awsRequest.awsDeferred = defer();
+                }
+            }
         });
     };
     FileUpload.prototype.makeParts = function (firstPart) {
