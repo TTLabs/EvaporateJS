@@ -117,7 +117,7 @@
                 .then(function (offset) {
                     evapConfig.localTimeOffset = offset;
                     return new Promise(function (resolve, reject) {
-                        let e = new Evaporate(evapConfig);
+                        var e = new Evaporate(evapConfig);
 
                         if (e.supported === true) {
                             resolve(e);
