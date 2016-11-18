@@ -1,3 +1,9 @@
+# v2.0.0-rc.4#
+
+- Enhances Evaporate#cancel to cancel all uploads
+- Sets the defalt Signature style to V4 (V2 signature users must set `awsSignatureVersion`
+- Addresses bug in Evaporate#cancel in which the evaporating count was not correctly synchronized
+
 # v2.0.0-rc.3#
 
 - Corrects complete callback for when reusing S3 object
