@@ -14,7 +14,7 @@
 
 /***************************************************************************************************
  *                                                                                                 *
- *  version 2.0.0-rc.3                                                                                  *
+ *  version 2.0.0-rc.4                                                                                  *
  *                                                                                                 *
  ***************************************************************************************************/
 
@@ -110,6 +110,7 @@
                     self.localTimeOffset = offset;
                 });
         }
+        this.pendingFiles = {};
     };
     Evaporate.create = function (config) {
         var evapConfig = Object.assign({}, config);
@@ -264,6 +265,23 @@
     Evaporate.prototype.cancel = function (id) {
         var self = this;
         return new Promise(function (resolve, reject) {
+            var typeOfId = typeof id;
+            if (typeOfId === 'undefined') {
+                l.d('Canceling all file uploads');
+                var promises = [];
+                for (var key in self.pendingFiles) {
+                    if (self.pendingFiles.hasOwnProperty(key)) {
+                        var file = self.pendingFiles[key];
+                        promises.push(file.stop());
+                    }
+                }
+                if (!promises.length) {
+                    return reject('No files to cancel.');
+                }
+                return Promise.all(promises)
+                    .then(resolve, reject)
+            }
+
             if (self.pendingFiles[id]) {
                 self.pendingFiles[id]
                     .stop()
@@ -290,8 +308,7 @@
                         }
                     }
                 }
-                return Promise.all(pausePromises).then(resolve, reject)
-                    .then(function () { self.evaporatingCnt(-1); });
+                return Promise.all(pausePromises).then(resolve, reject);
             }
             if (typeof self.pendingFiles[id] === 'undefined') {
                 return reject('Cannot pause a file that has not been added.');
@@ -300,8 +317,7 @@
                 return reject('Cannot pause a file that is already paused.');
             }
 
-            return self.pendingFiles[id].pause(force).then(resolve, reject)
-                .then(function () { self.evaporatingCnt(-1); });
+            return self.pendingFiles[id].pause(force).then(resolve, reject);
         });
     };
     Evaporate.prototype.resume = function (id) {
@@ -748,7 +764,7 @@
             this.warn(msg);
         }
     };
-    FileUpload.prototype.uploadPartsSuccess = function (listPartsRequest, partsXml) {
+    FileUpload.prototype.listPartsSuccess = function (listPartsRequest, partsXml) {
         this.info('uploadId', this.uploadId, 'is not complete. Fetching parts from part marker', listPartsRequest.partNumberMarker);
         var oDOM = parseXml(partsXml),
             listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
@@ -940,7 +956,7 @@
             });
     };
     FileUpload.prototype.signingClass = function (request, payload) {
-        var SigningClass = signingVersion(this.con, l, this.awsHost);
+        var SigningClass = signingVersion(this, l);
         return new SigningClass(request, payload);
     };
 
@@ -1355,11 +1371,12 @@
             return false;
         }
 
-        var listPartsResult = this.fileUpload.uploadPartsSuccess(this, xhr.responseText);
+        var listPartsResult = this.fileUpload.listPartsSuccess(this, xhr.responseText);
         var isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true';
 
         if (isTruncated) {
-            this.setupRequest(nodeValue(listPartsResult, "NextPartNumberMarker")); // let's fetch the next set of parts
+            var request = this.setupRequest(nodeValue(listPartsResult, "NextPartNumberMarker")); // let's fetch the next set of parts
+            this.updateRequest(request);
             this.trySend();
         } else {
             this.fileUpload.nameChanged(this.fileUpload.name);
@@ -1589,7 +1606,9 @@
         }
     };
 
-    function signingVersion(con, l, AWS_HOST) {
+    function signingVersion(fileUpload, l) {
+        var con = fileUpload.con;
+
         function AwsSignature(request) {
             this.request = request;
         }
@@ -1690,7 +1709,7 @@
             return credParts.join('/');
         };
         AwsSignatureV4.prototype.canonicalQueryString = function () {
-            var search = uri(this.request.path).search,
+            var search = uri(fileUpload.awsUrl + this.request.path).search,
                 searchParts = search.length ? search.split('&') : [],
                 encoded = [],
                 nameValue,
@@ -1740,7 +1759,7 @@
                 addHeader("Content-Md5", this.request.md5_digest);
             }
 
-            addHeader('Host', AWS_HOST);
+            addHeader('Host', fileUpload.awsHost);
 
             if (this.request.contentType) {
                 addHeader('Content-Type', this.request.contentType || '');
@@ -1788,7 +1807,7 @@
             var canonParts = [];
 
             canonParts.push(this.request.method);
-            canonParts.push(uri(this.request.path).pathname);
+            canonParts.push(uri(fileUpload.awsUrl + this.request.path).pathname);
             canonParts.push(this.canonicalQueryString() || '');
 
             var headers = this.canonicalHeaders();

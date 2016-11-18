@@ -560,9 +560,11 @@ on the final outcome of the upload.
   
 #### Evaporate#cancel()
 
-`var cancellationPromise = evaporate.cancel(file_key)`
+`var cancellationPromise = evaporate.cancel([file_key])`
 
-`file_key` is the file key of the upload that you want to cancel. File key is constructed as `bucket + '/' + object_name`.
+`file_key` is the optional file key of the upload that you want to cancel. If `file_key` is not defined, then all
+files will be canceled. File key is constructed as `bucket + '/' + object_name`.
+
 The completion promise rejects after the file upload aborts.
 
 The `cancellationPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
