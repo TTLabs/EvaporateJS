@@ -436,28 +436,45 @@ test('should add() two new uploads with correct config', (t) => {
 test('should call a callback on successful add()', (t) => {
   return testCommon(t)
       .then(function () {
-        expect(t.context.config.started).to.have.been.called
-        expect(t.context.config.started).to.have.been.calledWithExactly(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey)
+        expect(t.context.config.started.withArgs(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey).calledOnce).to.be.true
       })
 })
 
 // cancel
 
-test('should fail to cancel() when no id is present', (t) => {
-  Evaporate.create(baseConfig)
+test('should fail with a message when canceling all if no files are processing', (t) => {
+  return Evaporate.create(baseConfig)
       .then(function (evaporate) {
-        evaporate.cancel()
+        return evaporate.cancel()
             .then(function () {
               t.fail('Cancel did not fail.')
             })
             .catch(function (reason) {
-              expect(reason).to.match(/does not exist/i)
+              expect(reason).to.match(/no files to cancel/i)
             })
       })
 })
+test('should cancel() all uploads when cancel receives no parameters', (t) => {
+  const config = Object.assign({}, baseAddConfig, {
+    name: randomAwsKey(),
+    started: function (fileId) { id = fileId; }
+  })
+
+  let id
+
+  return testCommon(t, config)
+      .then(function () {
+        const result = t.context.evaporate.cancel()
+        expect(result).to.be.ok
+      })
+      .catch(function (reason) {
+        expect(reason).to.match(/no files to cancel/i)
+      })
+})
+
 
 test('should fail to cancel() when non-existing id is present', (t) => {
-  Evaporate.create(baseConfig)
+  return Evaporate.create(baseConfig)
       .then(function (evaporate) {
         evaporate.cancel('non-existent-file')
             .then(function () {

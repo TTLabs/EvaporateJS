@@ -110,6 +110,7 @@
                     self.localTimeOffset = offset;
                 });
         }
+        this.pendingFiles = {};
     };
     Evaporate.create = function (config) {
         var evapConfig = Object.assign({}, config);
@@ -264,6 +265,23 @@
     Evaporate.prototype.cancel = function (id) {
         var self = this;
         return new Promise(function (resolve, reject) {
+            var typeOfId = typeof id;
+            if (typeOfId === 'undefined') {
+                l.d('Canceling all file uploads');
+                var promises = [];
+                for (var key in self.pendingFiles) {
+                    if (self.pendingFiles.hasOwnProperty(key)) {
+                        var file = self.pendingFiles[key];
+                        promises.push(file.stop());
+                    }
+                }
+                if (!promises.length) {
+                    return reject('No files to cancel.');
+                }
+                return Promise.all(promises)
+                    .then(resolve, reject)
+            }
+
             if (self.pendingFiles[id]) {
                 self.pendingFiles[id]
                     .stop()
@@ -290,8 +308,7 @@
                         }
                     }
                 }
-                return Promise.all(pausePromises).then(resolve, reject)
-                    .then(function () { self.evaporatingCnt(-1); });
+                return Promise.all(pausePromises).then(resolve, reject);
             }
             if (typeof self.pendingFiles[id] === 'undefined') {
                 return reject('Cannot pause a file that has not been added.');
@@ -300,8 +317,7 @@
                 return reject('Cannot pause a file that is already paused.');
             }
 
-            return self.pendingFiles[id].pause(force).then(resolve, reject)
-                .then(function () { self.evaporatingCnt(-1); });
+            return self.pendingFiles[id].pause(force).then(resolve, reject);
         });
     };
     Evaporate.prototype.resume = function (id) {
