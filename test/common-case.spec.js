@@ -21,6 +21,51 @@ function testMd5V4(t) {
   })
 }
 
+function testSignerErrors(t, errorStatus, evapConfig) {
+  t.context.retry = function (type) {
+    return type === 'sign'
+  }
+  t.context.errorStatus = errorStatus
+
+  function requestOrder() {
+    let request_order = [],
+        requestMap = {
+          'GET:to_sign': 'sign',
+          'POST:uploads': 'initiate',
+          'POST:uploadId': 'complete',
+          'DELETE:uploadId': 'cancel',
+          'GET:uploadId': 'check for parts'
+        },
+        requests = testRequests[t.context.testId] || []
+    requests.forEach(function (r) {
+      var x = r.url.split('?'),
+          y = x[1] ? x[1].split('&') : '',
+          z = y[0] ? y[0].split('=')[0] : y
+      if (z === 'partNumber') {
+        z += '='
+        z += y[0].split('=')[1]
+      }
+
+      var v = z ? r.method + ':' + z : r.method
+      request_order.push(requestMap[v] || v)
+    })
+
+    return request_order.join(',')
+  }
+
+  return testCommon(t, { file: new File({
+    path: '/tmp/file',
+    size: 50,
+    name: 'tests'
+  })}, evapConfig)
+      .then(function () {
+        return Promise.resolve(requestOrder(t));
+      })
+      .catch(function (reason) {
+        return Promise.reject(reason + " " + requestOrder(t));
+      })
+
+}
 test.before(() => {
   sinon.xhr.supportsCORS = true
   global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
@@ -249,46 +294,43 @@ test('should retry Upload Part', (t) => {
 })
 
 // Retry get authorization / Initiate Upload
-test('should retry get signature for common case: Initiate, Put, Complete (authorization)', (t) => {
-  t.context.retry = function (type) {
-    return type === 'sign'
-  }
-
-  function requestOrder() {
-    let request_order = [],
-        requestMap = {
-          'GET:to_sign': 'sign',
-          'POST:uploads': 'initiate',
-          'POST:uploadId': 'complete',
-          'DELETE:uploadId': 'cancel',
-          'GET:uploadId': 'check for parts'
-        }
-    testRequests[t.context.testId].forEach(function (r) {
-      var x = r.url.split('?'),
-          y = x[1] ? x[1].split('&') : '',
-          z = y[0] ? y[0].split('=')[0] : y
-      if (z === 'partNumber') {
-        z += '='
-        z += y[0].split('=')[1]
-      }
-
-      var v = z ? r.method + ':' + z : r.method
-      request_order.push(requestMap[v] || v)
-    })
-
-    return request_order.join(',')
-  }
-
-  return testCommon(t, { file: new File({
-      path: '/tmp/file',
-      size: 50,
-      name: 'tests'
-    })
-  })
-      .then(function () {
-        expect(requestOrder(t)).to.equal('sign,sign,initiate,sign,sign,PUT:partNumber=1,sign,sign,complete')
+test('should retry get signature for common case: Initiate, Put, Complete (authorization), for non-permission responses', (t) => {
+  return testSignerErrors(t, 500)
+      .then(function (result) {
+        expect(result).to.equal('sign,sign,initiate,sign,sign,PUT:partNumber=1,sign,sign,complete')
       })
 })
+test('should not retry get signature for common case: Initiate, Put, Complete (authorization), for permission 401', (t) => {
+  return testSignerErrors(t, 401)
+      .then(function (result) {
+        t.fail('Expected test to fail but received: ' + result)
+      })
+      .catch(function (reason) {
+        expect(reason).to.equal('Permission denied status:401 sign')
+      })
+})
+test('should not retry get signature for common case: Initiate, Put, Complete (authorization), for permission 403', (t) => {
+  return testSignerErrors(t, 403)
+      .then(function (result) {
+        t.fail('Expected test to fail but received: ' + result)
+      })
+      .catch(function (reason) {
+        expect(reason).to.equal('Permission denied status:403 sign')
+      })
+})
+test('should not retry customAuthMethod for common case: Initiate, Put, Complete (authorization) if it rejects', (t) => {
+  const customRejectingAuthHandler = function  () {
+    return Promise.reject('Permission denied');
+  }
+  return testSignerErrors(t, 403, {signerUrl: undefined, customAuthMethod: customRejectingAuthHandler})
+      .then(function (result) {
+        t.fail('Expected test to fail but received: ' + result)
+      })
+      .catch(function (reason) {
+        expect(reason).to.equal('Permission denied ')
+      })
+})
+
 
 // Failures to upload because PUT Part 404
 test('should fail if PUT part 404s', (t) => {
@@ -360,6 +402,6 @@ test('should fail with the correctly ordered requests when PUT part 404s and DEL
         t.fail('Expected upload to fail but it did not.')
       })
       .catch(function () {
-        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,cancel,cancel')
+        expect(requestOrder(t)).to.match(/initiate,PUT:partNumber=1,cancel,cancel/)
       })
 })

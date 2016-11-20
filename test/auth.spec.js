@@ -4,8 +4,14 @@ import test from 'ava'
 
 let server;
 
-const signResponseHandler = function  (response, stringToSign, signatureDateTime) {
-  return '1234567890123456789012345srh';
+const signResponseHandler = function  (r) {
+  return new Promise(function (resolve) {
+    resolve('1234567890123456789012345srh');
+  });
+}
+
+const customAuthHandler = function  () {
+  return Promise.resolve('123456789012345678901234cstm');
 }
 
 function testCommonAuthorization(t, addCfg, evapConfig) {
@@ -170,16 +176,6 @@ function testV4ToSign(t, addConfig) {
           resolve(result)
         })
       })
-}
-
-let AWSLambda = function (payload) {
-  this.payload = payload;
-}
-AWSLambda.prototype.invoke = function (params, cb) {
-  const data = {
-    Payload: '"' + this.payload + '"'
-  }
-  cb('', data)
 }
 
 function params(url) {
@@ -351,7 +347,7 @@ test('should fetch V2 authorization from the signerUrl', (t) => {
       })
 })
 
-test('should fetch V2 authorization using the signResponseHandler even with signerUrl without errors', (t) => {
+test('should fetch V2 authorization using the signResponseHandler and signerUrl without errors', (t) => {
   return testV2Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {
         expect(t.context.errMessages.length).to.equal(0)
@@ -366,7 +362,7 @@ test('should call signResponseHandler() with the correct number of parameters', 
       })
 })
 
-test('should fetch V2 authorization with the correct singer url using the signResponseHandler even with signerUrl', (t) => {
+test('should fetch V2 authorization with the correct singer url using the signResponseHandler and signerUrl', (t) => {
   return testV2Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {
         expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
@@ -379,22 +375,22 @@ test('should fetch V2 authorization using the signResponseHandler', (t) => {
       })
 })
 
-test('should fetch V2 authorization using the signResponseHandler without signerUrl without errors', (t) => {
-   return testV2Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+test('should fetch V2 authorization using the customAuthMethod without errors', (t) => {
+   return testV2Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
         expect(t.context.errMessages.length).to.equal(0)
       })
 })
-test('should fetch V2 authorization with the correct singer url using the signResponseHandler without signerUrl', (t) => {
-  return testV2Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+test('should fetch V2 authorization with a customAuthMethod without using signrUrl', (t) => {
+  return testV2Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
         expect(typeof headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal('undefined')
       })
 })
-test('should fetch V2 authorization using the signResponseHandler without signerUrl', (t) => {
-  return testV2Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+test('should fetch V2 authorization using the customAuthMethod', (t) => {
+  return testV2Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
-        expect(t.context.authorization).to.equal(v2Authorization('1234567890123456789012345srh'))
+        expect(t.context.authorization).to.equal(v2Authorization('123456789012345678901234cstm'))
       })
 })
 
@@ -417,79 +413,77 @@ test('should fetch V4 authorization from the signerUrl', (t) => {
       })
 })
 
-test('should fetch V4 authorization using the signResponseHandler even with signerUrl without errors', (t) => {
+test('should fetch V4 authorization using the signResponseHandler and signerUrl without errors', (t) => {
   return testV4Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {
         expect(t.context.errMessages.length).to.equal(0)
       })
 })
-test('should fetch V4 authorization using the signResponseHandler even with signerUrl and call the correct signing url', (t) => {
+test('should fetch V4 authorization using the signResponseHandler and signerUrl and call the correct signing url', (t) => {
   return testV4Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {
         expect(headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal(t.context.testId)
       })
 })
-test('should fetch V4 authorization using the signResponseHandler even with signerUrl', (t) => {
+test('should fetch V4 authorization using the signResponseHandler and signerUrl', (t) => {
   return testV4Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {
         expect(t.context.authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
       })
 })
 
-test('should fetch V4 authorization using the signResponseHandler without signerUrl without errors', (t) => {
-  return testV4Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+test('should fetch V4 authorization using the customAuthMethod without errors', (t) => {
+  return testV4Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
         expect(t.context.errMessages.length).to.equal(0)
       })
 })
-test('should fetch V4 authorization using the signResponseHandler without calling signerUrl', (t) => {
-  return testV4Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+test('should fetch V4 authorization using the customAuthMethod', (t) => {
+  return testV4Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
         expect(typeof headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal('undefined')
       })
 })
-test('should fetch V4 authorization using the signResponseHandler without signerUrl', (t) => {
-  return testV4Authorization(t, {signerUrl: undefined, signResponseHandler: signResponseHandler})
+test('should fetch V4 authorization using the customAuthMethod without signerUrl', (t) => {
+  return testV4Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
-        expect(t.context.authorization).to.equal(v4Authorization('1234567890123456789012345srh'))
+        expect(t.context.authorization).to.equal(v4Authorization('123456789012345678901234cstm'))
       })
 })
 
-test('should fetch V2 authorization using awsLambda without errors', (t) => {
-  return testV2Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
-      .then(function () {
-        expect(t.context.errMessages.length).to.equal(0)
-      })
-})
-test('should fetch V2 authorization using awsLambda should not use signing url', (t) => {
-  return testV2Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
-      .then(function () {
-        expect(typeof headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal('undefined')
-      })
-})
-test('should fetch V2 authorization using awsLambda', (t) => {
-  return testV2Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV2'), awsLambdaFunction: function () {}})
-      .then(function () {
-        expect(t.context.authorization).to.equal(v2Authorization('abcdLambdaV2'))
-      })
-})
+test('should fetch authorization using a custom Authorization Method (awsLambda)', (t) => {
+  let AWSLambda = function (payload) {
+    this.payload = payload;
+  }
+  AWSLambda.prototype.invoke = function (params, cb) {
+    const data = {
+      Payload: '"' + this.payload + '"'
+    }
+    cb('', data)
+  }
 
-test('should fetch V4 authorization using awsLambda without errors', (t) => {
-  return testV4Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
+  let authorizationMethod = function (signParams, signHeaders, stringToSign, dateString) {
+    return new Promise(function(resolve, reject) {
+      new AWSLambda('abcdLambdaV2').invoke({
+        FunctionName: function () {},
+        InvocationType: 'RequestResponse',
+        Payload: JSON.stringify({
+          to_sign: stringToSign,
+          sign_params: signParams,
+          sign_headers: signHeaders
+        })
+      }, function (err, data) {
+        if (err) {
+          return reject(err);
+        }
+        resolve(JSON.parse(data.Payload));
+      });
+    });
+  };
+
+  return testV2Authorization(t, {customAuthMethod: authorizationMethod, signerUrl: undefined,})
       .then(function () {
         expect(t.context.errMessages.length).to.equal(0)
-      })
-})
-test('should fetch V4 authorization using awsLambda and not call the signing url', (t) => {
-  return testV4Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
-      .then(function () {
-        expect(typeof headersForMethod(t, 'GET', /\/signv4.*$/).testId).to.equal('undefined')
-      })
-})
-test('should fetch V4 authorization using awsLambda', (t) => {
-  return testV4Authorization(t, {awsLambda: new AWSLambda('abcdLambdaV4'), awsLambdaFunction: function () {}})
-      .then(function () {
-        expect(t.context.authorization).to.equal(v4Authorization('abcdLambdaV4'))
       })
 })
 

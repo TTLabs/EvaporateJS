@@ -25,15 +25,34 @@
 
          var files;
 
+         function authByAwsLambda (signParams, signHeaders, stringToSign, dateString) {
+            return new Promise(function(resolve, reject) {
+               var awsLambda = new AWS.Lambda({
+                  region: 'lambda region',
+                  accessKeyId: 'a key that can invoke the lambda function',
+                  secretAccessKey: 'the secret'
+               })
+               awsLambda.invoke({
+                  FunctionName: 'arn:aws:lambda:...:function:cw-signer', // arn of your lambda function
+                  InvocationType: 'RequestResponse',
+                  Payload: JSON.stringify({
+                     to_sign: stringToSign,
+                     sign_params: signParams,
+                     sign_headers: signHeaders
+                  })
+               }, function (err, data) {
+                  if (err) {
+                     return reject(err);
+                  }
+                  resolve(JSON.parse(data.Payload));
+               });
+            });
+         };
+
          Evaporate.create({
             aws_key: 'your aws_key here',
             bucket: 'your s3 bucket name here',
-            awsLambda:  new AWS.Lambda({
-                region: 'lambda region',
-                accessKeyId: 'a key that can invoke the lambda function',
-                secretAccessKey: 'the secret'
-            }),
-            awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // arn of your lambda function
+            customAuthMethod:  authByAwsLambda
          })
                  .then(function (_e_) {
                     $('#files').change(function (evt) {
