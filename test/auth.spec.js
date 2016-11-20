@@ -14,6 +14,7 @@ function testCommonAuthorization(t, addCfg, evapConfig) {
       t.context.errMessages.push(msg);
     }})
 
+  evapConfig = Object.assign({ s3FileCacheHoursAgo: 24 }, evapConfig)
   return testBase(t, addConfig, evapConfig);
 }
 
@@ -46,6 +47,71 @@ function testV2ToSign(t, request, amzHeaders, addConfig, evapConfig) {
       })
 
 }
+function testV2ListParts(t, request, amzHeaders, addConfig, maxGetParts, partNumberMarker, evapConfig) {
+  t.context.partNumberMarker = partNumberMarker
+  t.context.maxGetParts = maxGetParts
+
+  addConfig = Object.assign({}, {file: new File({
+        path: '/tmp/file',
+        size: 29690176,
+        name: 'tests'
+      })}, addConfig)
+  return testV2Authorization(t, evapConfig, addConfig)
+      .then(function () {
+        partNumberMarker = 0
+        t.context.originalUploadObjectKey = t.context.requestedAwsObjectKey
+        t.context.requestedAwsObjectKey = randomAwsKey()
+        let reUpload = Object.assign({}, addConfig, {name: t.context.requestedAwsObjectKey});
+        return evaporateAdd(t, t.context.evaporate, reUpload)
+      })
+      .then(function () {
+        var qp = params(testRequests[t.context.testId][18].url),
+            h = Object.assign({}, amzHeaders, {testId: t.context.testId, 'x-amz-date': qp.datetime}),
+            r = Object.assign({}, request, {x_amz_headers: h}),
+            expected = encodeURIComponent(stringToSignV2('/' + AWS_BUCKET + '/' + t.context.originalUploadObjectKey +
+                '?uploadId=Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--', 'GET', r))
+
+        return new Promise(function (resolve) {
+          var result = {
+            result: qp.to_sign,
+            expected: expected
+          }
+          resolve(result)
+
+        })
+      })
+}
+function testV4ListParts(t, addConfig, maxGetParts, partNumberMarker, evapConfig) {
+  t.context.partNumberMarker = partNumberMarker
+  t.context.maxGetParts = maxGetParts
+
+  addConfig = Object.assign({}, {file: new File({
+    path: '/tmp/file',
+    size: 29690176,
+    name: 'tests'
+  })}, addConfig)
+  return testV4Authorization(t, evapConfig, addConfig)
+      .then(function () {
+        partNumberMarker = 0
+        t.context.originalUploadObjectKey = t.context.requestedAwsObjectKey
+        t.context.requestedAwsObjectKey = randomAwsKey()
+        let reUpload = Object.assign({}, addConfig, {name: t.context.requestedAwsObjectKey});
+        return evaporateAdd(t, t.context.evaporate, reUpload)
+      })
+      .then(function () {
+        return new Promise(function (resolve) {
+          var qp = params(testRequests[t.context.testId][18].url)
+
+          var result =  {
+            result: qp.to_sign,
+            datetime: qp.datetime
+          }
+
+          resolve(result)
+        })
+      })
+}
+
 function stringToSignV2(path, method, request) {
 
   var x_amz_headers = '', result, header_key_array = [];
@@ -84,7 +150,7 @@ function testV4Authorization(t, initConfig, addCfg) {
     awsSignatureVersion: '4',
     computeContentMd5: true,
     cryptoMd5Method: function () { return 'MD5Value'; },
-    cryptoHexEncodedHash256: function () { return 'SHA256Value'; }
+    cryptoHexEncodedHash256: function (data) { return data; }
   }
   const evapConfig = Object.assign({}, config, initConfig)
 
@@ -179,23 +245,74 @@ test('should correctly create V2 string to sign for PUT with md5 digest', (t) =>
       })
 })
 
+test('should correctly create V2 string to sign with part-number-marker', (t) => {
+  return testV2ListParts(t, {}, {}, {}, 5, 0)
+      .then(function (result) {
+        expect(testRequests[t.context.testId][19].url).to.match(/part-number-marker=2/)
+      })
+})
+test('should correctly create V2 string to sign for truncated list parts', (t) => {
+  let config = {
+    name: t.context.requestedAwsObjectKey,
+    file: new File({
+      path: '/tmp/file',
+      size: 29690176,
+      name: randomAwsKey()
+    })
+  }
+  return testV2ListParts(t, {}, {}, config, 5, 0)
+      .then(function (result) {
+        expect(result.result).to.equal(result.expected)
+      })
+})
+
 test('should correctly create V4 string to sign for PUT', (t) => {
   return testV4ToSign(t)
     .then(function (result) {
       expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
-          result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
+          result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2Fbucket%2F' + t.context.requestedAwsObjectKey +
+              '%0ApartNumber%3D1' +
+              '%26uploadId%3DHzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--' +
+              '%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
               '%0Atestid%3A' + encodeURIComponent(t.context.testId) +
               '%0Ax-amz-date%3A' + result.datetime + '%0A%0Acontent-md5%3Bhost%3Btestid%3Bx-amz-date%0AUNSIGNED-PAYLOAD')
     })
 })
-
 test('should correctly create V4 string to sign for PUT with amzHeaders', (t) => {
   return testV4ToSign(t, {xAmzHeadersCommon: { 'x-custom-header': 'peanuts' }})
       .then(function (result) {
         expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
-            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2F%0A%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
+            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0APUT%0A%2Fbucket%2F' + t.context.requestedAwsObjectKey +
+            '%0ApartNumber%3D1' +
+            '%26uploadId%3DHzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--' +
+            '%0Acontent-md5%3AMD5Value%0Ahost%3As3.amazonaws.com' +
             '%0Atestid%3A' + encodeURIComponent(t.context.testId) +
             '%0Ax-amz-date%3A' + result.datetime + '%0Ax-custom-header%3Apeanuts%0A%0Acontent-md5%3Bhost%3Btestid%3Bx-amz-date%3Bx-custom-header%0AUNSIGNED-PAYLOAD')
+      })
+})
+test('should correctly create V4 string to sign with part-number-marker', (t) => {
+  return testV4ListParts(t, {}, 5, 0)
+      .then(function (result) {
+        expect(testRequests[t.context.testId][19].url).to.match(/part-number-marker=2/)
+      })
+})
+test('should correctly create V4 string to sign for truncated list parts', (t) => {
+
+  let config = {
+    name: t.context.requestedAwsObjectKey,
+    file: new File({
+      path: '/tmp/file',
+      size: 29690176,
+      name: randomAwsKey()
+    })
+  }
+  return testV4ListParts(t, {}, 5, 0)
+      .then(function (result) {
+        expect(result.result).to.equal('AWS4-HMAC-SHA256%0A' + result.datetime + '%0A' +
+            result.datetime.slice(0, 8) + '%2Fus-east-1%2Fs3%2Faws4_request%0AGET%0A%2Fbucket%2F' + t.context.originalUploadObjectKey +
+            '%0Apart-number-marker%3D2%26uploadId%3DHzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--' +
+            '%0Ahost%3As3.amazonaws.com%0Atestid%3A' + encodeURIComponent(t.context.testId) +
+            '%0Ax-amz-date%3A' + result.datetime + '%0A%0Ahost%3Btestid%3Bx-amz-date%0A')
       })
 })
 
@@ -379,7 +496,7 @@ test('should fetch V4 authorization using awsLambda', (t) => {
 test('should fetch V4 authorization with header "x-amz-content-sha256" for INIT', (t) => {
   return testV4Authorization(t)
       .then(function () {
-        expect(headersForMethod(t, 'POST', /^.*\?uploads.*$/)['x-amz-content-sha256']).to.equal('SHA256Value')
+        expect(headersForMethod(t, 'POST', /^.*\?uploads.*$/)['x-amz-content-sha256']).to.equal('')
       })
 })
 test('should fetch V4 authorization with header "x-amz-content-sha256" for PUT', (t) => {
@@ -391,7 +508,7 @@ test('should fetch V4 authorization with header "x-amz-content-sha256" for PUT',
 test('should fetch V4 authorization with header "x-amz-content-sha256" for COMPLETE', (t) => {
   return testV4Authorization(t)
       .then(function () {
-        expect(headersForMethod(t, 'POST', /.*\?uploadId.*$/)['x-amz-content-sha256']).to.equal('SHA256Value')
+        expect(headersForMethod(t, 'POST', /.*\?uploadId.*$/)['x-amz-content-sha256']).to.equal('<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag></ETag></Part></CompleteMultipartUpload>')
       })
 })
 
@@ -469,37 +586,6 @@ test('should return error when ABORT fails and return error messages (1)', (t) =
         expect(t.context.errMessages.join(',')).to.match(/status:403/)
           }
       )
-})
-
-test('should return error when list parts fails after calling correct signing url', (t) => {
-  t.context.retry = function (type) {
-    return type === 'part'
-  }
-  t.context.errorStatus = 404
-  t.context.getPartsStatus = 403
-
-  return testV2Authorization(t)
-      .then(function () {
-          t.fail('Expected an error but found none: ' + t.context.testId)
-          },
-          function (reason) {
-            expect(headersForMethod(t, 'GET', /\/signv2.*$/).testId).to.equal(t.context.testId)
-          })
-})
-test('should return error when list parts fails with error messages (1)', (t) => {
-  t.context.retry = function (type) {
-    return type === 'part'
-  }
-  t.context.errorStatus = 404
-  t.context.getPartsStatus = 403
-
-  return testV2Authorization(t)
-      .then(function () {
-            t.fail('Expected an error but found none: ' + t.context.testId)
-          },
-          function (reason) {
-            expect(t.context.errMessages.join(',')).to.match(/404 error on part PUT\. The part and the file will abort/i)
-          })
 })
 
 test('should return error when listParts fails in Abort after part upload failure (404) and call the signing url', (t) => {
