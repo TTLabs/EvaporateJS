@@ -1,3 +1,18 @@
+# v2.0.0-rc.5#
+
+- Makes authorization (singing) a pluggable feature and as a result, removes
+  built-in support for AWS Lambda. Consequently, async methods can be used
+  to calculate a signature. The custom authorization method must return
+  a Promise and is specified through the `customAuthMethod` option. The
+  README includes examples of how to define authorization through
+  AWSLambda, as do the examples.
+- Allows the upload to be aborted if the signature url responds with
+  401 or 403. Additionally, if the customAuthMethod promise rejects,
+  then the upload is aborted.
+- `signReponseHandler` now must return a Promise. It is now only used to
+  post-process a response from `signUrl`.
+- Documents the `beforeSigner` option for a file upload.
+
 # v2.0.0-rc.4#
 
 - Enhances Evaporate#cancel to cancel all uploads

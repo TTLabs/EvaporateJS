@@ -14,7 +14,7 @@
 
 /***************************************************************************************************
  *                                                                                                 *
- *  version 2.0.0-rc.4                                                                                  *
+ *  version 2.0.0-rc.5                                                                             *
  *                                                                                                 *
  ***************************************************************************************************/
 
@@ -68,8 +68,7 @@
             s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
             signParams: {},
             signHeaders: {},
-            awsLambda: null,
-            awsLambdaFunction: null,
+            customAuthMethod: undefined,
             maxFileSize: null,
             signResponseHandler: null,
             xhrWithCredentials: false,
@@ -229,6 +228,7 @@
                 info: function () {},
                 warn: function () {},
                 error: function () {},
+                beforeSigner: undefined,
                 xAmzHeadersAtInitiate: {},
                 notSignedHeadersAtInitiate: {},
                 xAmzHeadersCommon: null,
@@ -390,8 +390,8 @@
             Blob.prototype.mozSlice ||
             Blob.prototype.slice) === 'undefined');
 
-        if (!this.config.signerUrl && typeof this.config.signResponseHandler !== 'function') {
-            return "Option signerUrl is required unless signResponseHandler is present.";
+        if (!this.config.signerUrl && typeof this.config.customAuthMethod !== 'function') {
+            return "Option signerUrl is required unless customAuthMethod is present.";
         }
 
         if (!this.config.bucket) {
@@ -451,8 +451,6 @@
 
         extend(this, file);
 
-        this.awsUrl = awsUrl(this.con);
-        this.awsHost = uri(this.awsUrl).hostname;
         this.id = decodeURIComponent(this.con.bucket + '/' + this.name);
 
         this.signParams = con.signParams;
@@ -460,8 +458,6 @@
     FileUpload.prototype.con = undefined;
     FileUpload.prototype.evaporate = undefined;
     FileUpload.prototype.localTimeOffset = 0;
-    FileUpload.prototype.awsUrl = undefined;
-    FileUpload.prototype.awsHost = undefined;
     FileUpload.prototype.id = undefined;
     FileUpload.prototype.status = PENDING;
     FileUpload.prototype.numParts = -1;
@@ -620,7 +616,7 @@
 
         function cleanUpAfterPart(s3Part) {
             removeAtIndex(self.partsToUpload, s3Part.part);
-            removeAtIndex(self.partsInProcess, s3Part.part)
+            removeAtIndex(self.partsInProcess, s3Part.part);
 
             if (self.partsToUpload.length) { self.evaporate.evaporatingCnt(-1); }
         }
@@ -741,13 +737,6 @@
             (this.con.onlyRetryForSameFileName ? this.name === u.awsKey : true);
     };
 
-    FileUpload.prototype.getPath = function () {
-        var path = '/' + this.con.bucket + '/' + this.name;
-        if (this.con.cloudfront || this.awsUrl.indexOf('cloudfront') > -1) {
-            path = '/' + this.name;
-        }
-        return path;
-    };
     FileUpload.prototype.partSuccess = function (eTag, putRequest) {
         var part = putRequest.part;
         l.d(putRequest.request.step, 'ETag:', eTag);
@@ -955,10 +944,6 @@
                 }
             });
     };
-    FileUpload.prototype.signingClass = function (request, payload) {
-        var SigningClass = signingVersion(this, l);
-        return new SigningClass(request, payload);
-    };
 
 
     function SignedS3AWSRequest(fileUpload, request) {
@@ -969,16 +954,31 @@
         this.awsDeferred = defer();
         this.started = defer();
 
+        this.awsUrl = awsUrl(this.con);
+        this.awsHost = uri(this.awsUrl).hostname;
+
         this.updateRequest(request);
     }
     SignedS3AWSRequest.prototype.fileUpload = undefined;
     SignedS3AWSRequest.prototype.con = undefined;
+    SignedS3AWSRequest.prototype.awsUrl = undefined;
+    SignedS3AWSRequest.prototype.awsHost = undefined;
+    SignedS3AWSRequest.prototype.authorize = function () {};
     SignedS3AWSRequest.prototype.localTimeOffset = 0;
     SignedS3AWSRequest.prototype.awsDeferred = undefined;
     SignedS3AWSRequest.prototype.started = undefined;
+    SignedS3AWSRequest.prototype.getPath = function () {
+        var path = '/' + this.con.bucket + '/' + this.fileUpload.name;
+        if (this.con.cloudfront || this.awsUrl.indexOf('cloudfront') > -1) {
+            path = '/' + this.fileUpload.name;
+        }
+        return path;
+    };
+
     SignedS3AWSRequest.prototype.updateRequest = function (request) {
         this.request = request;
-        this.signer = this.fileUpload.signingClass(request, this.getPayload());
+        var SigningClass = signingVersion(this, l);
+        this.signer = new SigningClass(request, this.getPayload());
     };
     SignedS3AWSRequest.prototype.success = function () { return true; };
     SignedS3AWSRequest.prototype.error =  function (reason) {
@@ -1028,34 +1028,15 @@
         }
         return out;
     };
-    SignedS3AWSRequest.prototype.authorizedSignWithLambda = function () {
-        var self = this;
-        return new Promise(function(resolve, reject) {
-            self.con.awsLambda.invoke({
-                FunctionName: self.con.awsLambdaFunction,
-                InvocationType: 'RequestResponse',
-                Payload: JSON.stringify({
-                    to_sign: self.signer.stringToSign(),
-                    sign_params: self.makeSignParamsObject(self.fileUpload.signParams),
-                    sign_headers: self.makeSignParamsObject(self.con.signHeaders)
-                })
-            }, function (err, data) {
-                if (err) {
-                    var warnMsg = 'failed to get authorization with lambda ' + err;
-                    l.w(warnMsg);
-                    self.fileUpload.warn(warnMsg);
-                    return reject(warnMsg);
-                }
-                resolve(self.signResponse(JSON.parse(data.Payload)));
-            });
-        });
-    };
     SignedS3AWSRequest.prototype.signResponse = function(payload, stringToSign, signatureDateTime) {
-        if (typeof this.con.signResponseHandler === 'function') {
-            payload = this.con.signResponseHandler(payload, stringToSign, signatureDateTime) || payload;
-        }
-
-        return payload;
+        var self = this;
+        return new Promise(function (resolve) {
+            if (typeof self.con.signResponseHandler === 'function') {
+                return self.con.signResponseHandler(payload, stringToSign, signatureDateTime)
+                    .then(resolve);
+            }
+            resolve(payload);
+        });
     };
     SignedS3AWSRequest.prototype.sendRequestToAWS = function () {
         var self = this;
@@ -1064,7 +1045,7 @@
             self.currentXhr = xhr;
 
             var payload = self.getPayload(),
-                url = self.fileUpload.awsUrl + self.request.path,
+                url = [self.awsUrl, self.getPath(), self.request.path].join(""),
                 all_headers = {};
 
             if (self.request.query_string) {
@@ -1131,77 +1112,12 @@
         });
     };
     //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
-    SignedS3AWSRequest.prototype.getAuthorization = function () {
-        var self = this;
-        return new Promise(function (resolve, reject) {
-            var result,
-                xhr = new XMLHttpRequest();
-            self.currentXhr = xhr;
-
-
-            if (self.con.awsLambda) {
-                self.authorizedSignWithLambda()
-                    .then(function (signature) {
-                        resolve(signature);
-                    }, function (reason) {
-                        reject(reason)
-                    });
-                return;
-            }
-
-            var stringToSign = self.stringToSign(),
-                url = [self.con.signerUrl, '?to_sign=', stringToSign, '&datetime=', self.request.dateString].join('');
-
-            if (typeof self.con.signerUrl === 'undefined') {
-                result = self.signResponse(null, stringToSign, self.request.dateString);
-                return result ? resolve(result) : reject('signResponse returned no signature.')
-            }
-
-            var signParams = self.makeSignParamsObject(self.fileUpload.signParams);
-            for (var param in signParams) {
-                if (!signParams.hasOwnProperty(param)) { continue; }
-                url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
-            }
-
-            if (self.con.xhrWithCredentials) {
-                xhr.withCredentials = true;
-            }
-
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-
-                    if (xhr.status === 200) {
-                        return resolve(self.signResponse(xhr.response));
-                    } else {
-                        reject("Signature fetch returned status: " + xhr.status);
-                    }
-                }
-            };
-
-            xhr.onerror = function (xhr) {
-                reject('authorizedSend transport error: ' + xhr.responseText);
-            };
-
-            xhr.open('GET', url);
-            var signHeaders = self.makeSignParamsObject(self.con.signHeaders);
-            for (var header in signHeaders) {
-                if (!signHeaders.hasOwnProperty(header)) { continue; }
-                xhr.setRequestHeader(header, signHeaders[header])
-            }
-
-            if (typeof self.fileUpload.beforeSigner  === 'function') {
-                self.fileUpload.beforeSigner(xhr, url);
-            }
-            xhr.send();
-        });
-    };
-    SignedS3AWSRequest.prototype.sendAuthorizedRequest = function () {
+    SignedS3AWSRequest.prototype.authorize = function () {
         this.request.dateString = this.signer.dateString(this.localTimeOffset);
         this.request.x_amz_headers = extend(this.request.x_amz_headers, {
             'x-amz-date': this.request.dateString
         });
-
-        return this.getAuthorization();
+        return authorizationMethod(this).authorize();
     };
     SignedS3AWSRequest.prototype.authorizationSuccess = function (authorization) {
         l.d(this.request.step, 'signature:', authorization);
@@ -1209,7 +1125,7 @@
     };
     SignedS3AWSRequest.prototype.trySend = function () {
         var self = this;
-        return this.sendAuthorizedRequest()
+        return this.authorize()
             .then(
                 function (value) {
                     self.authorizationSuccess(value);
@@ -1260,7 +1176,7 @@
     function InitiateMultipartUpload(fileUpload, awsKey) {
         var request = {
             method: 'POST',
-            path: fileUpload.getPath() + '?uploads',
+            path: '?uploads',
             step: 'initiate',
             x_amz_headers: fileUpload.xAmzHeadersAtInitiate,
             not_signed_headers: fileUpload.notSignedHeadersAtInitiate,
@@ -1291,7 +1207,7 @@
         var request = {
             method: 'POST',
             contentType: 'application/xml; charset=UTF-8',
-            path: fileUpload.getPath() + '?uploadId=' + fileUpload.uploadId,
+            path: '?uploadId=' + fileUpload.uploadId,
             x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtComplete,
             step: 'complete'
         };
@@ -1311,7 +1227,7 @@
 
         var request = {
             method: 'HEAD',
-            path: fileUpload.getPath(),
+            path: '',
             x_amz_headers: fileUpload.xAmzHeadersCommon,
             success404: true,
             step: 'head_object'
@@ -1350,10 +1266,9 @@
         this.awsKey = this.fileUpload.name;
         this.partNumberMarker = partNumberMarker;
 
-        var path = this.fileUpload.getPath();
         var request = {
             method: 'GET',
-            path: this.signer.getListPartsPath(path, this.fileUpload.uploadId,partNumberMarker),
+            path: ['?uploadId=', this.fileUpload.uploadId].join(""),
             query_string: "&part-number-marker=" + partNumberMarker,
             x_amz_headers: this.fileUpload.xAmzHeadersCommon,
             step: 'get upload parts',
@@ -1396,7 +1311,7 @@
         this.progressTracker = 0;
         var request = {
             method: 'PUT',
-            path: fileUpload.getPath() + '?partNumber=' + this.partNumber + '&uploadId=' + fileUpload.uploadId,
+            path: '?partNumber=' + this.partNumber + '&uploadId=' + fileUpload.uploadId,
             step: 'upload #' + this.partNumber,
             x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtUpload,
             contentSha256: "UNSIGNED-PAYLOAD",
@@ -1581,7 +1496,7 @@
 
         var request = {
             method: 'DELETE',
-            path: fileUpload.getPath() + '?uploadId=' + fileUpload.uploadId,
+            path: '?uploadId=' + fileUpload.uploadId,
             x_amz_headers: fileUpload.xAmzHeadersCommon,
             success404: true,
             step: 'abort'
@@ -1606,9 +1521,8 @@
         }
     };
 
-    function signingVersion(fileUpload, l) {
-        var con = fileUpload.con;
-
+    function signingVersion(awsRequest, l) {
+        var con = awsRequest.con;
         function AwsSignature(request) {
             this.request = request;
         }
@@ -1622,9 +1536,6 @@
         };
         AwsSignature.prototype.dateString = function (timeOffset) {
             return this.datetime(timeOffset).toISOString().slice(0, 19).replace(/-|:/g, '') + "Z";
-        };
-        AwsSignature.prototype.getListPartsPath = function (path, uploadId, partNumberMarker) {
-            return [path, '?uploadId=', uploadId, "&part-number-marker=", partNumberMarker].join("");
         };
 
         function AwsSignatureV2(request) {
@@ -1656,7 +1567,7 @@
                 '\n' +
                 x_amz_headers +
                 (con.cloudfront ? '/' + con.bucket : '') +
-                this.request.path;
+                awsRequest.getPath() + this.request.path;
 
             l.d('V2 stringToSign:', result);
             return result;
@@ -1664,9 +1575,6 @@
         };
         AwsSignatureV2.prototype.dateString = function (timeOffset) {
             return this.datetime(timeOffset).toUTCString();
-        };
-        AwsSignatureV2.prototype.getListPartsPath = function (path, uploadId) {
-            return [path, '?uploadId=', uploadId].join("");
         };
 
         function AwsSignatureV4(request, payload) {
@@ -1709,7 +1617,8 @@
             return credParts.join('/');
         };
         AwsSignatureV4.prototype.canonicalQueryString = function () {
-            var search = uri(fileUpload.awsUrl + this.request.path).search,
+            var qs = awsRequest.request.query_string || '',
+                search = uri([awsRequest.awsUrl, this.request.path, qs].join("")).search,
                 searchParts = search.length ? search.split('&') : [],
                 encoded = [],
                 nameValue,
@@ -1759,7 +1668,7 @@
                 addHeader("Content-Md5", this.request.md5_digest);
             }
 
-            addHeader('Host', fileUpload.awsHost);
+            addHeader('Host', awsRequest.awsHost);
 
             if (this.request.contentType) {
                 addHeader('Content-Type', this.request.contentType || '');
@@ -1807,7 +1716,7 @@
             var canonParts = [];
 
             canonParts.push(this.request.method);
-            canonParts.push(uri(fileUpload.awsUrl + this.request.path).pathname);
+            canonParts.push(uri([awsRequest.awsUrl + awsRequest.getPath() + this.request.path].join("")).pathname);
             canonParts.push(this.canonicalQueryString() || '');
 
             var headers = this.canonicalHeaders();
@@ -1824,6 +1733,103 @@
         };
 
         return con.awsSignatureVersion === '4' ? AwsSignatureV4 : AwsSignatureV2;
+    }
+    function authorizationMethod(awsRequest) {
+        var fileUpload = awsRequest.fileUpload,
+            con = fileUpload.con,
+            request = awsRequest.request;
+
+        function AuthorizationMethod() {
+            this.request = request;
+        }
+        AuthorizationMethod.prototype = Object.create(AuthorizationMethod.prototype);
+        AuthorizationMethod.prototype.request = {};
+        AuthorizationMethod.makeSignParamsObject = function (params) {
+            var out = {};
+            for (var param in params) {
+                if (!params.hasOwnProperty(param)) { continue; }
+                if (typeof params[param] === 'function') {
+                    out[param] = params[param]();
+                } else {
+                    out[param] = params[param];
+                }
+            }
+            return out;
+        };
+        AuthorizationMethod.prototype.authorize = function () {
+            return new Promise(function (resolve, reject) {
+                var xhr = new XMLHttpRequest();
+                awsRequest.currentXhr = xhr;
+
+
+                var stringToSign = awsRequest.stringToSign(),
+                    url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', request.dateString].join('');
+
+                var signParams = awsRequest.makeSignParamsObject(fileUpload.signParams);
+                for (var param in signParams) {
+                    if (!signParams.hasOwnProperty(param)) { continue; }
+                    url += ('&' + encodeURIComponent(param) + '=' + encodeURIComponent(signParams[param]));
+                }
+
+                if (con.xhrWithCredentials) {
+                    xhr.withCredentials = true;
+                }
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            awsRequest.signResponse(xhr.response, stringToSign, request.dateString)
+                                .then(resolve);
+                        } else {
+                            if ([401, 403].indexOf(xhr.status) > -1) {
+                                var reason = "status:" + xhr.status;
+                                fileUpload.deferredCompletion.reject('Permission denied ' + reason);
+                                return reject(reason);
+                            }
+                            reject("Signature fetch returned status: " + xhr.status);
+                        }
+                    }
+                };
+
+                xhr.onerror = function (xhr) {
+                    reject('authorizedSend transport error: ' + xhr.responseText);
+                };
+
+                xhr.open('GET', url);
+                var signHeaders = awsRequest.makeSignParamsObject(con.signHeaders);
+                for (var header in signHeaders) {
+                    if (!signHeaders.hasOwnProperty(header)) { continue; }
+                    xhr.setRequestHeader(header, signHeaders[header])
+                }
+
+                if (typeof fileUpload.beforeSigner  === 'function') {
+                    fileUpload.beforeSigner(xhr, url);
+                }
+                xhr.send();
+            });
+        };
+
+        function AuthorizationCustom() {
+            AuthorizationMethod.call(this);
+        }
+        AuthorizationCustom.prototype = Object.create(AuthorizationMethod.prototype);
+        AuthorizationCustom.prototype.authorize = function () {
+            return con.customAuthMethod(
+                AuthorizationMethod.makeSignParamsObject(fileUpload.signParams),
+                AuthorizationMethod.makeSignParamsObject(con.signHeaders),
+                awsRequest.stringToSign(),
+                request.dateString)
+                .catch(function (reason) {
+                    fileUpload.deferredCompletion.reject(reason);
+                    throw reason;
+                });
+        };
+
+        if (typeof con.customAuthMethod === 'function') {
+            return new AuthorizationCustom()
+        }
+
+        return new AuthorizationMethod();
     }
 
     function awsUrl(con) {

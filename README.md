@@ -50,8 +50,8 @@ Promises](http://caniuse.com/#feat=promises).
 
 ## Authors
 
-  - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))
   - Bobby Wallace ([bikeath1337](http://github.com/bikeath1337))
+  - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))
 
 ## Installation
 
@@ -270,12 +270,14 @@ following combinations of signing options:
 
 1. A custom `signerUrl` that returns the signture or signing response required
     for the specified `awsSignatureVersion`.
-2. A callback defined using `signResponseHandler`
-3. An AWS Lambda function enabled with `awsLambda` and `awsLambdaFunction`.
+3. A custom authorization method defined with `customAuthMethod`.
 
-`signerUrl` is not required if using signing methods 2 or 3. `signResponseHandler` can
-also be provided for additional processing of responses from `signerUrl`.
+`signerUrl` is not invoked if using a `customAuthMethod`. `signResponseHandler` can
+also be provided for additional processing of responses from `signerUrl`. If the
+request to signerUrl responds with 401 Unauthorized or 403 Permission Denied, then
+the upload will stop. Any other status will attempt to retry the request.
 
+If the custom authorization Promise rejects,then the upload will stop.
 
 Available onfiguration options:
 
@@ -285,21 +287,43 @@ Available onfiguration options:
 * **signerUrl**: a url on your application server which will sign the request according to your chosen AWS signature method (Version 2 or 4). For example
     'http://myserver.com/auth_upload'. When using AWS Signature Version 4, this URL must respond with the V4 signing key. If you don't want to use
     a signerURL and want to sign the request yourself, then you sign the request using `signResponseHandler`.
+* **customAuthMethod**: a method that returns an implementation of
+    [Promises/A+](http://promises-aplus.github.com/promises-spec/). The promise resolves with the AWS object key of the
+    uploaded object. The method is passed the signParams, signHeaders, calculated string to sign and the datetime used
+    in the string to sign.
+
+    For example:
+
+    ```javascript
+    function (signParams, signHeaders, stringToSign, signatureDateTime) {
+        return new Promise(function (resolve, reject) {
+            resolve('computed signature');
+        }
+    }
+    ```
+
+    Use a `customAuthMethod` if you want to use AWS Lambda for signature calculation. If the Promise rejects, then
+    the file upload will stop.
+
 * **computeContentMd5**: default=false, whether to compute and send an
     MD5 digest for each part for verification by AWS S3. This
     option defaults to `false` for backward compatibility; however, **new
     applications of Evaporate should _always_ enable this to assure
     that uploaded files are exact copies of the source (copy fidelity)**.
 
-* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
-    set this option, Evaporate will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
-    The method signature is `function (response, stringToSign, signatureDateTime) { return 'computed signature'; }`.
-    
-    `signResponseHandler` can be used to further process the signature returned from the call to `signerUrl`.
+* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the
+    encoded signature. If you set this option, Evaporate will pass it the response it received from the `signerUrl`. The
+    method must return a [Promise](http://promises-aplus.github.com/promises-spec/) that resolves with the signature or
+    rejects with a reason. For example:
 
-* **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
-    section "Using AWS Lambda to Sign Requests" below.
-* **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
+    ```javascript
+    function (response, stringToSign, signatureDateTime) {
+        return new Promise(function (resolve, reject) {
+            resolve('computed signature');
+        }
+    }
+    ```
+
 * **logging**: default=true, whether Evaporate outputs to the console.log  - should be `true` or `false`
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
@@ -472,6 +496,8 @@ to pause.
     increase or decrease depending on the status of uploading parts.
 
 * **contentType**: _String_. the content type (MIME type) the file will have
+
+* **beforeSigner**: _function(xhr, url)_. a function that will be just before the `signUrl` is sent.
 
 `overrideOptions`, an object, when present, will override th Evaporate global configuration options for the added file only. 
 With the exception of the following options, all other Evaporate configuration options can be overridden:
@@ -654,15 +680,17 @@ uploads. for more information, refer to [S3 Lifecycle Management Update – Supp
 
 #### Using AWS Lambda to Sign Requests
 
-You need to do a couple of things
+As of v2.0.0 direct support for AWS Lambda has been removed because `customAuthMethod` can be used to implement it
+directly.
 
 * Include the AWS SDK for Javascript, either directly, bower, or browserify
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.2.43.min.js"></script>
 
-* Create a lambda function see: [`signing_example_lambda.js`](example/signing_example_lambda.js)
+* Create a `customAuthMethod` see: [`signing_example_lambda.js`](example/signing_example_lambda.js)
 
-  The Lambda function will receive three parameters to the event; `to_sign`, `sign_params` and `sign_headers`.
+  The custom authorization method should use AWS Lambda to calculate the signature. The function will receive
+  the signHeaders, signParams, string to sign and datetime used to calcualte the string to sign.
 
 * Setup an IAM user with permissions to call your lambda function. This user should be separate from the one that can
 upload to S3. Here is a sample policy
@@ -684,18 +712,38 @@ upload to S3. Here is a sample policy
     ]
 }
 ```
-* Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaFunction`, instead of `signerUrl`
+* Pass the custom auth method to Evaporate and do not specify `signerUrl`
 
 ```javascript
+
+function authByAwsLambda (signParams, signHeaders, stringToSign, dateString) {
+    return new Promise(function(resolve, reject) {
+       var awsLambda = new AWS.Lambda({
+          region: 'lambda region',
+          accessKeyId: 'a key that can invoke the lambda function',
+          secretAccessKey: 'the secret'
+       })
+       awsLambda.invoke({
+          FunctionName: 'arn:aws:lambda:...:function:cw-signer', // arn of your lambda function
+          InvocationType: 'RequestResponse',
+          Payload: JSON.stringify({
+             to_sign: stringToSign,
+             sign_params: signParams,
+             sign_headers: signHeaders
+          })
+       }, function (err, data) {
+          if (err) {
+             return reject(err);
+          }
+          resolve(JSON.parse(data.Payload));
+       });
+    });
+};
+
 Evaporate.create({
     aws_key: 'your aws_key here',
     bucket: 'your s3 bucket name here',
-    awsLambda:  new AWS.Lambda({
-        'region': 'lambda region',
-        'accessKeyId': 'a key that can invoke the lambda function',
-        'secretAccessKey': 'the secret'
-    }),
-    awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // ARN of your lambda function
+    customAuthMethod: authByAwsLambda
  })
  .then(function (evaporate) {
        evaporate.add(...);

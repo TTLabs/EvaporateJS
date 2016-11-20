@@ -90,14 +90,14 @@ test('should respect aws_url if presented with cloudfront', (t) => {
 // S3 Transfer Acceleration
 
 test('should respect s3Acceleration with defaults', (t) => {
-  testAwsUrl(t, { s3Acceleration: true })
+  return testAwsUrl(t, { s3Acceleration: true })
       .then(function (url) {
         expect(url).to.match(new RegExp('https://bucket.s3-accelerate.amazonaws.com/'))
     })
 })
 
 test('should respect s3Acceleration with region outside of us-east-1', (t) => {
-  testAwsUrl(t, { s3Acceleration: true, awsRegion: 'eu-central-1' })
+  return testAwsUrl(t, { s3Acceleration: true, awsRegion: 'eu-central-1' })
       .then(function (url) {
         expect(url).to.match(new RegExp('https://bucket.s3-accelerate.amazonaws.com/'))
       })
