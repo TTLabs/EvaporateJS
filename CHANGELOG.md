@@ -1,3 +1,6 @@
+# v1.6.2#
+This is a release with only changes to the readme.
+
 # v1.6.1#
 
 ## Bug Fixes ##
