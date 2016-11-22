@@ -112,7 +112,7 @@
 
               callback_methods.progress_clock.attr('file_id', file_id);
 
-              ["#pause-all",  "#pause-all-force", "#resume", "#cancel-all"].forEach(function (v) { $(v).show(); });
+              ["#pause-all",  "#pause-all-force", "#cancel-all"].forEach(function (v) { $(v).show(); });
            }
 
            allCompleted = Promise.all(filePromises)
@@ -260,9 +260,7 @@
               },
               resumed: function () {
                  clock.animate(progress);
-                 markComplete('evaporating');
-                 pause.show();
-                 forcePause.show();
+                 markComplete('');
                  resume.hide();
                  progress_clock.removeClass('pausing paused');
               },
