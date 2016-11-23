@@ -12,7 +12,7 @@
 - `signReponseHandler` now must return a Promise. It is now only used to
   post-process a response from `signUrl`.
 - Documents the `beforeSigner` option for a file upload.
-- Restores flaky (force) Pause/Resume feature
+- Stabilizes previously flaky (force) Pause/Resume feature
 
 # v2.0.0-rc.4#
 

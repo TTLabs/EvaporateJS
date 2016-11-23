@@ -18,9 +18,19 @@ Major features include:
 - AWS Signature Version 2 and 4 (`awsSignatureVersion`)
 - S3 Transfer Acceleration (`s3Acceleration`)
 - Robust recovery when uploading huge files. Only parts that
-  have not been fully uploaded are resent. (`s3FileCacheHoursAgo`, `allowS3ExistenceOptimization`)
-- AWS Lambda function support (`awsLambda`)
+  have not been fully uploaded again. (`s3FileCacheHoursAgo`, `allowS3ExistenceOptimization`)
 - Ability to pause and resume downloads at will
+- Pluggable signing methods to support AWS Lambda, async functions and more.
+
+New Features in v2.0:
+- Parallel file uploads while respecting `maxConcurrentParts`.
+- If Evaporate reuses an interrupted upload or avoids uploading a file that is already available on S3, the new
+  callback `nameChanged` will be invoked with the previous object name at the earliest moment. This indicates
+  that requested object name was not used.
+- Pause, Resume, Cancel now can act on all in-progress file uploads
+- Pluggable signing methods with `customAuthMethod`. AWS Lambda functions must be implemente through this option.
+- Signing methods can respond to 401 and 403 response statuses and not trigger the automatic retry feature.
+
 
 #### Browser Compatibility
 Any browser that supports the JavaScript [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
@@ -229,6 +239,8 @@ $ dev_appserver.py app.yaml
 
 ## API
 
+#### Evaporate.create()
+
 As of version 2.0, Evaporate supports the Promise interface. Instead of instantiating the Evaporate class as you would in earlier verions, use
 the `create` class method of Evaporate like so:
 
@@ -282,7 +294,7 @@ Available onfiguration options:
     For example:
 
     ```javascript
-    function (signParams, signHeaders, stringToSign, signatureDateTime) {
+    function (signParams, signHeaders, stringToSign, signatureDateTime) { // pluggable signing
         return new Promise(function (resolve, reject) {
             resolve('computed signature');
         }
@@ -387,13 +399,7 @@ signHeaders: {
 }
 ```
 
-### new Evaporate()
-
-`new Evaporate(config)`
-
-You can instantiate still Evaporate using the new keyword but you should prefer using the `Evaporate.create()` for future compatibility and stability. 
-
-#### Evaporate#add()
+#### Evaporate.prototype.add()
 
 `var completionPromise = evaporate.add(config[, overrideOptions])`
 
@@ -510,7 +516,7 @@ To pause, resume or cancel an upload, construct a file_key to pass to the respec
 `file_key` is the optional file key of the upload that you want to pause. File key is constructed
 as `bucket + '/' + object_name`.
 
-#### Evaporate#pause()
+#### Evaporate.prototype.pause()
 
 `var completionPromise = evaporate.pause([file_key[, options]])`
 
@@ -524,7 +530,7 @@ files will be paused. File key is constructed as `bucket + '/' + object_name`.
 The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
 promise resolves when the upload pauses and rejects with a message if the upload could not be fulfilled.
 
-#### Evaporate#resume()
+#### Evaporate.prototype.resume()
 
 `var resumptionPromise = evaporate.resume([file_key])`
 
@@ -571,7 +577,7 @@ on the final outcome of the upload.
         })
 ```
   
-#### Evaporate#cancel()
+#### Evaporate.prototype.cancel()
 
 `var cancellationPromise = evaporate.cancel([file_key])`
 
@@ -606,7 +612,7 @@ promise resolves when the upload is completely canceled or rejects if the upload
         })
 ```
 
-#### Evaporate#supported
+#### Evaporate.prototype.supported
 
 A _Boolean_ that indicates whether the browser supports Evaporate.  
 
@@ -641,7 +647,7 @@ GET requests. It goes without saying that your AWS IAM credentials and secrets s
 You can use AWS Signature Version 4. The `signerUrl` response must respond with a valid V4 signature. This version of Evaporate sends the
 part payload as `UNSIGNED-PAYLOAD` because we enable MD5 checksum calculations.
 
-Be sure to configure Evaporate with `aws_key`, `aws_region` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
+Be sure to configure Evaporate with `aws_key`, `awsRegion` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
 
 [AWS Signature Version 4](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html) for more information.
 
@@ -737,6 +743,41 @@ Evaporate.create({
  });
 
 ```
+
+### Migrating from v1.x to v2.0
+Even though the changes between v1.x and v2.0 are significant, V2.0 attempts to keep the migration process simple.
+
+#### Breaking Changes to the API
+
+1. Instantiate Evaporate with the new [`create`](#api) class method and not with the `new` keyword. The default
+   AWS Sigature Version is now 4. If you are using AWS V2 Signatures, then you must explicitly specify the signature
+   when creating an Evaporate instance: `awsSignatureVersion: '2'`.
+2. The [`.add()`](#evaporateprototypeadd) method now returns a Promise. Assure that your code uses the Evaporate
+   instance passed when the [`Evaporate.create`](#api) resolves.
+3. If your application uses [`.pause()`](#evaporateprototypepause), [`.resume()`](#evaporateprototyperesume) or
+   [`.cancel()`](#evaporateprototypecancel) then you need to make sure to pass the correct file key to these methods.
+   V1.6.x used the return value from `.add()` as the key to the upload to pause, resume or cancel. In v2.0 it
+   returns a Promise that resolves when the upload successfully completes. To identify the file upload in these
+   methods, you need to construct a file key according to the documentation of these methods.
+4. If you use `awsLambda` signing, you need to use the new pluggable signing method feature (`customAuthMethod`)
+   because built-in support for AWS lambda has been removed. Follow the instructions
+   [here](##using-aws-lambda-to-sign-requests).
+5. `signResponseHandler` now only acts on the response from `signUrl`. It cannot be used to sign a request on its own.
+   To sign a request without using `signUrl`, use a pluggable signing method specifid with `customAuthMethod`.
+6. If you require support for browseers that do not implement [ES6 Promises](http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-constructor)
+   (Internet Explorer), you will need to include a compliant Promise polyfill such as
+   [es6-promise](https://github.com/stefanpenner/es6-promise).
+
+#### Changes to Behavior
+1. With the addition of pluggable signing methods implementing the Promise interface, it is possible for the signing
+   method to reject. Previously, Evaporated treated virutally any error in the upload process as a trigger to
+   (indefinitely) retry the request. As of v2.0, if the pluggable signing method rejects, the file upload will also
+   reject. If you use the functionality provided through `signerUrl`, then the upload will reject if the signing
+   request responds with HTTP Status 401 or 403.
+
+
+
+Evaporate is a javascript library for uploading files from a browser to
 
 ## License
 

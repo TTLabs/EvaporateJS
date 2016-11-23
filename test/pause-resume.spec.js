@@ -66,31 +66,31 @@ test.beforeEach((t) => {
 test('should Resume an upload and not call cryptoMd5', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.cryptoMd5.callCount).to.equal(0)
+        expect(t.context.cryptoMd5.called).to.be.false
       })
 })
-test('should Resume an upload and callback started', (t) => {
+test('should Resume an upload and callback started twice with the file key', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.started.callCount).to.equal(2)
+        expect(t.context.config.started.withArgs(AWS_BUCKET + '/' + t.context.requestedAwsObjectKey).calledTwice).to.be.true
       })
 })
 test('should Resume an upload and callback pausing', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.pausing.callCount).to.equal(1)
+        expect(t.context.config.pausing.calledOnce).to.be.true
       })
 })
 test('should Resume an upload and callback paused', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.paused.callCount).to.equal(1)
+        expect(t.context.config.paused.calledOnce).to.be.true
       })
 })
 test('should Resume an upload and callback resumed', (t) => {
   return testPauseResume(t)
       .then(function () {
-        expect(t.context.config.resumed.callCount).to.equal(1)
+        expect(t.context.config.resumed.calledOnce).to.be.true
       })
 })
 test('should Resume an upload with S3 requests in the correct order', (t) => {
