@@ -488,7 +488,7 @@ GET requests. It goes without saying that your AWS IAM credentials and secrets s
 You can use AWS Signature Version 4. The `signerUrl` response must respond with a valid V4 signature. This version of Evaporate sends the
 part payload as `UNSIGNED-PAYLOAD` because we enable MD5 checksum calculations.
 
-Be sure to configure Evaporate with `aws_key`, `aws_region` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
+Be sure to configure Evaporate with `aws_key`, `awsRegion` and `cryptoHexEncodedHash256` when enabling Version 4 signatures.
 
 [AWS Signature Version 4](http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html) for more information.
 
