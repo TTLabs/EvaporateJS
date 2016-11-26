@@ -1,4 +1,10 @@
-# v2.0.0-rc.5#
+# r2.0.0-rc.6#
+
+- Addresses issue where force pausing and resuming files did not properly
+  resume the files as expected.
+- Restores the file upload key to the started() response on resume()
+
+# r2.0.0-rc.5#
 
 - Makes authorization (singing) a pluggable feature and as a result, removes
   built-in support for AWS Lambda. Consequently, async methods can be used
@@ -14,13 +20,13 @@
 - Documents the `beforeSigner` option for a file upload.
 - Stabilizes previously flaky (force) Pause/Resume feature
 
-# v2.0.0-rc.4#
+# r2.0.0-rc.4#
 
 - Enhances Evaporate#cancel to cancel all uploads
 - Sets the defalt Signature style to V4 (V2 signature users must set `awsSignatureVersion`
 - Addresses bug in Evaporate#cancel in which the evaporating count was not correctly synchronized
 
-# v2.0.0-rc.3#
+# r2.0.0-rc.3#
 
 - Corrects complete callback for when reusing S3 object
 - Adds new callback "nameChanged" called when the requested S3 object key
@@ -28,12 +34,12 @@
   uploaded object was used instead.
 
 
-# v2.0.0-rc.2#
+# r2.0.0-rc.2#
 
 - Fixes an issue where Safari hung starting an upload. Also added logic to
   detect if a part upload stalled.
 
-# v2.0.0-rc.1#
+# r2.0.0-rc.1#
 
 Refer to the README file for more information on using Evaporate. This version
 is a near re-write of 1.6.0. There are some changes to usage but they should

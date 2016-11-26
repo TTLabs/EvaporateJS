@@ -464,11 +464,13 @@ test('should cancel() all uploads when cancel receives no parameters', (t) => {
 
   return testCommon(t, config)
       .then(function () {
-        const result = t.context.evaporate.cancel()
-        expect(result).to.be.ok
-      })
-      .catch(function (reason) {
-        expect(reason).to.match(/no files to cancel/i)
+        t.context.evaporate.cancel()
+            .then(function () {
+              t.fail('Expected test to fail.')
+            })
+            .catch(function (reason) {
+                expect(reason).to.match(/no files to cancel/i)
+            })
       })
 })
 
