@@ -1,3 +1,9 @@
+# r2.0.0-rc.7#
+
+- Restores parallel uploads for files with size < partSize.
+- Addresses deprecated file.lastModifiedDate usage
+- Updates license name for packaging compatibility
+
 # r2.0.0-rc.6#
 
 - Addresses issue where force pausing and resuming files did not properly
