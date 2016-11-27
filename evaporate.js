@@ -605,12 +605,6 @@
 
         function resolve(s3Part) { return function () {
                 cleanUpAfterPart(s3Part);
-                var allInProcess = self.partsToUpload.length === self.partsInProcess.length,
-                    remainingSlots = self.evaporate.getRemainingSlots(self.partsInProcess.length);
-                if (allInProcess && remainingSlots > 0) {
-                    // We don't need any more slots...
-                    self.partNeeds.resolve('part needs satisfied');
-                }
                 if (self.partsToUpload.length) { self.evaporate.consumeRemainingSlots(); }
             };
         }
@@ -827,6 +821,11 @@
 
                 if (satisfied === partsToUpload) { break; }
 
+            }
+            var allInProcess = this.partsToUpload.length === this.partsInProcess.length;
+            if (allInProcess && remainingSlots > 0) {
+                // We don't need any more slots...
+                this.partNeeds.resolve('part needs satisfied');
             }
             return remainingSlots;
         }
