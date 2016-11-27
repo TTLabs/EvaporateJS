@@ -1098,7 +1098,6 @@
                         uploadId: me.uploadId,
                         fileSize: me.file.size,
                         fileType: me.file.type,
-                        lastModifiedDate: dateISOString(me.file.lastModifiedDate),
                         partSize: con.partSize,
                         signParams: con.signParams,
                         createdAt: new Date().toISOString()
@@ -1791,7 +1790,7 @@
             return [
                 fileUpload.file.name,
                 fileUpload.file.type,
-                dateISOString(fileUpload.file.lastModifiedDate),
+                dateISOString(fileUpload.file.lastModified),
                 fileUpload.file.size
             ].join("-");
         }
@@ -1831,7 +1830,7 @@
 
     function dateISOString(date) {
         // Try to get the modified date as an ISO String, if the date exists
-        return date ? date.toISOString() : '';
+        return date ? new Date(date).toISOString() : '';
     }
 
     function getFilePart(file, start, end) {
