@@ -1098,7 +1098,6 @@
                         uploadId: me.uploadId,
                         fileSize: me.file.size,
                         fileType: me.file.type,
-                        lastModifiedDate: dateISOString(me.file.lastModifiedDate),
                         partSize: con.partSize,
                         signParams: con.signParams,
                         createdAt: new Date().toISOString()
@@ -1791,7 +1790,7 @@
             return [
                 fileUpload.file.name,
                 fileUpload.file.type,
-                dateISOString(fileUpload.file.lastModifiedDate),
+                dateISOString(fileUpload.file.lastModified),
                 fileUpload.file.size
             ].join("-");
         }
