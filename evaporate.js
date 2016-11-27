@@ -658,7 +658,7 @@
                 uploadId: this.uploadId,
                 fileSize: this.sizeBytes,
                 fileType: this.file.type,
-                lastModifiedDate: dateISOString(this.file.lastModifiedDate),
+                lastModifiedDate: dateISOString(this.file.lastModified),
                 partSize: this.con.partSize,
                 signParams: this.con.signParams,
                 createdAt: new Date().toISOString()
@@ -1308,8 +1308,8 @@
         return new Promise(function (resolve) {
             if (self.con.computeContentMd5 && !part.md5_digest) {
                 reader.onloadend = function () {
-                    var md5_digest = self.con.cryptoMd5Method.call(this, this.result);
                     reader = undefined;
+                    var md5_digest = self.con.cryptoMd5Method(this.result);
                     if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
                         self.fileUpload.firstMd5Digest = md5_digest;
                         self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
@@ -1845,7 +1845,7 @@
 
     function dateISOString(date) {
         // Try to get the modified date as an ISO String, if the date exists
-        return date ? date.toISOString() : '';
+        return date ? new Date(date).toISOString() : '';
     }
 
     function getFilePart(file, start, end) {
@@ -1934,7 +1934,7 @@
         return [
             fileUpload.file.name,
             fileUpload.file.type,
-            dateISOString(fileUpload.file.lastModifiedDate),
+            dateISOString(fileUpload.file.lastModified),
             fileUpload.sizeBytes
         ].join("-");
     }
