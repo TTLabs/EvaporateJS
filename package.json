@@ -33,7 +33,7 @@
     "name": "Tom Saffell",
     "email": "tcs@videopixie.com"
   },
-  "license": "BSD-2-Clause",
+  "license": "BSD 2-Clause",
   "homepage": "https://github.com/TTLabs/EvaporateJS",
   "devDependencies": {
     "ava": "^0.16.0",
