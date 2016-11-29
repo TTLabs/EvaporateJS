@@ -402,12 +402,16 @@ test('should return the object key in the complete callback', (t) => {
   let complete_id
 
   let config = Object.assign({}, baseAddConfig, {
-    complete: function (xhr, name) { complete_id = name;}
+    complete: sinon.spy(function (xhr, name) { complete_id = name;})
   })
 
   return testCommon(t, config)
       .then(function () {
         expect(complete_id).to.equal(config.name)
+        expect(t.context.config.complete.firstCall.args.length).to.equal(3)
+        expect(t.context.config.complete.firstCall.args[0]).to.be.instanceOf(sinon.FakeXMLHttpRequest)
+        expect(typeof t.context.config.complete.firstCall.args[1]).to.equal('string')
+        expect(typeof t.context.config.complete.firstCall.args[2]).to.equal('object')
       })
 
 })
@@ -437,6 +441,14 @@ test('should call a callback on successful add()', (t) => {
   return testCommon(t)
       .then(function () {
         expect(t.context.config.started.withArgs(baseConfig.bucket + '/' + t.context.requestedAwsObjectKey).calledOnce).to.be.true
+      })
+})
+
+test('should call a progress with stats callback on successful add()', (t) => {
+  return testCommon(t, {progress: sinon.spy()})
+      .then(function () {
+        expect(t.context.config.progress.firstCall.args.length).to.equal(2)
+        expect(typeof t.context.config.progress.firstCall.args[1]).to.equal('object')
       })
 })
 

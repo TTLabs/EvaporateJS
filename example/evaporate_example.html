@@ -187,6 +187,8 @@
 
            var status = $('<span class="status"></span>');
            progress_clock.append(status);
+           var speed = $('<span class="speed">786 Kbs</span>');
+           progress_clock.append(speed);
 
            clock = new ProgressBar.Circle(progress_clock.find('.circle')[0], {
               strokeWidth: 3,
@@ -205,14 +207,24 @@
 
 
            function markComplete(className) {
-              progress_clock.addClass(className);
-              status.text(className);
+                progress_clock.addClass(className);
+                status.text(className);
            }
 
            return {
-              progress: function (progressValue) {
+              progress: function (progressValue, data) {
                  progress = progressValue;
+                 console.log(
+                     'Total Loaded:', data && data.loaded ? data.loaded : '',
+                     'Speed:', data && data.speed ? data.speed : '',
+                     'Formatted speed:', data && data.speed ? data.readableSpeed + 's' : '',
+                     'Minutes left:', data && data.secondsLeft ? Math.round(data.secondsLeft / 60) : '')
                  clock.animate(progressValue);
+                 if(data) {
+                   var xferRate = data.speed ? '<br />' + data.readableSpeed + "s" : '',
+                       remaining = data.secondsLeft ? '<br />' + Math.round(data.secondsLeft / 60) + 'm left' : '';
+                   speed.html(xferRate + remaining);
+                 }
               },
               started: function (fid) {
                   console.log('started', fid)
@@ -273,12 +285,13 @@
                  console.log('Evaporate will use existing S3 upload for', awsKey,
                          'rather than the requested object name', file_id)
               },
-              complete: function (_xhr, awsKey){
+              complete: function (_xhr, awsKey, stats){
                  var m = $('<small/>').html(awsKey + ' - Completed');
                  var html = $('<div/>').append(m);
                  clock.animate(1);
                  progress_clock.removeClass('evaporating warning');
                  markComplete('completed');
+                 console.log('Stats for', decodeURIComponent(awsKey), stats);
               },
               progress_clock: progress_clock
            }
