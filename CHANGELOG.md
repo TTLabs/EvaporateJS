@@ -3,6 +3,8 @@
 - Restores parallel uploads for files with size < partSize.
 - Addresses deprecated file.lastModifiedDate usage
 - Updates license name for packaging compatibility
+- Adds upload stats to .progress and .complete callbacks. Stats include transfer rate
+  and expected seconds to finish.
 
 # r2.0.0-rc.6#
 

@@ -43,6 +43,8 @@ New Features in v2.0:
 - Pause, Resume, Cancel now can act on all in-progress file uploads
 - Pluggable signing methods with `customAuthMethod`. AWS Lambda functions must be implemente through this option.
 - Signing methods can respond to 401 and 403 response statuses and not trigger the automatic retry feature.
+- The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
+- Reduced memory footprint when calculating MD5 digests.
 
 
 #### Browser Compatibility
@@ -342,8 +344,7 @@ Available onfiguration options:
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
 * **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
-* **progressMod**: default=5, the ratio of progress events to filter before reporting progress. The default is `5`
-    which means 1 call to `progress` will be made for each progress event when parts are uploading.
+* **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
     Standard, you will need to change this to the correct endpoint from the 
     [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
@@ -483,9 +484,11 @@ to pause.
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
-* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
+* **complete**: _function(xhr, awsObjectKey, stats)_. a function that will be called when the file upload is complete.
     Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
     the object already exists on S3.
+
+    For information on _stats_, refer to the `progress()` callback.
 
 * **nameChanged**: _function(awsObjectKey)_. a function that will be called when the requested AWS S3 object key changes
     because either because the requested object was previously interrupted (and is being resumed) or because the entire
@@ -497,9 +500,20 @@ to pause.
 
 * **error**: _function(msg)_. a function that will be called on an irrecoverable error.
 
-* **progress**: _function(p)_. a function that will be called at a frequency determined by _progressMod_ as the file
+* **progress**: _function(p, stats)_. a function that will be called at a frequency determined by _progressMod_ as the file
     uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will
     increase or decrease depending on the status of uploading parts.
+
+    _stats_ is an object that contains the unformatted and formatted transfer rate in bytes and a value approximating
+    in how may seconds the upload should complete.
+
+    ```javascript
+    {
+        speed: 70343222.003493043, // avgSpeedBytesPerSecond,
+        readableSpeed: ,
+        loaded: 7034333 // Bytes loaded since the last call
+    }
+    ```
 
 * **contentType**: _String_. the content type (MIME type) the file will have
 
