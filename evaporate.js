@@ -81,11 +81,12 @@
             signParams: {},
             signHeaders: {},
             awsLambda: null,
-            awsLambdaFunction: null,
+            awsLambdaFunction: null,   
             maxFileSize: null,
             signResponseHandler: null,
             xhrWithCredentials: false,
             // undocumented
+            asyncSignerFunction: null,
             testUnsupported: false,
             simulateStalling: false,
             simulateErrors: false,
@@ -110,10 +111,15 @@
             Blob.prototype.slice) === 'undefined' ||
             !!config.testUnsupported);
 
-        if (!con.signerUrl && typeof con.signResponseHandler !== 'function') {
+        if (!con.asyncSignerFunction && (!con.signerUrl && typeof con.signResponseHandler !== 'function')) {
             l.e("Option signerUrl is required unless signResponseHandler is present.");
             return;
         }
+
+	if (con.asyncSignerFunction && typeof con.asyncSignerFunction !== 'function') {
+	    l.e("Option asyncSignerFunction must be a function");
+	    return;
+	}
 
         if (!con.bucket) {
             l.e("The AWS 'bucket' option must be present.");
@@ -914,7 +920,7 @@
 
                 abortParts();
 
-                if(typeof me.uploadId === 'undefined') {
+                if (typeof me.uploadId === 'undefined') {
                     setStatus(ABORTED);
                     return;
                 }
@@ -1420,6 +1426,10 @@
                     return authorizedSignWithLambda(authRequester);
                 }
 
+		if (con.asyncSignerFunction) {
+		   return authorizedSignWithAsyncFunction(authRequester);
+		}
+
                 var xhr = assignCurrentXhr(authRequester),
                     stringToSign = stringToSignMethod(authRequester),
                     url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', authRequester.dateString].join('');
@@ -1508,6 +1518,25 @@
                     authRequester.onGotAuth();
                 });
             }
+
+	    function authorizedSignWithAsyncFunction(authRequester) {
+		var stringToSign = con.awsSignatureVersion === '4' ? stringToSignV4(authRequester) : makeStringToSign(authRequester);
+		con.asyncSignerFunction({
+			awsSignatureVersion: con.awsSignatureVersion,
+                	stringToSign: stringToSign,
+			dateString: authRequester.dateString
+                }, function (err, data) {
+ 		    if (err) {
+                        var warnMsg = 'failed to get authorization with async function ' + err;
+                        l.w(warnMsg);
+                        me.warn(warnMsg);
+                        authRequester.onFailedAuth(err);
+                        return;
+                    }
+                    authRequester.auth = signResponse(data);
+                    authRequester.onGotAuth();
+		});
+	    }
 
             function stringToSignMethod(request) {
                 return encodeURIComponent(con.awsSignatureVersion === '4' ? stringToSignV4(request) : makeStringToSign(request));
