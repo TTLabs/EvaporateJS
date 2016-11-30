@@ -4,19 +4,6 @@ Evaporate
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
-## ATTENTION -- Updated 29 November 2016
-There is a release candidate of Evaporate that is rebuild of the original code. The primary changes are its
-support for ES6 Promises and parallel file uploading. The branch code is here tagged as [r2.0.0-rc.7](https://github.com/TTLabs/EvaporateJS/tree/r2.0.0-rc.7).
-
-To install the release candidate:
-
-```bash
-$ npm install evaporate@r2.0.0-rc.7
-```
-
-Send feedback as an Issue on this project.
-
-
 ### File Upload API for AWS S3
 
 Evaporate is a javascript library for uploading files from a browser to
@@ -41,11 +28,12 @@ New Features in v2.0:
   callback `nameChanged` will be invoked with the previous object name at the earliest moment. This indicates
   that requested object name was not used.
 - Pause, Resume, Cancel now can act on all in-progress file uploads
-- Pluggable signing methods with `customAuthMethod`. AWS Lambda functions must be implemente through this option.
+- Pluggable signing methods with `customAuthMethod`. AWS Lambda functions must be implemented through this option.
 - Signing methods can respond to 401 and 403 response statuses and not trigger the automatic retry feature.
 - The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
 - Reduced memory footprint when calculating MD5 digests.
 
+To migrate to v2.0, [follow these instructions](https://github.com/bikeath1337/EvaporateJS/tree/promises#migrating-from-v1x-to-v20).
 
 #### Browser Compatibility
 Any browser that supports the JavaScript [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
@@ -777,7 +765,7 @@ Even though the changes between v1.x and v2.0 are significant, V2.0 attempts to 
 #### Breaking Changes to the API
 
 1. Instantiate Evaporate with the new [`create`](#api) class method and not with the `new` keyword. The default
-   AWS Sigature Version is now 4. If you are using AWS V2 Signatures, then you must explicitly specify the signature
+   AWS Signature Version is now 4. If you are using AWS V2 Signatures, then you must explicitly specify the signature
    when creating an Evaporate instance: `awsSignatureVersion: '2'`.
 2. The [`.add()`](#evaporateprototypeadd) method now returns a Promise. Assure that your code uses the Evaporate
    instance passed when the [`Evaporate.create`](#api) resolves.
@@ -790,21 +778,17 @@ Even though the changes between v1.x and v2.0 are significant, V2.0 attempts to 
    because built-in support for AWS lambda has been removed. Follow the instructions
    [here](##using-aws-lambda-to-sign-requests).
 5. `signResponseHandler` now only acts on the response from `signUrl`. It cannot be used to sign a request on its own.
-   To sign a request without using `signUrl`, use a pluggable signing method specifid with `customAuthMethod`.
+   To sign a request without using `signUrl`, use a pluggable signing method specified with `customAuthMethod`.
 6. If you require support for browseers that do not implement [ES6 Promises](http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-constructor)
    (Internet Explorer), you will need to include a compliant Promise polyfill such as
    [es6-promise](https://github.com/stefanpenner/es6-promise).
 
-#### Changes to Behavior
+#### Changes to Basic Retry on Error Behavior
 1. With the addition of pluggable signing methods implementing the Promise interface, it is possible for the signing
-   method to reject. Previously, Evaporated treated virutally any error in the upload process as a trigger to
+   method promise to reject. Previously, Evaporated treated virtually any error in the upload process as a trigger to
    (indefinitely) retry the request. As of v2.0, if the pluggable signing method rejects, the file upload will also
    reject. If you use the functionality provided through `signerUrl`, then the upload will reject if the signing
    request responds with HTTP Status 401 or 403.
-
-
-
-Evaporate is a javascript library for uploading files from a browser to
 
 ## License
 
