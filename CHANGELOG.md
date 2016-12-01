@@ -1,57 +1,12 @@
-# r2.0.0-rc.7#
+# v2.0.0
 
-- Restores parallel uploads for files with size < partSize.
-- Addresses deprecated file.lastModifiedDate usage
-- Updates license name for packaging compatibility
+## New Features ##
 - Adds upload stats to .progress and .complete callbacks. Stats include transfer rate
-  and expected seconds to finish.
-
-# r2.0.0-rc.6#
-
-- Addresses issue where force pausing and resuming files did not properly
-  resume the files as expected.
-- Restores the file upload key to the started() response on resume()
-
-# r2.0.0-rc.5#
-
-- Makes authorization (singing) a pluggable feature and as a result, removes
-  built-in support for AWS Lambda. Consequently, async methods can be used
-  to calculate a signature. The custom authorization method must return
-  a Promise and is specified through the `customAuthMethod` option. The
-  README includes examples of how to define authorization through
-  AWSLambda, as do the examples.
-- Allows the upload to be aborted if the signature url responds with
-  401 or 403. Additionally, if the customAuthMethod promise rejects,
-  then the upload is aborted.
-- `signReponseHandler` now must return a Promise. It is now only used to
-  post-process a response from `signUrl`.
-- Documents the `beforeSigner` option for a file upload.
-- Stabilizes previously flaky (force) Pause/Resume feature
-
-# r2.0.0-rc.4#
-
-- Enhances Evaporate#cancel to cancel all uploads
-- Sets the defalt Signature style to V4 (V2 signature users must set `awsSignatureVersion`
-- Addresses bug in Evaporate#cancel in which the evaporating count was not correctly synchronized
-
-# r2.0.0-rc.3#
-
-- Corrects complete callback for when reusing S3 object
+  in bytes/second, friendly formatted rate (Kbs, Mbs, etc.) and expected seconds to finish.
 - Adds new callback "nameChanged" called when the requested S3 object key
   was not used because an interrupted upload was resumed or a previously
   uploaded object was used instead.
-
-
-# r2.0.0-rc.2#
-
-- Fixes an issue where Safari hung starting an upload. Also added logic to
-  detect if a part upload stalled.
-
-# r2.0.0-rc.1#
-
-Refer to the README file for more information on using Evaporate. This version
-is a near re-write of 1.6.0. There are some changes to usage but they should
-be relatively easy to apply.
+- Adds signing example for Go.  
 
 ## Enhancements ##
 - File processing is now distributed. Previously, Evaporate would upload
@@ -64,10 +19,12 @@ be relatively easy to apply.
   then evaporate will upload 6 files conconcurrently with each file using
   one upload "slot". Evaporate will ensure that no more than
   `maxConcurrentParts` are in play at any one time.
-- Adds more test coverage.
+- Enhances Evaporate#cancel to cancel all uploads
+- Documents the `beforeSigner` option for a file upload.
 
 ## Breaking Changes ##
 - Evaporate now requires support for ES6 Promises. Use a polyfill for browsers that that don't support them.
+- The default Signature style is now V4 (V2 signature users must set `awsSignatureVersion` explicitly)
 - Instantiate Evaporate using its create class method.
 - Evaporate#add no longer returns a numeric id referencing the file upload. It now
   returns a Promise when adding a file to upload. To act on the file upload, for
@@ -75,6 +32,17 @@ be relatively easy to apply.
   bucket and object name. Refer to the README for for more information.
 - Evaporate#cancel, Evaporate#pause and #Evaporate#resume now return promises
   that resolve when the action is complete, or reject with a reason.
+- Makes authorization (signing) a pluggable feature and as a result, removes
+  built-in support for AWS Lambda. Consequently, async methods can be used
+  to calculate a signature. The custom authorization method must return
+  a Promise and is specified through the `customAuthMethod` option. The
+  README includes examples of how to define authorization through
+  AWSLambda, as do the examples.
+- Allows the upload to be aborted if the signature url responds with
+  401 or 403. Additionally, if the customAuthMethod promise rejects,
+  then the upload is aborted.
+- `signReponseHandler` now must return a Promise. It is now only used to
+  post-process a response from `signUrl`.
 
 ## Bug Fixes ##
 - Evaporate was not fetching all uploaded parts from S3 if the file had
