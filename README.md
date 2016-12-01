@@ -488,7 +488,7 @@ to pause.
 
 * **error**: _function(msg)_. a function that will be called on an irrecoverable error.
 
-* **progress**: _function(p, stats)_. a function that will be called at a frequency determined by _progressMod_ as the file
+* **progress**: _function(p, stats)_. a function that will be called at a frequency determined by _progressIntervalMS_ as the file
     uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will
     increase or decrease depending on the status of uploading parts.
 
@@ -498,7 +498,7 @@ to pause.
     ```javascript
     {
         speed: 70343222.003493043, // avgSpeedBytesPerSecond,
-        readableSpeed: ,
+        readableSpeed: "703 Kb",
         loaded: 7034333 // Bytes loaded since the last call
     }
     ```
@@ -533,7 +533,7 @@ as `bucket + '/' + object_name`.
 
 #### Evaporate.prototype.pause()
 
-`var completionPromise = evaporate.pause([file_key[, options]])`
+`var pausedPromise = evaporate.pause([file_key[, options]])`
 
 Pauses the upload for the file identified by the object file key or all files. If options include `force`,
 then the in-progress parts will be immediately aborted; otherwise, the file upload will be paused when all in-progress
