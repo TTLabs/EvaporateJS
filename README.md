@@ -4,19 +4,6 @@ Evaporate
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
-## ATTENTION -- Updated 29 November 2016
-There is a release candidate of Evaporate that is rebuild of the original code. The primary changes are its
-support for ES6 Promises and parallel file uploading. The branch code is here tagged as [r2.0.0-rc.7](https://github.com/TTLabs/EvaporateJS/tree/r2.0.0-rc.7).
-
-To install the release candidate:
-
-```bash
-$ npm install evaporate@r2.0.0-rc.7
-```
-
-Send feedback as an Issue on this project.
-
-
 ### File Upload API for AWS S3
 
 Evaporate is a javascript library for uploading files from a browser to
@@ -31,9 +18,22 @@ Major features include:
 - AWS Signature Version 2 and 4 (`awsSignatureVersion`)
 - S3 Transfer Acceleration (`s3Acceleration`)
 - Robust recovery when uploading huge files. Only parts that
-  have not been fully uploaded are resent. (`s3FileCacheHoursAgo`, `allowS3ExistenceOptimization`)
-- AWS Lambda function support (`awsLambda`)
+  have not been fully uploaded again. (`s3FileCacheHoursAgo`, `allowS3ExistenceOptimization`)
 - Ability to pause and resume downloads at will
+- Pluggable signing methods to support AWS Lambda, async functions and more.
+
+New Features in v2.0:
+- Parallel file uploads while respecting `maxConcurrentParts`.
+- If Evaporate reuses an interrupted upload or avoids uploading a file that is already available on S3, the new
+  callback `nameChanged` will be invoked with the previous object name at the earliest moment. This indicates
+  that requested object name was not used.
+- Pause, Resume, Cancel now can act on all in-progress file uploads
+- Pluggable signing methods with `customAuthMethod`. AWS Lambda functions must be implemented through this option.
+- Signing methods can respond to 401 and 403 response statuses and not trigger the automatic retry feature.
+- The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
+- Reduced memory footprint when calculating MD5 digests.
+
+To migrate to v2.0, [follow these instructions](https://github.com/bikeath1337/EvaporateJS/tree/promises#migrating-from-v1x-to-v20).
 
 #### Browser Compatibility
 Any browser that supports the JavaScript [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
@@ -42,10 +42,16 @@ Evaporate uses to calculate MD5 checksums through the `readAsArrayBuffer`
 method. Refer to this [list of browsers that support the File API](http://caniuse.com/#feat=fileapi).
 Evaporate does not invoke the `File` constructor.
 
+As of v2.0.0, Evaporate requires a browser that supports
+[ES6 Promises](http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-constructor). To use Evaporate on
+those browsers, you must include a compliant Promise polyfill such as
+[es6-promise](https://github.com/stefanpenner/es6-promise). Refer to this [list of browsers that support
+Promises](http://caniuse.com/#feat=promises).
+
 ## Authors
 
-  - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))
   - Bobby Wallace ([bikeath1337](http://github.com/bikeath1337))
+  - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))
 
 ## Installation
 
@@ -70,27 +76,36 @@ Otherwise, include it in your HTML:
 ```javascript
 require('aws-sdk');
 
-var evaporate = new Evaporate({
-  signerUrl: <SIGNER_URL>,
-  aws_key: <AWS_KEY>,
-  bucket: <AWS_BUCKET>,
-  cloudfront: true,
-  computeContentMd5: true,
-  cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); }
-});
+var config = {
+     signerUrl: <SIGNER_URL>,
+     aws_key: <AWS_KEY>,
+     bucket: <AWS_BUCKET>,
+     cloudfront: true,
+     computeContentMd5: true,
+     cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); }
+};
 
-var file = new File([""], "file_object_to_upload");
-
-var file_id = evaporate.add({
-        name: file.name,
-        file: file,
-        progress: function (progressValue) { console.log('Progress', progressValue); },
-        complete: function (_xhr, awsKey) { console.log('Complete!'); },
-      },
-     {
-        bucket: AWS_BUCKET // Shows that the bucket can be changed per
-     }
-);
+return Evaporate.create(config)
+    .then(function (evaporate) {
+      
+      var file = new File([""], "file_object_to_upload"),
+          addConfig = {
+            name: file.name,
+            file: file,
+            progress: function (progressValue) { console.log('Progress', progressValue); },
+            complete: function (_xhr, awsKey) { console.log('Complete!'); },
+          },
+          overrides = {
+            bucket: AWS_BUCKET // Shows that the bucket can be changed per
+          };
+      evaporate.add(addConfig, overrrides)
+          .then(function (awsObjectKey) {
+                console.log('File successfully uploaded to:', awsObjectKey);
+              },
+              function (reason) {
+                console.log('File did not upload sucessfully:', reason);
+              });
+    });
 ```
 
 ## Configuring The AWS S3 Bucket
@@ -202,10 +217,10 @@ The example application is a simple and quick way to see evaporate.js work.  The
 2. Set your AWS Key and S3 bucket in example/evaporate_example.html. This configuration does not use Md5 Digest verfication.
 
 ```javascript
-var _e_ = new Evaporate({
-   signerUrl: '/sign_auth', # Do not change this in the example app
-   aws_key: 'your aws_key here',
-   bucket: 'your s3 bucket name here',
+var promise = Evaporate.create({
+    signerUrl: '/sign_auth', // Do not change this in the example app
+    aws_key: 'your aws_key here',
+    bucket: 'your s3 bucket name here',
 });
 ```
 
@@ -227,20 +242,44 @@ $ dev_appserver.py app.yaml
 
 ## API
 
-### new Evaporate()
+#### Evaporate.create()
 
-`var evaporate = new Evaporate(config)`
+As of version 2.0, Evaporate supports the Promise interface. Instead of instantiating the Evaporate class as you would in earlier verions, use
+the `create` class method of Evaporate like so:
 
-Where `config` minimally consists of `bucket` and `aws_key` and one of the
+```javascript
+Evaporate.create(config)
+    .then(
+        function (evaporate) {
+            evaporate.add(add_config)
+                .then(
+                    function (awsKey) { console.log('Successfully uploaded:', awsKey); },
+                    function (reason) { console.log('Failed to upload:', reason); }
+                )
+        },
+        function (reason) {
+            console.log('Evaporate failed to initialize:', reason);
+        });
+            
+```
+
+The promise `create` returns will resolve with a reference to the fully initialized evaporate instance or reject with a reason as to why
+Evaporate could not intitialize. If you use `timeUrl`, you should use the `create` method because the promise only resolves after the
+time offset is available.
+
+`config` minimally consists of `bucket` and `aws_key` and one of the
 following combinations of signing options:
 
 1. A custom `signerUrl` that returns the signture or signing response required
     for the specified `awsSignatureVersion`.
-2. A callback defined using `signResponseHandler`
-3. An AWS Lambda function enabled with `awsLambda` and `awsLambdaFunction`.
+3. A custom authorization method defined with `customAuthMethod`.
 
-`signerUrl` is not required if using signing methods 2 or 3. `signResponseHandler` can
-also be provided for additional processing of responses from `signerUrl`.
+`signerUrl` is not invoked if using a `customAuthMethod`. `signResponseHandler` can
+also be provided for additional processing of responses from `signerUrl`. If the
+request to signerUrl responds with 401 Unauthorized or 403 Permission Denied, then
+the upload will stop. Any other status will attempt to retry the request.
+
+If the custom authorization Promise rejects,then the upload will stop.
 
 Available onfiguration options:
 
@@ -250,21 +289,43 @@ Available onfiguration options:
 * **signerUrl**: a url on your application server which will sign the request according to your chosen AWS signature method (Version 2 or 4). For example
     'http://myserver.com/auth_upload'. When using AWS Signature Version 4, this URL must respond with the V4 signing key. If you don't want to use
     a signerURL and want to sign the request yourself, then you sign the request using `signResponseHandler`.
+* **customAuthMethod**: a method that returns an implementation of
+    [Promises/A+](http://promises-aplus.github.com/promises-spec/). The promise resolves with the AWS object key of the
+    uploaded object. The method is passed the signParams, signHeaders, calculated string to sign and the datetime used
+    in the string to sign.
+
+    For example:
+
+    ```javascript
+    function (signParams, signHeaders, stringToSign, signatureDateTime) { // pluggable signing
+        return new Promise(function (resolve, reject) {
+            resolve('computed signature');
+        }
+    }
+    ```
+
+    Use a `customAuthMethod` if you want to use AWS Lambda for signature calculation. If the Promise rejects, then
+    the file upload will stop.
+
 * **computeContentMd5**: default=false, whether to compute and send an
     MD5 digest for each part for verification by AWS S3. This
     option defaults to `false` for backward compatibility; however, **new
     applications of Evaporate should _always_ enable this to assure
     that uploaded files are exact copies of the source (copy fidelity)**.
 
-* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the `base64` encoded signature. If you
-    set this option, Evaporate will pass the signature response it received from the `signerUrl` or `awsLambda` methods to your `signResponseHandler`.
-    The method signature is `function (response, stringToSign, signatureDateTime) { return 'computed signature'; }`.
-    
-    `signResponseHandler` can be used to further process the signature returned from the call to `signerUrl`.
+* **signResponseHandler**: default=null, a method that handles the XHR response with the signature. It must return the
+    encoded signature. If you set this option, Evaporate will pass it the response it received from the `signerUrl`. The
+    method must return a [Promise](http://promises-aplus.github.com/promises-spec/) that resolves with the signature or
+    rejects with a reason. For example:
 
-* **awsLambda**: default=null, An AWS Lambda object, refer to [AWS Lambda](http://docs.aws.amazon.com/lambda/latest/dg/welcome.html). Refer to
-    section "Using AWS Lambda to Sign Requests" below.
-* **awsLambdaFunction**: default=null, The AWS ARN of your lambda function. Required when `awsLambda` has been specified.
+    ```javascript
+    function (response, stringToSign, signatureDateTime) {
+        return new Promise(function (resolve, reject) {
+            resolve('computed signature');
+        }
+    }
+    ```
+
 * **logging**: default=true, whether Evaporate outputs to the console.log  - should be `true` or `false`
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
@@ -292,7 +353,7 @@ Available onfiguration options:
 * **aws_key**: default=undefined, the AWS Account key to use. Required when `awsSignatureVersion` is `'4'`.
 * **awsRegion**: default='us-east-1', Required when `awsSignatureVersion` is `'4'`. When set, the awsRegion will help
     determine the default aws_url to use. See notes above for `aws_url`.
-* **awsSignatureVersion**: default='2', Determines the AWS Signature signing process version to use. Set this option to `'4'` for Version 4 signatures.
+* **awsSignatureVersion**: default='4', Determines the AWS Signature signing process version to use. Set this option to `'2'` for Version 2 signatures.
 * **cloudfront**: default=false, When `true`, Evaporate creates an S3
     [virtual host](http://docs.aws.amazon.com/AmazonS3/latest/dev/VirtualHosting.html) format `aws_url`. For example,
     for `awsRegion` 'us-east-1', the bucket appears in the path `https://s3.amazonaws.com/<bucket>` by default but
@@ -340,9 +401,9 @@ signHeaders: {
 }
 ```
 
-#### Evaporate#add()
+#### Evaporate.prototype.add()
 
-`var upload_id = evaporate.add(config[, overrideOptions])`
+`var completionPromise = evaporate.add(config[, overrideOptions])`
 
 `config` is an object with 2 required keys:
 
@@ -350,10 +411,32 @@ signHeaders: {
 * **file**: _File_. The reference to the JavaScript [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
   object to upload.
 
-  The `upload_id` identifies the file in Evaporate. If the upload_id is an `Integer`, Evaporate is processing the file. If
-  the `upload_id` is a `String`, that represents an error message. In such a case, Evaporate will not upload the file. For
-  example, if the file size violates the `maxFileSize` option, the method will return "File size too large.
-  Maximum size allowed is {maxFileSize}".
+  The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+  promise resolves with the AWS object key of the uploaded object. This object key may be different than the requested
+  object key if `allowS3ExistenceOptimization` is enabled and Evaporate was able to identify the already uploaded
+  object in the requested bucket. The promise rejects with a message as to why the file could not
+  be uploaded.
+
+  ```javascript
+      Evaporate.create({
+        bucket: 'mybucket'
+      })
+      .then(function (evaporate) {
+        evaporate.add({
+          name: 'myFile',
+          file: new File()
+        })
+        .then(
+          function (awsS3ObjectKey) {
+            // "Sucessfully uploaded to: mybucket/myfile"
+            console.log('Successfully uploaded to:', awsS3ObjectKey);
+          },
+          function (reason) {
+            console.log('Failed to upload because:', reason);
+          }
+        );
+  ```
+
 
 And a number of optional parameters:
 
@@ -375,23 +458,29 @@ And a number of optional parameters:
   added to all AWS requests other than the initiate request. `xAmzHeadersAtUpload` and `xAmzHeadersAtComplete` do
   not need to be specified if `xAmzHeadersCommon` satisfies the AWS header requirements.
 
-* **started**: _function(upload_id)_. a function that will be called when the file upload starts. The upload id
-represents the file whose upload is being started.
+* **started**: _function(file_key)_. a function that will be called when the file upload starts. The file_key
+represents the internal identifier of the file whose upload is starting.
 
-* **paused**: _function(upload_id)_. a function that will be called when the file upload is completely paused (all
-in-progress parts are aborted or completed). The upload id represents the file whose upload has been paused.
+* **paused**: _function(file_key)_. a function that will be called when the file upload is completely paused (all
+in-progress parts are aborted or completed). The file_key represents the file whose upload has been paused.
 
-* **resumed**: _function(upload_id)_. a function that will be called when the file upload resumes.
+* **resumed**: _function(file_key)_. a function that will be called when the file upload resumes.
 
-* **pausing**: _function(upload_id)_. a function that will be called when the file upload has been asked to pause
-after all in-progress parts are completed. The upload id represents the file whose upload has been requested
+* **pausing**: _function(file_key)_. a function that will be called when the file upload has been asked to pause
+after all in-progress parts are completed. The file_key  represents the file whose upload has been requested
 to pause.
 
 * **cancelled**: _function()_.  a function that will be called when a successful cancel is called for an upload id.
 
-* **complete**: _function(xhr, awsObjectKey)_. a function that will be called when the file upload is complete.
+* **complete**: _function(xhr, awsObjectKey, stats)_. a function that will be called when the file upload is complete.
     Version 1.0.0 introduced the `awsObjectKey` parameter to notify the client of the S3 object key that was used if
     the object already exists on S3.
+
+    For information on _stats_, refer to the `progress()` callback.
+
+* **nameChanged**: _function(awsObjectKey)_. a function that will be called when the requested AWS S3 object key changes
+    because either because the requested object was previously interrupted (and is being resumed) or because the entire
+    object already exists on S3.
 
 * **info**: _function(msg)_. a function that will be called with a debug/info message, usually logged as well.
 
@@ -399,9 +488,24 @@ to pause.
 
 * **error**: _function(msg)_. a function that will be called on an irrecoverable error.
 
-* **progress**: _function(p)_. a function that will be called at a frequency of _progressIntervalMS_ as the file uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will normally increase monotonically, but when a parts errors (and needs to be re-PUT) it will temporarily decrease.
+* **progress**: _function(p, stats)_. a function that will be called at a frequency determined by _progressMod_ as the file
+    uploads, where _p_ is the fraction (between 0 and 1) of the file that is uploaded. Note that this number will
+    increase or decrease depending on the status of uploading parts.
+
+    _stats_ is an object that contains the unformatted and formatted transfer rate in bytes and a value approximating
+    in how may seconds the upload should complete.
+
+    ```javascript
+    {
+        speed: 70343222.003493043, // avgSpeedBytesPerSecond,
+        readableSpeed: ,
+        loaded: 7034333 // Bytes loaded since the last call
+    }
+    ```
 
 * **contentType**: _String_. the content type (MIME type) the file will have
+
+* **beforeSigner**: _function(xhr, url)_. a function that will be just before the `signUrl` is sent.
 
 `overrideOptions`, an object, when present, will override th Evaporate global configuration options for the added file only. 
 With the exception of the following options, all other Evaporate configuration options can be overridden:
@@ -421,39 +525,109 @@ With the exception of the following options, all other Evaporate configuration o
 - `awsRegion`
 - `awsSignatureVersion`
 
-Returns a unique upload id for the file. This id can be used in the
-`.pause()`, `.resume()` and `.cancel()` methods.
+The `.add()` method returns a Promise that resolves when the upload completes.
 
-The `.add()` method returns the Evaporate id of the upload to process. Use this id to abort or cancel
-an upload. The id is also passed as a parameter to the `started()` callback. If the file validation passes, this method
-returns an integer representing the file id, otherwise, it returns a string error message.
+To pause, resume or cancel an upload, construct a file_key to pass to the respective Evaporate methods.
+`file_key` is the optional file key of the upload that you want to pause. File key is constructed
+as `bucket + '/' + object_name`.
 
-#### Evaporate#pause()
+#### Evaporate.prototype.pause()
 
-`evaporate.pause([id[, options]])`
+`var completionPromise = evaporate.pause([file_key[, options]])`
 
-Pauses the upload for the file identified by the upload id. If options include `force`,
+Pauses the upload for the file identified by the object file key or all files. If options include `force`,
 then the in-progress parts will be immediately aborted; otherwise, the file upload will be paused when all in-progress
 parts complete. Refer to the `.paused` and `.pausing` callbacks for status feedback when pausing.
 
-`id` is the optional id of the upload that you want to pause. IF `id` is not defined, then all files will be paused.
+`file_key` is the optional file key of the upload that you want to pause. If `file_key` is not defined, then all
+files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
-#### Evaporate#resume()
+The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+promise resolves when the upload pauses and rejects with a message if the upload could not be fulfilled.
 
-`evaporate.resume([id])`
+#### Evaporate.prototype.resume()
 
-Resumes the upload for the file identified by the upload id, or all files if the id is not
+`var resumptionPromise = evaporate.resume([file_key])`
+
+Resumes the upload for the file identified by the file key, or all files if the file key is not
 passed. The `.resumed` callback is invoked when a file upload resumes.
 
-`id` is the optional id of the upload to resume
+`file_key` is the optional file key of the upload that you want to resume. If `file_key` is not defined, then all
+files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
-#### Evaporate#cancel()
+The `resumptionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The
+promise resolves when the upload resumes and rejects with a message if the upload could not be resumed.
 
-`evaporate.cancel(id)`
+After resumption of the upload, the completion promise returned for the added file, will be resolved or rejected depending
+on the final outcome of the upload.
 
-`id` is the id of the upload to cancel
+```javascript
+    Evaporate.create({
+        bucket: 'mybucket'
+    })
+        .then(function (evaporate) {
+            evaporate.add({
+                name: 'myFile',
+                file: new File()
+            })
+            .then(function (awsKey) {
+                console.log('Completed', awsKey);
+            });
+            
+            evaporate.pause('mybucket/myFile', {force: true}) // or 'evaporate.pause()' to pause all
+                .then(function () {
+                    console.log('Paused!');
+                })
+                .catch(function (reason) {
+                    console.log('Failed to pause:', reason);
+                };
+            
+            evaporate.resume('mybucket/myFile')
+                .then(function () {
+                    console.log('Resumed!');
+                })
+                .catch(function (reason) {
+                    console.log('Failed to resume:', reason);
+                };
+        })
+```
+  
+#### Evaporate.prototype.cancel()
 
-#### Evaporate#supported
+`var cancellationPromise = evaporate.cancel([file_key])`
+
+`file_key` is the optional file key of the upload that you want to cancel. If `file_key` is not defined, then all
+files will be canceled. File key is constructed as `bucket + '/' + object_name`.
+
+The completion promise rejects after the file upload aborts.
+
+The `cancellationPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+promise resolves when the upload is completely canceled or rejects if the upload could not be canceled without errors.
+
+```javascript
+    Evaporate.create({
+        bucket: 'mybucket'
+    })
+        .then(function (evaporate) {
+            evaporate.add({
+                name: 'myFile',
+                file: new File()
+            })
+            .then(function (awsKey) {
+                console.log('Completed', awsKey);
+            },
+            function (reason) {
+                console.log('Did not upload', reason);
+            });
+            
+            evaporate.cancel('mybucket/myFile')
+                .then(function () {
+                    console.log('Canceled!');
+                });
+        })
+```
+
+#### Evaporate.prototype.supported
 
 A _Boolean_ that indicates whether the browser supports Evaporate.  
 
@@ -467,7 +641,7 @@ It then verifies that the `partSize` used when uploading matches the partSize cu
 upload then calcuates the MD5 digest of the first part for final verification. If you specify `onlyRetryForSameFileName`, 
 then a further check is done that the specified destination file name matches the destination file name used previously.
 
-If the uploaded file has an unfinished multipart upload ID associated with it, then the uploader queries S3 for the parts that 
+If the uploaded file has an unfinished S3 multipart upload ID associated with it, then the uploader queries S3 for the parts that 
 have been uploaded. It then uploads only the unfinished parts.
 
 If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to
@@ -514,15 +688,17 @@ uploads. for more information, refer to [S3 Lifecycle Management Update – Supp
 
 #### Using AWS Lambda to Sign Requests
 
-You need to do a couple of things
+As of v2.0.0 direct support for AWS Lambda has been removed because `customAuthMethod` can be used to implement it
+directly.
 
 * Include the AWS SDK for Javascript, either directly, bower, or browserify
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.2.43.min.js"></script>
 
-* Create a lambda function see: [`signing_example_lambda.js`](example/signing_example_lambda.js)
+* Create a `customAuthMethod` see: [`signing_example_lambda.js`](example/signing_example_lambda.js)
 
-  The Lambda function will receive three parameters to the event; `to_sign`, `sign_params` and `sign_headers`.
+  The custom authorization method should use AWS Lambda to calculate the signature. The function will receive
+  the signHeaders, signParams, string to sign and datetime used to calcualte the string to sign.
 
 * Setup an IAM user with permissions to call your lambda function. This user should be separate from the one that can
 upload to S3. Here is a sample policy
@@ -544,20 +720,75 @@ upload to S3. Here is a sample policy
     ]
 }
 ```
-* Pass two options to the Evaporate constructor - `awsLambda` and `awsLambdaFunction`, instead of `signerUrl`
+* Pass the custom auth method to Evaporate and do not specify `signerUrl`
 
 ```javascript
-var evaporate = new Evaporate({
+
+function authByAwsLambda (signParams, signHeaders, stringToSign, dateString) {
+    return new Promise(function(resolve, reject) {
+       var awsLambda = new AWS.Lambda({
+          region: 'lambda region',
+          accessKeyId: 'a key that can invoke the lambda function',
+          secretAccessKey: 'the secret'
+       })
+       awsLambda.invoke({
+          FunctionName: 'arn:aws:lambda:...:function:cw-signer', // arn of your lambda function
+          InvocationType: 'RequestResponse',
+          Payload: JSON.stringify({
+             to_sign: stringToSign,
+             sign_params: signParams,
+             sign_headers: signHeaders
+          })
+       }, function (err, data) {
+          if (err) {
+             return reject(err);
+          }
+          resolve(JSON.parse(data.Payload));
+       });
+    });
+};
+
+Evaporate.create({
     aws_key: 'your aws_key here',
     bucket: 'your s3 bucket name here',
-    awsLambda:  new AWS.Lambda({
-        'region': 'lambda region',
-        'accessKeyId': 'a key that can invoke the lambda function',
-        'secretAccessKey': 'the secret'
-    }),
-    awsLambdaFunction: 'arn:aws:lambda:...:function:cw-signer' // ARN of your lambda function
+    customAuthMethod: authByAwsLambda
+ })
+ .then(function (evaporate) {
+       evaporate.add(...);
  });
+
 ```
+
+### Migrating from v1.x to v2.0
+Even though the changes between v1.x and v2.0 are significant, V2.0 attempts to keep the migration process simple.
+
+#### Breaking Changes to the API
+
+1. Instantiate Evaporate with the new [`create`](#api) class method and not with the `new` keyword. The default
+   AWS Signature Version is now 4. If you are using AWS V2 Signatures, then you must explicitly specify the signature
+   when creating an Evaporate instance: `awsSignatureVersion: '2'`.
+2. The [`.add()`](#evaporateprototypeadd) method now returns a Promise. Assure that your code uses the Evaporate
+   instance passed when the [`Evaporate.create`](#api) resolves.
+3. If your application uses [`.pause()`](#evaporateprototypepause), [`.resume()`](#evaporateprototyperesume) or
+   [`.cancel()`](#evaporateprototypecancel) then you need to make sure to pass the correct file key to these methods.
+   V1.6.x used the return value from `.add()` as the key to the upload to pause, resume or cancel. In v2.0 it
+   returns a Promise that resolves when the upload successfully completes. To identify the file upload in these
+   methods, you need to construct a file key according to the documentation of these methods.
+4. If you use `awsLambda` signing, you need to use the new pluggable signing method feature (`customAuthMethod`)
+   because built-in support for AWS lambda has been removed. Follow the instructions
+   [here](##using-aws-lambda-to-sign-requests).
+5. `signResponseHandler` now only acts on the response from `signUrl`. It cannot be used to sign a request on its own.
+   To sign a request without using `signUrl`, use a pluggable signing method specified with `customAuthMethod`.
+6. If you require support for browseers that do not implement [ES6 Promises](http://people.mozilla.org/~jorendorff/es6-draft.html#sec-promise-constructor)
+   (Internet Explorer), you will need to include a compliant Promise polyfill such as
+   [es6-promise](https://github.com/stefanpenner/es6-promise).
+
+#### Changes to Basic Retry on Error Behavior
+1. With the addition of pluggable signing methods implementing the Promise interface, it is possible for the signing
+   method promise to reject. Previously, Evaporated treated virtually any error in the upload process as a trigger to
+   (indefinitely) retry the request. As of v2.0, if the pluggable signing method rejects, the file upload will also
+   reject. If you use the functionality provided through `signerUrl`, then the upload will reject if the signing
+   request responds with HTTP Status 401 or 403.
 
 ## License
 
