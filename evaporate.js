@@ -189,6 +189,7 @@
         }
     };
     Evaporate.prototype.fileCleanup = function (fileUpload) {
+        removeAtIndex(this.queuedFiles, fileUpload);
         if (removeAtIndex(this.filesInProcess, fileUpload)) {
             this.evaporatingCnt(-1);
         }
