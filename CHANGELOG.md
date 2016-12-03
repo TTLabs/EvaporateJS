@@ -3,7 +3,7 @@
 ## Bug Fixes ##
 - Issue #277. It was possible for a queued file to not start if the previous file was canceled
   before it had started. Also addressed edge cases and race conditions when canceling a list
-  of files that have been submitted. Thanks to @cvnfor the test cases.
+  of files that have been submitted. Thanks to @cvn for the test cases.
 
 # v2.0.0
 

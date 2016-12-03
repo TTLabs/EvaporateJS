@@ -492,7 +492,7 @@
         return stats;
     };
     FileUpload.prototype.onProgress = function () {
-        if ([CANCELED, ABORTED, PAUSED].indexOf(this.status) === -1) {
+        if ([ABORTED, PAUSED].indexOf(this.status) === -1) {
             this.progress(this.fileTotalBytesUploaded / this.sizeBytes, this.progessStats());
             this.loaded = 0;
         }
@@ -800,7 +800,7 @@
             return true;
         } else {
             part.status = ERROR;
-            putRequest.resetLoadedBytes(0);
+            putRequest.resetLoadedBytes();
             var msg = ['eTag matches MD5 of 0 length blob for part #', putRequest.partNumber, 'Retrying part.'].join(" ");
             l.w(msg);
             this.warn(msg);
@@ -1446,9 +1446,9 @@
             }
         }
     };
-    PutPart.prototype.resetLoadedBytes = function (v) {
-        this.fileUpload.updateLoaded(0);
-        this.part.loadedBytes = v;
+    PutPart.prototype.resetLoadedBytes = function () {
+        this.fileUpload.updateLoaded(-this.part.loadedBytes);
+        this.part.loadedBytes = 0;
         this.fileUpload.onProgress();
     };
     PutPart.prototype.errorExceptionStatus = function () {
@@ -1477,7 +1477,7 @@
             this.awsDeferred.reject(errMsg);
             return true;
         }
-        this.resetLoadedBytes(0);
+        this.resetLoadedBytes();
         this.part.status = ERROR;
 
         if (!this.errorExceptionStatus()) {
@@ -1489,7 +1489,7 @@
         if (this.currentXhr) {
             this.currentXhr.abort();
         }
-        this.resetLoadedBytes(0);
+        this.resetLoadedBytes();
         this.attempts = 1;
     };
     PutPart.size = 0;
