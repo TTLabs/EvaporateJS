@@ -281,7 +281,7 @@ the upload will stop. Any other status will attempt to retry the request.
 
 If the custom authorization Promise rejects,then the upload will stop.
 
-Available onfiguration options:
+Available configuration options:
 
 * **bucket**: the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'. Note that
     the `cloudfront` option will determine where the bucket name appears in the `aws_url`.
