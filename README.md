@@ -33,7 +33,7 @@ New Features in v2.0:
 - The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
 - Reduced memory footprint when calculating MD5 digests.
 
-To migrate to v2.0, [follow these instructions](https://github.com/bikeath1337/EvaporateJS/tree/promises#migrating-from-v1x-to-v20).
+To migrate to v2.0, [follow these instructions](#migrating-from-v1x-to-v20).
 
 #### Browser Compatibility
 Any browser that supports the JavaScript [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
