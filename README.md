@@ -33,7 +33,7 @@ New Features in v2.0:
 - The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
 - Reduced memory footprint when calculating MD5 digests.
 
-To migrate to v2.0, [follow these instructions](https://github.com/bikeath1337/EvaporateJS/tree/promises#migrating-from-v1x-to-v20).
+To migrate to v2.0, [follow these instructions](#migrating-from-v1x-to-v20).
 
 #### Browser Compatibility
 Any browser that supports the JavaScript [File API](https://developer.mozilla.org/en-US/docs/Web/API/File)
@@ -281,7 +281,7 @@ the upload will stop. Any other status will attempt to retry the request.
 
 If the custom authorization Promise rejects,then the upload will stop.
 
-Available onfiguration options:
+Available configuration options:
 
 * **bucket**: the name of your bucket to which you want the files uploaded , for example 'my.bucket.name'. Note that
     the `cloudfront` option will determine where the bucket name appears in the `aws_url`.
