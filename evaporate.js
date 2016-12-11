@@ -1368,7 +1368,10 @@
       if (self.con.computeContentMd5 && !part.md5_digest) {
         reader.onloadend = function () {
           reader = undefined;
-          var md5_digest = self.con.cryptoMd5Method(this.result);
+          // DataView uses the address of the result
+          // Uint8Array maps same space as unisigned int for binary upload
+          var data = new Uint8Array(new DataView(this.result).buffer);
+          var md5_digest = self.con.cryptoMd5Method(data);
           if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
             self.fileUpload.firstMd5Digest = md5_digest;
             self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
