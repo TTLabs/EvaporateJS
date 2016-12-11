@@ -333,6 +333,17 @@ Available configuration options:
 * **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
+* **readableStreams**: default=false, if the file you upload is a Node [`ReadableStream`](https://nodejs.org/api/stream.html#stream_readable_streams), set this option to `true` and
+  and provide a `readableStreamPartMethod`.
+* **readableStreamPartMethod**: default:null, returns a [`ReadableStream`](https://nodejs.org/api/stream.html#stream_readable_streams)
+  implemented as an `ArrayBufferView` [`Uint8Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array). For example:
+
+    ```javascript
+    function (file, start, end) {
+        // Node returns a Stream of Uint8Array
+        return fs.createReadStream(file.path, {start: start, end: end});
+    }
+    ```
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
     Standard, you will need to change this to the correct endpoint from the 
     [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
