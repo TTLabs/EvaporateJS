@@ -58,6 +58,7 @@
       cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); },
       logging: false,
       s3FileCacheHoursAgo: 1,
+     // awsSignatureVersion: '2',
       allowS3ExistenceOptimization: true,
       evaporateChanged: function (file, evaporatingCount) {
          $('#totalParts').text(evaporatingCount);
@@ -214,7 +215,7 @@
            return {
               progress: function (progressValue, data) {
                  progress = progressValue;
-                 console.log(
+if (false)                 console.log(
                      'Total Loaded:', data && data.loaded ? data.loaded : '',
                      'Speed:', data && data.speed ? data.speed : '',
                      'Formatted speed:', data && data.speed ? data.readableSpeed + 's' : '',
