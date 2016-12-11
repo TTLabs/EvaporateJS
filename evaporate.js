@@ -667,6 +667,7 @@
       removeAtIndex(self.partsToUpload, s3Part.part);
       removeAtIndex(self.partsInProcess, s3Part.part);
 
+      s3Part.awsRequest.payload = undefined;
       if (self.partsToUpload.length) { self.evaporatingCnt(-1); }
     }
 
@@ -1054,7 +1055,7 @@
   };
   SignedS3AWSRequest.prototype.errorHandler = function () { };
   SignedS3AWSRequest.prototype.errorExceptionStatus = function () { return false; };
-  SignedS3AWSRequest.prototype.getPayload = function () { return null; };
+  SignedS3AWSRequest.prototype.getPayload = function () { return Promise.resolve(null); };
   SignedS3AWSRequest.prototype.success_status = function (xhr) {
     return (xhr.status >= 200 && xhr.status <= 299) ||
         this.request.success404 && xhr.status === 404;
@@ -1078,8 +1079,7 @@
       var xhr = new XMLHttpRequest();
       self.currentXhr = xhr;
 
-      var payload = self.getPayload(),
-          url = [self.awsUrl, self.getPath(), self.request.path].join(""),
+      var url = [self.awsUrl, self.getPath(), self.request.path].join(""),
           all_headers = {};
 
       if (self.request.query_string) {
@@ -1138,7 +1138,12 @@
         xhr.upload.onprogress = self.request.onProgress;
       }
 
-      xhr.send(payload);
+      var payload;
+      self.getPayload()
+          .then(function (data) {
+            payload = data;
+            xhr.send(payload);
+          });
 
       setTimeout(function () { // We have to delay here or Safari will hang
         self.started.resolve('request sent ' + self.request.step);
@@ -1256,7 +1261,7 @@
   CompleteMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
   CompleteMultipartUpload.prototype.constructor = CompleteMultipartUpload;
   CompleteMultipartUpload.prototype.getPayload = function () {
-    return this.fileUpload.getCompletedPayload();
+    return Promise.resolve(this.fileUpload.getCompletedPayload());
   };
 
   //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -1357,40 +1362,34 @@
   PutPart.prototype = Object.create(SignedS3AWSRequest.prototype);
   PutPart.prototype.constructor = PutPart;
   PutPart.prototype.part = 1;
+  PutPart.prototype.payload = undefined;
   PutPart.prototype.start = 0;
   PutPart.prototype.end = 0;
   PutPart.prototype.partNumber = undefined;
   PutPart.prototype.getPartMd5Digest = function () {
     var self = this,
-        part = this.part,
-        reader = new FileReader();
-    return new Promise(function (resolve) {
+        part = this.part;
+    return new Promise(function (resolve, reject) {
       if (self.con.computeContentMd5 && !part.md5_digest) {
-        reader.onloadend = function () {
-          reader = undefined;
-          // DataView uses the address of the result
-          // Uint8Array maps same space as unisigned int for binary upload
-          var data = new Uint8Array(new DataView(this.result).buffer);
-          var md5_digest = self.con.cryptoMd5Method(data);
-          if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
-            self.fileUpload.firstMd5Digest = md5_digest;
-            self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
-          }
-          resolve(md5_digest);
-        };
-
-        reader.readAsArrayBuffer(getFilePart(self.fileUpload.file, self.start, self.end));
+        self.getPayload()
+            .then(function (data) {
+              var md5_digest = self.con.cryptoMd5Method(data);
+              if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
+                self.fileUpload.firstMd5Digest = md5_digest;
+                self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
+              }
+              resolve(md5_digest);
+            });
       } else {
         resolve(part.md5_digest);
       }
-    })
-        .then(function (md5_digest) {
-          if (md5_digest) {
-            l.d(self.request.step, 'MD5 digest:', md5_digest);
-            self.request.md5_digest = md5_digest;
-            self.part.md5_digest = md5_digest;
-          }
-        });
+    }).then(function (md5_digest) {
+      if (md5_digest) {
+        l.d(self.request.step, 'MD5 digest:', md5_digest);
+        self.request.md5_digest = md5_digest;
+        self.part.md5_digest = md5_digest;
+      }
+    });
   };
   PutPart.prototype.sendRequestToAWS = function () {
     this.stalledInterval = setInterval(this.stalledPartMonitor(), PARTS_MONITOR_INTERVAL_MS);
@@ -1497,13 +1496,32 @@
   };
   PutPart.size = 0;
   PutPart.prototype.getPayload = function () {
-    var slice = getFilePart(this.fileUpload.file, this.start, this.end);
-    l.d(this.partNumber, 'payload bytes:', this.start, '->', this.end, ', size:', slice.size);
-    if (!this.part.isEmpty && slice.size === 0) { // issue #58
-      l.w('  *** WARN: blob reporting size of 0 bytes. Will try upload anyway..');
-    }
-    this.size = slice.size;
-    return slice;
+    return new Promise(function (resolve, reject) {
+      if (typeof this.payload !== 'undefined') {
+        return resolve(this.payload);
+      }
+      this.payloadFromBlob().then(function (data) {
+        this.payload = data;
+        resolve(data);
+      }.bind(this));
+    }.bind(this));
+  };
+  PutPart.prototype.payloadFromBlob = function () {
+    // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the
+    // 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end).
+    // As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See
+    // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
+    var file = this.fileUpload.file,
+        slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice')),
+        blob = file[slicerFn](this.start, this.end);
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      reader.onloadend = function () {
+        var data = new Uint8Array(new DataView(this.result).buffer);
+        resolve(data);
+      };
+      reader.readAsArrayBuffer(blob);
+    });
   };
   PutPart.prototype.stalledInterval = -1;
   PutPart.prototype.getStartedPromise = function () {
@@ -1599,8 +1617,10 @@
       return this.datetime(timeOffset).toUTCString();
     };
 
-    function AwsSignatureV4(request, payload) {
-      this.payload = payload;
+    function AwsSignatureV4(request, payloadPromise) {
+      payloadPromise.then(function (payload) {
+        this.payload = payload;
+      }.bind(this));
       AwsSignature.call(this, request);
     }
     AwsSignatureV4.prototype = Object.create(AwsSignature.prototype);
@@ -1901,15 +1921,6 @@
   function dateISOString(date) {
     // Try to get the modified date as an ISO String, if the date exists
     return date ? new Date(date).toISOString() : '';
-  }
-
-  function getFilePart(file, start, end) {
-    var slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice'));
-    // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the
-    // 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end).
-    // As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See
-    // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
-    return file[slicerFn](start, end);
   }
 
   function getAwsResponse(xhr) {
