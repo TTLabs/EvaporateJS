@@ -1022,7 +1022,7 @@
   SignedS3AWSRequest.prototype.updateRequest = function (request) {
     this.request = request;
     var SigningClass = signingVersion(this, l);
-    this.signer = new SigningClass(request, this.getPayload());
+    this.signer = new SigningClass(request);
   };
   SignedS3AWSRequest.prototype.success = function () { return true; };
   SignedS3AWSRequest.prototype.backOffWait = function () {
@@ -1156,7 +1156,10 @@
     this.request.x_amz_headers = extend(this.request.x_amz_headers, {
       'x-amz-date': this.request.dateString
     });
-    return authorizationMethod(this).authorize();
+    return this.signer.getPayload()
+        .then(function () {
+          return authorizationMethod(this).authorize();
+        }.bind(this));
   };
   SignedS3AWSRequest.prototype.authorizationSuccess = function (authorization) {
     l.d(this.request.step, 'signature:', authorization);
@@ -1616,16 +1619,20 @@
     AwsSignatureV2.prototype.dateString = function (timeOffset) {
       return this.datetime(timeOffset).toUTCString();
     };
+    AwsSignatureV2.prototype.getPayload = function () { return Promise.resolve(); };
 
-    function AwsSignatureV4(request, payloadPromise) {
-      payloadPromise.then(function (payload) {
-        this.payload = payload;
-      }.bind(this));
+    function AwsSignatureV4(request) {
       AwsSignature.call(this, request);
     }
     AwsSignatureV4.prototype = Object.create(AwsSignature.prototype);
     AwsSignatureV4.prototype.constructor = AwsSignatureV4;
     AwsSignatureV4.prototype.payload = null;
+    AwsSignatureV4.prototype.getPayload = function () {
+      return awsRequest.getPayload()
+          .then(function (data) {
+            this.payload = data;
+          }.bind(this));
+    };
     AwsSignatureV4.prototype.authorizationString = function () {
       var authParts = [];
 
