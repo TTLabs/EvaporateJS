@@ -49,6 +49,8 @@
 
   var Evaporate = function (config) {
     this.config = extend({
+      readableStreams: true,
+      readableStreamPartMethod: null,
       bucket: null,
       logging: true,
       maxConcurrentParts: 5,
@@ -1490,14 +1492,63 @@
     this.attempts = 1;
   };
   PutPart.size = 0;
+  PutPart.prototype.streamToArrayBuffer = function (stream) {
+    var promise = new Promise(function (resolve, reject) {
+      // stream is already ended
+      if (!stream.readable) return resolve([]);
+
+      var arr = new Uint8Array(Math.min(this.con.partSize, this.end - this.start)),
+          i = 0;
+      stream.on('data', onData);
+      stream.on('end', onEnd);
+      stream.on('error', onEnd);
+      stream.on('close', onClose);
+
+      function onData(data) {
+        if (data.byteLength === 1) return
+        arr.set(data, i);
+        i += data.byteLength;
+      }
+
+      function onEnd(err) {
+        if (err) { reject(err); }
+        else { resolve(arr); }
+        cleanup();
+      }
+
+      function onClose() {
+        resolve(arr);
+        cleanup();
+      }
+
+      function cleanup() {
+        arr = null;
+        stream.removeListener('data', onData);
+        stream.removeListener('end', onEnd);
+        stream.removeListener('error', onEnd);
+        stream.removeListener('close', onClose);
+      }
+    }.bind(this));
+
+    return promise
+  }
   PutPart.prototype.getPayload = function () {
     if (typeof this.payloadPromise === 'undefined') {
       this.payloadPromise = new Promise(function (resolve, reject) {
-        this.payloadFromBlob()
-            .then(resolve, reject);
+        var promise = this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
+        promise.then(resolve, reject);
       }.bind(this));
     }
     return this.payloadPromise;
+  };
+  PutPart.prototype.payloadFromStream = function () {
+    var stream = this.con.readableStreamPartMethod(this.fileUpload.file, this.start, this.end - 1);
+    return new Promise(function (resolve, reject) {
+      var streamPromise = this.streamToArrayBuffer(stream);
+      streamPromise.then(function (data) {
+        resolve(data);
+      }.bind(this));
+    }.bind(this));
   };
   PutPart.prototype.payloadFromBlob = function () {
     // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the
