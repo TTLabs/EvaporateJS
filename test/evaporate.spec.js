@@ -289,6 +289,8 @@ test.todo('should require browser File support')
 test.todo('should require browser Blob support')
 test.todo('should require browser Blob slice support')
 test.todo('should require browser FileReader#readAsArrayBuffer support if computeContentMd5 enabled')
+test.todo('should require browser Promise support')
+test.todo('should validate readableStream and readableStreamPartMethod')
 
 // add
 
