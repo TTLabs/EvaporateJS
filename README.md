@@ -4,6 +4,57 @@ Evaporate
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
+## TEST BRANCH: Sandbox for Node File Uploads Using Streams - 11 December 2016 ##
+
+- This branch is based on v2.0.1. Tag [2.0.2-rc](https://github.com/TTLabs/EvaporateJS/tree/2.0.2-rc) represents enhancements
+to the main codebase plus refactoring to simplify adding support for streams.
+- Tag [2.0.2-electron.1](https://github.com/TTLabs/EvaporateJS/tree/2.0.2-electron.1) includes the first proof of concept
+enhancements.
+- Branch [electron](https://github.com/TTLabs/EvaporateJS/tree/electron) includes a build of electron's sandbox that is
+hooked up to `2.0.2-electron.1`.
+
+### Caveats ###
+There has been a lot of discussion in the node community about supporting automatic marshalling of its ReadableStream to
+a `Blob` or `ArrayBufferView` but those discussions didn't go anywhere and the tickets were closed. As a result, this
+version of Evaporate does the marshalling work which means that its memory useage will be primarily determined by `partSize`
+and `maxConcurrentParts`. For what it's worth, keeping the partSize smaller not only reduces memory footprint but also
+results in speedier resumptions after error. If we run short on memory, apart from refactoring the marshalling here, the
+partSize should be reduced.
+
+This implementation exposes a new configuration option `readableStreamPartMethod` which is currently enabled with
+`readableStreams`. I did this because the only external dependency is to `fs` to expose a `ReadableStream`. `fs`
+can be required in a closure that wraps `readableStreamPartMethod`.
+
+The example in this branch borrows from [electron-quick-start](https://github.com/electron/electron-quick-start). I am
+not skilled in Node nor Electron, so my example DOES NOT call the native OS file picker but does excersise creating
+a ReadableStream from a path. In the case of the example here, I was always picking files from my Desktop.
+
+##### Potential Enhancements #####
+- The example might be enhanced to choose whether to use a readable stream or not. This should be possible because both
+`readableStream` and `readableStreamPartMethod` can be specified in `Evaporate#add`.
+- Add Electron support for choosing files from the file system picker without depending on the HTML implementation.
+
+### Installation ###
+The electron sample is in `examples/electron`. You will need to update
+`examples/electron/index.html`(https://github.com/TTLabs/EvaporateJS/blob/electron/example/electron/index.html) with your AWS keys
+and other signature/signing options. You will probably want to adjust `readableStreamPartMethod` to your needs as well.
+
+```shell
+cd examples/electron
+```
+
+Install the development dependencies: electron and evaporate:
+
+```shell
+npm install
+```
+
+To start the example:
+
+```shell
+npm start
+```
+
 ### File Upload API for AWS S3
 
 Evaporate is a javascript library for uploading files from a browser to
