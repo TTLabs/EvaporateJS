@@ -14,7 +14,7 @@
 
 /***************************************************************************************************
  *                                                                                                 *
- *  version 2.0.1                                                                                  *
+ *  version 2.0.1-electron.1                                                                                  *
  *                                                                                                 *
  ***************************************************************************************************/
 
@@ -49,7 +49,7 @@
 
   var Evaporate = function (config) {
     this.config = extend({
-      readableStreams: true,
+      readableStreams: false,
       readableStreamPartMethod: null,
       bucket: null,
       logging: true,
@@ -385,12 +385,24 @@
   Evaporate.prototype.validateEvaporateOptions = function () {
     this.supported = !(
     typeof File === 'undefined' ||
-    typeof Blob === 'undefined' ||
-    typeof Promise === 'undefined' ||
-    typeof (
-    Blob.prototype.webkitSlice ||
-    Blob.prototype.mozSlice ||
-    Blob.prototype.slice) === 'undefined');
+    typeof Promise === 'undefined');
+
+    if (!this.supported) {
+      return 'Evaporate requires support for File and Promise';
+    }
+
+    if (this.config.readableStreams) {
+      if (typeof this.config.readableStreamPartMethod !== 'function') {
+        return "Option readableStreamPartMethod is required when readableStreams is set."
+      }
+    } else  {
+      if (typeof Blob === 'undefined' || typeof (
+          Blob.prototype.webkitSlice ||
+          Blob.prototype.mozSlice ||
+          Blob.prototype.slice) === 'undefined') {
+        return 'Evaporate requires support for Blob [webkitSlice || mozSlice || slice]';
+      }
+    }
 
     if (!this.config.signerUrl && typeof this.config.customAuthMethod !== 'function') {
       return "Option signerUrl is required unless customAuthMethod is present.";
@@ -398,10 +410,6 @@
 
     if (!this.config.bucket) {
       return "The AWS 'bucket' option must be present.";
-    }
-
-    if (!this.supported) {
-      return 'The browser does not support the necessary features of File and Blob [webkitSlice || mozSlice || slice]';
     }
 
     if (this.config.computeContentMd5) {
@@ -1538,7 +1546,7 @@
       }
     }.bind(this));
 
-    return promise
+    return promise;
   }
   PutPart.prototype.getPayload = function () {
     return new Promise(function (resolve, reject) {
