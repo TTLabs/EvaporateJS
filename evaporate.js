@@ -1346,7 +1346,7 @@
 
     this.partNumber = part.part;
     this.start = (this.partNumber - 1) * fileUpload.con.partSize;
-    this.end = this.partNumber * fileUpload.con.partSize;
+    this.end = Math.min(this.partNumber * fileUpload.con.partSize, fileUpload.sizeBytes);
 
     var request = {
       method: 'PUT',
