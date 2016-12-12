@@ -1,3 +1,12 @@
+# v2.0.2
+
+## Enhancements ##
+- Optimizes size of last part, making sure it's not reporting longer than it actually is
+- Improves memory reuse of large parts
+- Lazily calls getPayload for V4 signatures, not at instantiation
+- Adds a sample Python signing routine for V4 signatures
+- Adds recipes for using node.js `crypto` with Evaporate
+
 # v2.0.1
 
 ## Bug Fixes ##
