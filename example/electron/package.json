@@ -19,6 +19,6 @@
   "license": "BSD 2-Clause",
   "devDependencies": {
     "electron": "^1.4.1",
-    "evaporate": "TTLabs/EvaporateJS#2.0.1-electron.1"
+    "evaporate": "TTLabs/EvaporateJS#2.0.2-electron.2"
   }
 }
