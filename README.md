@@ -74,7 +74,7 @@ Otherwise, include it in your HTML:
 ## Example
 
 ```javascript
-require('aws-sdk');
+require('crypto');
 
 var config = {
      signerUrl: <SIGNER_URL>,
@@ -82,7 +82,7 @@ var config = {
      bucket: <AWS_BUCKET>,
      cloudfront: true,
      computeContentMd5: true,
-     cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); }
+     cryptoMd5Method: function (data) { function (data) { return crypto.createHash('md5').update(data).digest('base64'); }
 };
 
 return Evaporate.create(config)
@@ -366,8 +366,10 @@ Available configuration options:
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part
     payload to encode. If you are using:
     - Spark MD5, the method would look like this: `function (data) { return btoa(SparkMD5.ArrayBuffer.hash(data, true)); }`.
+    - Node.js: `function (data) { return crypto.createHash('md5').update(data).digest('base64'); }`.
     - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.md5(data, 'base64'); }`.
 * **cryptoHexEncodedHash256**: default=undefined, a method that computes the lowercase base 16 encoded SHA256 hash. Required when `awsSignatureVersion` is `'4'`.
+    - Node.js: `function (data) { return crypto.createHash('sha256').update(data).digest('hex'); }`.
     - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.sha256(data, 'hex'); }`.
 * **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
