@@ -1382,7 +1382,7 @@
                 self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
               }
               resolve(md5_digest);
-            });
+            }, reject);
       } else {
         resolve(part.md5_digest);
       }
@@ -1506,7 +1506,7 @@
       this.payloadFromBlob().then(function (data) {
         this.payload = data;
         resolve(data);
-      }.bind(this));
+      }.bind(this), reject);
     }.bind(this));
   };
   PutPart.prototype.payloadFromBlob = function () {
@@ -1520,7 +1520,8 @@
     return new Promise(function (resolve) {
       var reader = new FileReader();
       reader.onloadend = function () {
-        var data = new Uint8Array(new DataView(this.result).buffer);
+        var result = this.result || new Uint8Array().buffer;
+        var data = new Uint8Array(new DataView(result).buffer);
         resolve(data);
       };
       reader.readAsArrayBuffer(blob);
