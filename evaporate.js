@@ -1153,7 +1153,7 @@
           .then(function (data) {
             payload = data;
             xhr.send(payload);
-          });
+          }, reject);
 
       setTimeout(function () { // We have to delay here or Safari will hang
         self.started.resolve('request sent ' + self.request.step);
@@ -1510,8 +1510,8 @@
   PutPart.size = 0;
   PutPart.prototype.streamToArrayBuffer = function (stream) {
     var promise = new Promise(function (resolve, reject) {
-      // stream is already ended
-      if (!stream.readable) return resolve([]);
+      // stream is empty or ended
+      if (!stream.readable) { return resolve([]); }
 
       var arr = new Uint8Array(Math.min(this.con.partSize, this.end - this.start)),
           i = 0;
@@ -1521,7 +1521,7 @@
       stream.on('close', onClose);
 
       function onData(data) {
-        if (data.byteLength === 1) return
+        if (data.byteLength === 1) { return; }
         arr.set(data, i);
         i += data.byteLength;
       }
@@ -1547,7 +1547,7 @@
     }.bind(this));
 
     return promise;
-  }
+  };
   PutPart.prototype.getPayload = function () {
     return new Promise(function (resolve, reject) {
       if (typeof this.payload !== 'undefined') {
@@ -1566,7 +1566,7 @@
       var streamPromise = this.streamToArrayBuffer(stream);
       streamPromise.then(function (data) {
         resolve(data);
-      }.bind(this));
+      }.bind(this), reject);
     }.bind(this));
   };
   PutPart.prototype.payloadFromBlob = function () {
