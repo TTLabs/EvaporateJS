@@ -4,14 +4,14 @@ Evaporate
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
-## TEST BRANCH: Sandbox for Node File Uploads Using Streams - 11 December 2016 ##
+## TEST BRANCH: Sandbox for Node File Uploads Using Streams - 14 December 2016 ##
 
-- This branch is based on v2.0.1. Tag [2.0.2-rc](https://github.com/TTLabs/EvaporateJS/tree/2.0.2-rc) represents enhancements
+- This branch is based on v2.0.3. Tag [2.0.3](https://github.com/TTLabs/EvaporateJS/tree/2.0.3) represents enhancements
 to the main codebase plus refactoring to simplify adding support for streams.
-- Tag [2.0.2-electron.1](https://github.com/TTLabs/EvaporateJS/tree/2.0.2-electron.1) includes the first proof of concept
+- Tag [2.0.3-electron.3](https://github.com/TTLabs/EvaporateJS/tree/2.0.3-electron.3) includes the first proof of concept
 enhancements.
 - Branch [electron](https://github.com/TTLabs/EvaporateJS/tree/electron) includes a build of electron's sandbox that is
-hooked up to `2.0.2-electron.1`.
+hooked up to `2.0.3-electron.3`.
 
 ### Caveats ###
 There has been a lot of discussion in the node community about supporting automatic marshalling of its ReadableStream to
