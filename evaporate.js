@@ -1520,9 +1520,8 @@
     return new Promise(function (resolve) {
       var reader = new FileReader();
       reader.onloadend = function () {
-        var result = this.result || new Uint8Array().buffer;
-        var data = new Uint8Array(new DataView(result).buffer);
-        resolve(data);
+        var result = this.result || new Uint8Array();
+        resolve(new Uint8Array(result));
       };
       reader.readAsArrayBuffer(blob);
     });
