@@ -1,3 +1,15 @@
+# v2.0.3
+
+Note: tagged branch 1.6.4 is available with this fix for 1.x users. To install,
+
+```shell
+npm install git://github.com/TTLabs/EvaporateJS.git#1.6.4
+```
+
+## Bug Fixes ##
+- Correctly encodes all single quotes in an S3 object name. Issue #264 (revisited)
+- Simplifies internal 'casting' of ArrayBuffer to Uint8Array (ArrayBufferView)
+
 # v2.0.2
 
 ## Enhancements ##
