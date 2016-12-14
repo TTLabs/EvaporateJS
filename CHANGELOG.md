@@ -1,3 +1,6 @@
+# v1.6.4#
+- Correctly encodes all single quotes in an S3 object name. Issue #264 (revisited)
+
 # v1.6.3#
 - Corrects license name for compatibility with webjars.org.
 - Addresses file.lastModifiedDate deprecation warning in FireFox

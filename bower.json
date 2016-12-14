@@ -1,6 +1,6 @@
 {
   "name": "evaporatejs",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "Javascript library for browser to S3 multipart resumable uploads",
   "main": "evaporate.js",
   "keywords": [
