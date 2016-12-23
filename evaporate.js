@@ -667,7 +667,6 @@
       removeAtIndex(self.partsToUpload, s3Part.part);
       removeAtIndex(self.partsInProcess, s3Part.part);
 
-      s3Part.awsRequest.payload = undefined;
       if (self.partsToUpload.length) { self.evaporatingCnt(-1); }
     }
 
@@ -1091,11 +1090,6 @@
       xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
 
-          if (payload) {
-            // Test, per http://code.google.com/p/chromium/issues/detail?id=167111#c20
-            // Need to refer to the payload to keep it from being GC'd...sad.
-            l.d('  ###', payload.size);
-          }
           if (self.success_status(xhr)) {
             if (self.request.response_match &&
                 xhr.response.match(new RegExp(self.request.response_match)) === undefined) {
@@ -1138,16 +1132,14 @@
         xhr.upload.onprogress = self.request.onProgress;
       }
 
-      var payload;
       self.getPayload()
-          .then(function (data) {
-            payload = data;
-            xhr.send(payload);
-          });
+          .then(xhr.send.bind(xhr), reject);
 
       setTimeout(function () { // We have to delay here or Safari will hang
         self.started.resolve('request sent ' + self.request.step);
-      }, 20)
+      }, 20);
+      self.signer.payload = null;
+      self.payloadPromise = undefined;
     });
   };
   //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
@@ -1365,7 +1357,7 @@
   PutPart.prototype = Object.create(SignedS3AWSRequest.prototype);
   PutPart.prototype.constructor = PutPart;
   PutPart.prototype.part = 1;
-  PutPart.prototype.payload = undefined;
+  PutPart.prototype.payloadPromise = undefined;
   PutPart.prototype.start = 0;
   PutPart.prototype.end = 0;
   PutPart.prototype.partNumber = undefined;
@@ -1499,15 +1491,13 @@
   };
   PutPart.size = 0;
   PutPart.prototype.getPayload = function () {
-    return new Promise(function (resolve, reject) {
-      if (typeof this.payload !== 'undefined') {
-        return resolve(this.payload);
-      }
-      this.payloadFromBlob().then(function (data) {
-        this.payload = data;
-        resolve(data);
-      }.bind(this), reject);
-    }.bind(this));
+    if (typeof this.payloadPromise === 'undefined') {
+      this.payloadPromise = new Promise(function (resolve, reject) {
+        this.payloadFromBlob()
+            .then(resolve, reject);
+      }.bind(this));
+    }
+    return this.payloadPromise;
   };
   PutPart.prototype.payloadFromBlob = function () {
     // browsers' implementation of the Blob.slice function has been renamed a couple of times, and the meaning of the
@@ -1520,8 +1510,9 @@
     return new Promise(function (resolve) {
       var reader = new FileReader();
       reader.onloadend = function () {
-        var result = this.result || new Uint8Array();
-        resolve(new Uint8Array(result));
+        var buffer = this.result && typeof this.result.buffer !== 'undefined',
+            result = buffer ? new Uint8Array(this.result.buffer) : this.result;
+        resolve(result);
       };
       reader.readAsArrayBuffer(blob);
     });
