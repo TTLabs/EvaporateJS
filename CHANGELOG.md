@@ -1,3 +1,9 @@
+# v2.0.4
+
+## Bug Fixes ##
+- Issue #284. Memory was being retained during an upload but released on completion. Memory
+  is properly managed now.
+
 # v2.0.3
 
 Note: tagged branch 1.6.4 is available with this fix for 1.x users. To install,
