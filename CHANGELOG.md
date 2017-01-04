@@ -1,3 +1,9 @@
+# v2.0.5
+
+## Enhancements ##
+- Issue #199. Adds support for multipart uploads using Node FileSytem (fs) ReadableStreams.
+  This enables intregration with Electron to upload files outside of a browser framework.
+
 # v2.0.4
 
 ## Bug Fixes ##

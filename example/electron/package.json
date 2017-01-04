@@ -1,0 +1,24 @@
+{
+  "name": "evaporate-electron",
+  "version": "0.0.1",
+  "description": "Javascript library for browser to S3 multipart resumable uploads with Electron",
+  "main": "main.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/TTLabs/EvaporateJS.git"
+  },
+  "author": {
+    "email": "bikeath133@me.com"
+  },
+  "license": "BSD 2-Clause",
+  "devDependencies": {
+    "electron": "^1.4.1",
+    "evaporate": "TTLabs/EvaporateJS#2.0.4-electron.4"
+  }
+}

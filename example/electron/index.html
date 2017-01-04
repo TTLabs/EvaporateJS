@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Hello World!</title>
+  </head>
+  <body>
+    <h1>Hello World!</h1>
+    <!-- All of the Node.js APIs are available in this renderer process. -->
+    We are using Node.js <script>document.write(process.versions.node)</script>,
+    Chromium <script>document.write(process.versions.chrome)</script>,
+    and Electron <script>document.write(process.versions.electron)</script>.
+
+    <input type="file" id="files"   onchange="expose(this);"/>
+
+  <script>
+    // You can also require other files to run in this process
+    require('./renderer.js')
+    const crypto = require('crypto')
+    const fs = require('fs')
+    const Evaporate = require('evaporate')
+
+      var AWS_KEY = '',
+          AWS_BUCKET = '',
+          SIGNER_URL = '';
+
+    function expose(f) {
+      var files = document.getElementById("files").files,
+          keys = [];
+      Evaporate.create({
+        signerUrl: SIGNER_URL,
+        aws_key: AWS_KEY,
+        bucket: AWS_BUCKET,
+        readableStreams: true,
+        readableStreamPartMethod: function (file, start, end) {
+          return fs.createReadStream('~/Desktop/' + file.name, {start: start, end: end});
+        },
+        cloudfront: true,
+        awsSignatureVersion: "4",
+        computeContentMd5: true,
+        cryptoMd5Method: function (data) { return crypto.createHash('md5').update(data).digest('base64'); },
+        cryptoHexEncodedHash256: function (data) { return crypto.createHash('sha256').update(data).digest('hex'); },
+        logging: false,
+        s3FileCacheHoursAgo: 1
+      })
+          .then(function (evaporate) {
+            for (var i = 0; i < files.length; i++) {
+              var name = files[i].name + Math.random() * 100;
+
+                var fileKey = AWS_BUCKET + '/' + name;
+                keys.push(fileKey);
+
+                var promise = evaporate.add({
+                      name: name,
+                      file: files[i],
+                      started: function (f) { console.log('started', f); },
+                      progress: function (p, d) { console.log('progress', p); },
+                      error: function (m) { console.log('error:', m); }
+                    }
+                  )
+                    .then((function (requestedName) {
+                          return function (awsKey) {
+                            if (awsKey === requestedName) {
+                              console.log(awsKey, 'successfully uploaded!');
+                            } else {
+                              console.log('Did not re-upload', requestedName, 'because it exists as', awsKey);
+                            }
+                          }
+                        })(name)
+                    );
+              }
+            });
+      }
+    </script>
+  </body>
+</html>

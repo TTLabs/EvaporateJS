@@ -333,6 +333,17 @@ Available configuration options:
 * **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
+* **readableStreams**: default=false, if the file you upload is a Node [`ReadableStream`](https://nodejs.org/api/stream.html#stream_readable_streams), set this option to `true` and
+  and provide a `readableStreamPartMethod`.
+* **readableStreamPartMethod**: default:null, returns a [`ReadableStream`](https://nodejs.org/api/stream.html#stream_readable_streams)
+  implemented as an `ArrayBufferView` [`Uint8Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array). For example:
+
+    ```javascript
+    function (file, start, end) {
+        // Node returns a Stream of Uint8Array
+        return fs.createReadStream(file.path, {start: start, end: end});
+    }
+    ```
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
     Standard, you will need to change this to the correct endpoint from the 
     [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
@@ -687,6 +698,45 @@ uploads. for more information, refer to [S3 Lifecycle Management Update – Supp
 #### Working with temporary credentials in Amazon EC2 instances
 
 * [Security and S3 Multipart Upload](http://www.thoughtworks.com/mingle/infrastructure/2015/06/15/security-and-s3-multipart-upload.html)
+
+#### Support for Node.js FileSystme (fs) and ReadableStreams
+
+### Caveats ###
+There has been a lot of discussion in the Node community about supporting automatic marshalling of its ReadableStream to
+a `Blob` or `ArrayBufferView` but those discussions didn't go anywhere and the tickets were closed. As a result, this
+version of Evaporate does the marshalling work until Node decides to do that work. This means that its memory usage
+behavior may be different when using streams than when using Blobs.
+
+Evaporate's implementation exposes a new configuration option `readableStreamPartMethod` which is currently enabled with
+`readableStreams` so as to avoid any additional dependencies. Node's `fs` module provides this support, so just include
+it on the closure that wraps `readableStreamPartMethod`.
+
+There is an example in `examples/electron' that borrows from [electron-quick-start](https://github.com/electron/electron-quick-start).
+If someone wants to contribute the code to actually open a native File picker, it would be appreciated. The example uses
+Chromium's built-in support behind the File Input and assumes that the file is in the `Desktop` folder.
+
+### Installation ###
+The electron sample is in `examples/electron`. You will need to update
+`examples/electron/index.html`(https://github.com/TTLabs/EvaporateJS/blob/electron/example/electron/index.html) with your AWS keys
+and other signature/signing options. You will probably want to adjust `readableStreamPartMethod` to your needs as well.
+
+Or better yet, implement a native file picker and submit the improvements to Evaporate.
+
+```shell
+cd examples/electron
+```
+
+Install the development dependencies: electron and evaporate:
+
+```shell
+npm install
+```
+
+To start the example:
+
+```shell
+npm start
+```
 
 #### Using AWS Lambda to Sign Requests
 
