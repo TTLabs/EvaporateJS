@@ -33,6 +33,10 @@ New Features in v2.0:
 - The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
 - Reduced memory footprint when calculating MD5 digests.
 
+New Features in v2.0.5:
+- Support for Node.js FileSystem (fs) ReadbleStreams. This means you can use Electron to upload a file directly from
+  the file system's native File picker and avoid the usualy browser restrictions.
+
 To migrate to v2.0, [follow these instructions](#migrating-from-v1x-to-v20).
 
 #### Browser Compatibility
@@ -699,45 +703,6 @@ uploads. for more information, refer to [S3 Lifecycle Management Update – Supp
 
 * [Security and S3 Multipart Upload](http://www.thoughtworks.com/mingle/infrastructure/2015/06/15/security-and-s3-multipart-upload.html)
 
-#### Support for Node.js FileSystme (fs) and ReadableStreams
-
-### Caveats ###
-There has been a lot of discussion in the Node community about supporting automatic marshalling of its ReadableStream to
-a `Blob` or `ArrayBufferView` but those discussions didn't go anywhere and the tickets were closed. As a result, this
-version of Evaporate does the marshalling work until Node decides to do that work. This means that its memory usage
-behavior may be different when using streams than when using Blobs.
-
-Evaporate's implementation exposes a new configuration option `readableStreamPartMethod` which is currently enabled with
-`readableStreams` so as to avoid any additional dependencies. Node's `fs` module provides this support, so just include
-it on the closure that wraps `readableStreamPartMethod`.
-
-There is an example in `examples/electron' that borrows from [electron-quick-start](https://github.com/electron/electron-quick-start).
-If someone wants to contribute the code to actually open a native File picker, it would be appreciated. The example uses
-Chromium's built-in support behind the File Input and assumes that the file is in the `Desktop` folder.
-
-### Installation ###
-The electron sample is in `examples/electron`. You will need to update
-`examples/electron/index.html`(https://github.com/TTLabs/EvaporateJS/blob/electron/example/electron/index.html) with your AWS keys
-and other signature/signing options. You will probably want to adjust `readableStreamPartMethod` to your needs as well.
-
-Or better yet, implement a native file picker and submit the improvements to Evaporate.
-
-```shell
-cd examples/electron
-```
-
-Install the development dependencies: electron and evaporate:
-
-```shell
-npm install
-```
-
-To start the example:
-
-```shell
-npm start
-```
-
 #### Using AWS Lambda to Sign Requests
 
 As of v2.0.0 direct support for AWS Lambda has been removed because `customAuthMethod` can be used to implement it
@@ -809,6 +774,45 @@ Evaporate.create({
        evaporate.add(...);
  });
 
+```
+
+## Support for Node.js FileSystem (fs) and ReadableStreams
+
+### Caveats ###
+There has been a lot of discussion in the Node community about supporting automatic marshalling of its ReadableStream to
+a `Blob` or `ArrayBufferView` but those discussions didn't go anywhere and the tickets were closed. As a result, this
+version of Evaporate does the marshalling work until Node decides to do that work. This means that its memory usage
+behavior may be different when using streams than when using Blobs.
+
+Evaporate's implementation exposes a new configuration option `readableStreamPartMethod` which is currently enabled with
+`readableStreams` so as to avoid any additional dependencies. Node's `fs` module provides this support, so just include
+it on the closure that wraps `readableStreamPartMethod`.
+
+There is an example in `examples/electron' that borrows from [electron-quick-start](https://github.com/electron/electron-quick-start).
+If someone wants to contribute the code to actually open a native File picker, it would be appreciated. The example uses
+Chromium's built-in support behind the File Input and assumes that the file is in the `Desktop` folder.
+
+### Installation ###
+The electron sample is in `examples/electron`. You will need to update
+`examples/electron/index.html`(https://github.com/TTLabs/EvaporateJS/blob/electron/example/electron/index.html) with your AWS keys
+and other signature/signing options. You will probably want to adjust `readableStreamPartMethod` to your needs as well.
+
+Or better yet, implement a native file picker and submit the improvements to Evaporate.
+
+```shell
+cd examples/electron
+```
+
+Install the development dependencies: electron and evaporate:
+
+```shell
+npm install
+```
+
+To start the example:
+
+```shell
+npm start
 ```
 
 ### Migrating from v1.x to v2.0
