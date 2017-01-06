@@ -5,6 +5,9 @@ api_version: 1
 threadsafe: true
 
 handlers:
+- url: /assets
+  static_dir: assets
+
 - url: /
   static_files: evaporate_example.html
   upload: evaporate_example.html
@@ -14,7 +17,7 @@ handlers:
   upload: evaporate_example_lambda.html
 
 - url: /sign_auth
-  script: signing_example.app
+  script: awsv4_signing_example.app
 
 - url: /evaporate\.js
   static_files: ../evaporate.js
