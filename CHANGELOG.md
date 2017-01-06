@@ -1,3 +1,12 @@
+# v2.0.6
+
+## Enhancements ##
+- Issue #290. Improved python example for V4 signatures.
+
+## Bug Fixes ##
+- Issue #292. Corrects an issue where the override options on Evaporate#add were not properly
+  applied.
+
 # v2.0.5
 
 ## Enhancements ##
