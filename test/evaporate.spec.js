@@ -404,8 +404,7 @@ test('should return the object key in the complete callback', (t) => {
   let complete_id
 
   let config = Object.assign({}, baseAddConfig, {
-    complete: sinon.spy(function (xhr, name) { complete_id = name;
-    console.log('name', name)})
+    complete: sinon.spy(function (xhr, name) { complete_id = name; })
   })
 
   return testCommon(t, config)
@@ -425,8 +424,7 @@ test('should correctly encode parentheses for S3', (t) => {
   const c = Object.assign({}, baseAddConfig, {name: '()name()'})
 
   let config = Object.assign({}, c, {
-    complete: sinon.spy(function (xhr, name) { complete_id = name;
-      console.log('name', name)})
+    complete: sinon.spy(function (xhr, name) { complete_id = name; })
   })
 
   return testCommon(t, config)
@@ -442,8 +440,7 @@ test('should correctly encode single quotes for S3', (t) => {
   const c = Object.assign({}, baseAddConfig, {name: "'name'"})
 
   let config = Object.assign({}, c, {
-    complete: sinon.spy(function (xhr, name) { complete_id = name;
-      console.log('name', name)})
+    complete: sinon.spy(function (xhr, name) { complete_id = name; })
   })
 
   return testCommon(t, config)
@@ -458,8 +455,7 @@ test('should correctly encode spaces for S3', (t) => {
   const c = Object.assign({}, baseAddConfig, {name: " name "})
 
   let config = Object.assign({}, c, {
-    complete: sinon.spy(function (xhr, name) { complete_id = name;
-      console.log('name', name)})
+    complete: sinon.spy(function (xhr, name) { complete_id = name; })
   })
 
   return testCommon(t, config)
