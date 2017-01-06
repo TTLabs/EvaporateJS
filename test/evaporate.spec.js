@@ -621,14 +621,16 @@ test('should call a callbacks on cancel(): evaporateChanged second call args', (
 
 // configuration overrides
 test('should add() new upload with correct config with custom bucket on add', (t) => {
-  const customBucket = 'fileCustomBucket'
-  let config = {
-    configOverrides: { bucket: customBucket }
-  }
+  let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, baseConfig)
+  const evaporate = newEvaporate(t, evapConfig)
 
-  return testCommon(t, config)
+  let a1 = evaporateAdd(t, evaporate, baseAddConfig, { bucket: 'fileCustomBucket1' })
+  let a2 = evaporateAdd(t, evaporate, baseAddConfig, { bucket: 'fileCustomBucket2' })
+
+  return Promise.all([a1, a2])
       .then(function () {
-        expect(testRequests[t.context.testId][1].url).to.match(new RegExp(customBucket))
+        expect(testRequests[t.context.testId][1].url).to.match(new RegExp('fileCustomBucket1'))
+        var last = testRequests[t.context.testId].length - 1
+        expect(testRequests[t.context.testId][last].url).to.match(new RegExp('fileCustomBucket2'))
       })
 })
-

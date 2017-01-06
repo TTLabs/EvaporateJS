@@ -445,7 +445,7 @@
     this.partsInProcess = [];
     this.partsToUpload = [];
     this.numParts = -1;
-    this.con = con;
+    this.con = extend({}, con);
     this.evaporate = evaporate;
     this.localTimeOffset = evaporate.localTimeOffset;
     this.deferredCompletion = defer();
