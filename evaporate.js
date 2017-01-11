@@ -1917,7 +1917,8 @@
           AuthorizationMethod.makeSignParamsObject(fileUpload.signParams),
           AuthorizationMethod.makeSignParamsObject(con.signHeaders),
           awsRequest.stringToSign(),
-          request.dateString)
+          request.dateString,
+          awsRequest)
           .catch(function (reason) {
             fileUpload.deferredCompletion.reject(reason);
             throw reason;
