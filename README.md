@@ -228,15 +228,16 @@ var promise = Evaporate.create({
 });
 ```
 
-3. Set your AWS Secret Key in example/signing_example.py
+3. Set your AWS Secret Key in
+   [example/awsv4_signing_example.py](https://github.com/TTLabs/EvaporateJS/blob/master/example/awsv4_signing_example.py)
+   if you are using the [V4 signature signing process](http://docs.aws.amazon.com/general/latest/gr/signature-version-4.html).
+   The `example` folder includes sample code for the [V2 signature signing process](http://docs.aws.amazon.com/general/latest/gr/signature-version-2.html)
+   as well as examples in other languages.
 
-```python
-def get(self):
-   to_sign = str(self.request.get('to_sign'))
-   signature = base64.b64encode(hmac.new('YOUR_AWS_SECRET_KEY', to_sign, sha).digest())
-   self.response.headers['Content-Type'] = "text/HTML"
-   self.response.out.write(signature)
-```
+   NOTE: When AWS responds with `The request signature we calculated does not match the signature you provided. Check your key and signing method`,
+   you have not correctly signed the request. For help with creating a signing method,
+   the best forum for help would be [stackoverflow](http://stackoverflow.com/search?q=multipart+upload+signature) or
+   [AWS Support](https://aws.amazon.com/premiumsupport/).
 
 4. Run it! (From root of Evaporate directory). and visit 'http://localhost:8080/'
 
