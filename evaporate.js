@@ -70,6 +70,7 @@
       aws_key: null,
       awsRegion: 'us-east-1',
       awsSignatureVersion: '4',
+      sendCanonicalRequestToSignerUrl: false,
       s3FileCacheHoursAgo: null, // Must be a whole number of hours. Will be interpreted as negative (hours in the past).
       signParams: {},
       signHeaders: {},
@@ -1045,6 +1046,7 @@
       return;
     }
 
+    this.signer.error();
     l.d(this.request.step, 'error:', this.fileUpload.id, reason);
 
     if (typeof this.errorHandler(reason) !== 'undefined' ) {
@@ -1072,6 +1074,9 @@
   SignedS3AWSRequest.prototype.stringToSign = function () {
     return encodeURIComponent(this.signer.stringToSign());
   };
+  SignedS3AWSRequest.prototype.canonicalRequest = function () {
+    return this.signer.canonicalRequest();
+  }
   SignedS3AWSRequest.prototype.signResponse = function(payload, stringToSign, signatureDateTime) {
     var self = this;
     return new Promise(function (resolve) {
@@ -1621,6 +1626,7 @@
       this.request = request;
     }
     AwsSignature.prototype.request = {};
+    AwsSignature.prototype.error = function () {};
     AwsSignature.prototype.authorizationString = function () {};
     AwsSignature.prototype.stringToSign = function () {};
     AwsSignature.prototype.setHeaders = function () {};
@@ -1679,6 +1685,7 @@
     AwsSignatureV4.prototype.constructor = AwsSignatureV4;
     AwsSignatureV4.prototype._cr = undefined;
     AwsSignatureV4.prototype.payload = null;
+    AwsSignatureV4.prototype.error = function () { this._cr = undefined; };
     AwsSignatureV4.prototype.getPayload = function () {
       return awsRequest.getPayload()
           .then(function (data) {
@@ -1814,14 +1821,11 @@
       };
     };
     AwsSignatureV4.prototype.canonicalRequest = function () {
-      if (typeof this._cr !== 'undefined') {
-        console.log('Reusing canonical request:', this._cr);
-        return this._cr;
-      }
+      if (typeof this._cr !== 'undefined') { return this._cr; }
       var canonParts = [];
 
       canonParts.push(this.request.method);
-      canonParts.push(uri([awsRequest.awsUrl + awsRequest.getPath() + this.request.path].join("")).pathname);
+      canonParts.push(uri([awsRequest.awsUrl, awsRequest.getPath(), this.request.path].join("")).pathname);
       canonParts.push(this.canonicalQueryString() || '');
 
       var headers = this.canonicalHeaders();
@@ -1866,9 +1870,13 @@
         var xhr = new XMLHttpRequest();
         awsRequest.currentXhr = xhr;
 
-
         var stringToSign = awsRequest.stringToSign(),
-            url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', request.dateString].join('');
+            url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', request.dateString];
+        if (con.sendCanonicalRequestToSignerUrl) {
+          url.push('&canonical_request=');
+          url.push(encodeURIComponent(awsRequest.canonicalRequest()));
+        }
+        url = url.join("");
 
         var signParams = AuthorizationMethod.makeSignParamsObject(fileUpload.signParams);
         for (var param in signParams) {
@@ -1919,6 +1927,7 @@
     }
     AuthorizationCustom.prototype = Object.create(AuthorizationMethod.prototype);
     AuthorizationCustom.prototype.authorize = function () {
+      // TODO: HERE!
       return con.customAuthMethod(
           AuthorizationMethod.makeSignParamsObject(fileUpload.signParams),
           AuthorizationMethod.makeSignParamsObject(con.signHeaders),

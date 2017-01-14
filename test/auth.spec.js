@@ -347,6 +347,14 @@ test('should fetch V2 authorization from the signerUrl', (t) => {
       })
 })
 
+test('should fetch V2 authorization from the signerUrl without canonical_request parameter present', (t) => {
+  return testV4Authorization(t)
+      .then(function () {
+        const x = testRequests[t.context.testId][0];
+        expect(x.url).to.not.match(/canonical_request=/)
+      })
+})
+
 test('should fetch V2 authorization using the signResponseHandler and signerUrl without errors', (t) => {
   return testV2Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {
@@ -419,6 +427,23 @@ test('should fetch V4 authorization using the signResponseHandler and signerUrl 
         expect(t.context.errMessages.length).to.equal(0)
       })
 })
+
+test('should fetch V4 authorization from the signerUrl without canonical_request parameter present', (t) => { 
+  return testV4Authorization(t) 
+      .then(function () { 
+        const x = testRequests[t.context.testId][0];
+        expect(x.url).to.not.match(/canonical_request=/) 
+      })
+})
+
+test('should fetch V4 authorization from the signerUrl with canonical_request parameter present, if enabled', (t) => {
+  return testV4Authorization(t, {sendCanonicalRequestToSignerUrl: true})
+      .then(function () {
+        const x = testRequests[t.context.testId][0];
+        expect(x.url).to.match(/canonical_request=/)
+      })
+})
+
 test('should fetch V4 authorization using the signResponseHandler and signerUrl and call the correct signing url', (t) => {
   return testV4Authorization(t, {signResponseHandler: signResponseHandler})
       .then(function () {

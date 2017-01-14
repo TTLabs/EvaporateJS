@@ -294,6 +294,8 @@ Available configuration options:
 * **signerUrl**: a url on your application server which will sign the request according to your chosen AWS signature method (Version 2 or 4). For example
     'http://myserver.com/auth_upload'. When using AWS Signature Version 4, this URL must respond with the V4 signing key. If you don't want to use
     a signerURL and want to sign the request yourself, then you sign the request using `signResponseHandler`.
+* **sendCanonicalRequestToSignerUrl**: default=false, whether to send the AWS Signature V4 canonical request as a pameter
+    to signerUrl. If enabled, the canonical request will be present in the request as `canonical_request`.
 * **customAuthMethod**: a method that returns an implementation of
     [Promises/A+](http://promises-aplus.github.com/promises-spec/). The promise resolves with the AWS object key of the
     uploaded object. The method is passed the signParams, signHeaders, calculated string to sign and the datetime used
