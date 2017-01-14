@@ -1672,10 +1672,12 @@
     AwsSignatureV2.prototype.getPayload = function () { return Promise.resolve(); };
 
     function AwsSignatureV4(request) {
+      this._cr = undefined
       AwsSignature.call(this, request);
     }
     AwsSignatureV4.prototype = Object.create(AwsSignature.prototype);
     AwsSignatureV4.prototype.constructor = AwsSignatureV4;
+    AwsSignatureV4.prototype._cr = undefined;
     AwsSignatureV4.prototype.payload = null;
     AwsSignatureV4.prototype.getPayload = function () {
       return awsRequest.getPayload()
@@ -1812,6 +1814,10 @@
       };
     };
     AwsSignatureV4.prototype.canonicalRequest = function () {
+      if (typeof this._cr !== 'undefined') {
+        console.log('Reusing canonical request:', this._cr);
+        return this._cr;
+      }
       var canonParts = [];
 
       canonParts.push(this.request.method);
@@ -1823,9 +1829,9 @@
       canonParts.push(headers.signedHeaders);
       canonParts.push(this.getPayloadSha256Content());
 
-      var result = canonParts.join("\n");
-      l.d(this.request.step, 'V4 CanonicalRequest:', result);
-      return result;
+      this._cr = canonParts.join("\n");
+      l.d(this.request.step, 'V4 CanonicalRequest:', this._cr);
+      return this._cr;
     };
     AwsSignatureV4.prototype.setHeaders = function (xhr) {
       xhr.setRequestHeader("x-amz-content-sha256", this.getPayloadSha256Content());
