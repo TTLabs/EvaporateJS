@@ -389,6 +389,14 @@ test('should fetch V2 authorization using the customAuthMethod without errors', 
         expect(t.context.errMessages.length).to.equal(0)
       })
 })
+test('should fetch V2 authorization using the customAuthMethod with the correct number of parameters', (t) => {
+  const customAuth = sinon.spy(customAuthHandler)
+  return testV2Authorization(t, {signerUrl: undefined, customAuthMethod: customAuth})
+      .then(function () {
+        const a = Array.prototype.slice.call(customAuth.firstCall.args)
+        expect(a.length).to.equal(5)
+      })
+})
 test('should fetch V2 authorization with a customAuthMethod without using signrUrl', (t) => {
   return testV2Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
@@ -461,6 +469,14 @@ test('should fetch V4 authorization using the customAuthMethod without errors', 
   return testV4Authorization(t, {signerUrl: undefined, customAuthMethod: customAuthHandler})
       .then(function () {
         expect(t.context.errMessages.length).to.equal(0)
+      })
+})
+test('should fetch V4 authorization using the customAuthMethod with the correct number of parameters', (t) => {
+  const customAuth = sinon.spy(customAuthHandler)
+  return testV4Authorization(t, {signerUrl: undefined, customAuthMethod: customAuth})
+      .then(function () {
+        const a = Array.prototype.slice.call(customAuth.firstCall.args)
+        expect(a.length).to.equal(5)
       })
 })
 test('should fetch V4 authorization using the customAuthMethod', (t) => {

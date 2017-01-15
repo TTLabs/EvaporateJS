@@ -304,7 +304,7 @@ Available configuration options:
     For example:
 
     ```javascript
-    function (signParams, signHeaders, stringToSign, signatureDateTime) { // pluggable signing
+    function (signParams, signHeaders, stringToSign, signatureDateTime, canonicalRequest) { // pluggable signing
         return new Promise(function (resolve, reject) {
             resolve('computed signature');
         }
