@@ -1629,6 +1629,7 @@
     AwsSignature.prototype.error = function () {};
     AwsSignature.prototype.authorizationString = function () {};
     AwsSignature.prototype.stringToSign = function () {};
+    AwsSignature.prototype.canonicalRequest = function () {};
     AwsSignature.prototype.setHeaders = function () {};
     AwsSignature.prototype.datetime = function (timeOffset) {
       return new Date(new Date().getTime() + timeOffset);
@@ -1927,12 +1928,12 @@
     }
     AuthorizationCustom.prototype = Object.create(AuthorizationMethod.prototype);
     AuthorizationCustom.prototype.authorize = function () {
-      // TODO: HERE!
       return con.customAuthMethod(
           AuthorizationMethod.makeSignParamsObject(fileUpload.signParams),
           AuthorizationMethod.makeSignParamsObject(con.signHeaders),
           awsRequest.stringToSign(),
-          request.dateString)
+          request.dateString,
+          awsRequest.canonicalRequest())
           .catch(function (reason) {
             fileUpload.deferredCompletion.reject(reason);
             throw reason;
