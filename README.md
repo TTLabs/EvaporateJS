@@ -481,6 +481,9 @@ And a number of optional parameters:
 * **started**: _function(file_key)_. a function that will be called when the file upload starts. The file_key
 represents the internal identifier of the file whose upload is starting.
 
+* **uploadInitiated**: _function(s3UploadId)_. a function that will be called when the S3 upload is successfully initiated.
+  `s3UploadId` is the AWS S3 uploaded ID returned when the multipart upload is initiated.
+
 * **paused**: _function(file_key)_. a function that will be called when the file upload is completely paused (all
 in-progress parts are aborted or completed). The file_key represents the file whose upload has been paused.
 
