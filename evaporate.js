@@ -233,6 +233,7 @@
 
       var fileUpload = new FileUpload(extend({
             started: function () {},
+            uploadInitiated: function () {},
             progress: function () {},
             complete: function () {},
             cancelled: function () {},
@@ -923,6 +924,7 @@
         .send()
         .then(
             function () {
+              self.uploadInitiated(self.uploadId);
               self.partsToUpload = [];
               return self.uploadParts()
                   .then(
