@@ -1,7 +1,7 @@
 {
   "name": "evaporate",
-  "version": "2.0.6",
-  "description": "Javascript library for browser to S3 multipart resumable uploads with Node FileSystem (fs) Stream Support",
+  "version": "2.0.7",
+  "description": "Javascript library for browser to S3 multipart resumable uploads for browsers and with Node FileSystem (fs) Stream Support",
   "main": "evaporate.js",
   "directories": {
     "example": "example"
@@ -28,7 +28,9 @@
     "electron",
     "ReadableFileStream",
     "fs",
-    "stream"
+    "stream",
+    "checksum",
+    "Content-MD5"
   ],
   "bugs": {
     "url": "https://github.com/TTLabs/EvaporateJS/issues"

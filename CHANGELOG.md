@@ -1,3 +1,10 @@
+# v2.0.7
+
+## Enhancements ##
+- Issue #300. Signer methods and urls paramaters now enable the AWS signing
+  version 4 canonical request to be passed.
+- Issue #305. Adds new callback `uploadInitiated` that returns the S3 upload ID.
+
 # v2.0.6
 
 ## Enhancements ##

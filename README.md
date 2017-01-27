@@ -35,7 +35,7 @@ New Features in v2.0:
 
 New Features in v2.0.5:
 - Support for Node.js FileSystem (fs) ReadbleStreams. This means you can use Electron to upload a file directly from
-  the file system's native File picker and avoid the usualy browser restrictions.
+  the file system's native File picker and avoid the usual browser restrictions.
 
 To migrate to v2.0, [follow these instructions](#migrating-from-v1x-to-v20).
 
