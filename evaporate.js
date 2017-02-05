@@ -120,7 +120,7 @@
     this.filesInProcess = [];
   };
   Evaporate.create = function (config) {
-    var evapConfig = Object.assign({}, config);
+    var evapConfig = extend({}, config);
     return Evaporate.getLocalTimeOffset(evapConfig)
         .then(function (offset) {
           evapConfig.localTimeOffset = offset;
@@ -751,7 +751,7 @@
   FileUpload.prototype.updateUploadFile = function (updates) {
     var fileKey = uploadKey(this),
         uploads = getSavedUploads(),
-        upload = Object.assign({}, uploads[fileKey], updates);
+        upload = extend({}, uploads[fileKey], updates);
     saveUpload(fileKey, upload);
   };
   FileUpload.prototype.completeUploadFile = function (xhr) {
