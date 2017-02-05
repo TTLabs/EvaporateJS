@@ -1,3 +1,9 @@
+# v2.0.8
+
+## Bug Fixes ##
+- Issue #300. Restores compatibility with Windows 11 by removing refernces
+  to Object.assign
+
 # v2.0.7
 
 ## Enhancements ##
