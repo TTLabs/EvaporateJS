@@ -7,10 +7,10 @@ import test from 'ava'
 let server
 // test that AWS Url obeys the contract
 
-function testAwsUrl(t, input) {
+function testAwsUrl(t, input, addC) {
   return new Promise(function (resolve) {
     let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, input)
-    testBase(t, {}, evapConfig)
+    testBase(t, addC || {}, evapConfig)
         .then(function () {
           resolve(testRequests[t.context.testId][1].url)
         })
@@ -86,6 +86,15 @@ test('should respect aws_url if presented with cloudfront', (t) => {
         expect(url).to.match(new RegExp('https://s3.dualstack.us-east-1.amazonaws.com'))
       })
 })
+
+test.only('should allow the aws_url to be overriddden on add', (t) => {
+  return testAwsUrl(t, { awsRegion: 'eu-central-1', aws_url: 'https://s3.dualstack.us-east-1.amazonaws.com', cloudfront: true },
+      { configOverrides: { aws_url: 'https://s3.dualstack.us-east-3.amazonaws.com'} })
+      .then(function (url) {
+        expect(url).to.match(new RegExp('https://s3.dualstack.us-east-3.amazonaws.com'))
+      })
+})
+
 
 // S3 Transfer Acceleration
 
