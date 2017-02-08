@@ -32,7 +32,6 @@
         'maxConcurrentParts',
         'logging',
         'cloudfront',
-        'aws_url',
         'encodeFilename',
         'computeContentMd5',
         'allowS3ExistenceOptimization',
@@ -1978,8 +1977,14 @@
   }
 
   function uri(url) {
-    var p = document.createElement('a');
-    p.href = url || "/";
+    var p,
+        href = url || '/';
+    if (typeof URL === 'undefined') {
+      p = document.createElement('a');
+      p.href = href;
+    } else {
+      p = new URL(href);
+    }
 
     return {
       protocol: p.protocol, // => "http:"
