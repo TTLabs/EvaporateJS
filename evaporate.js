@@ -39,7 +39,6 @@
         'timeUrl',
         'cryptoMd5Method',
         'cryptoHexEncodedHash256',
-        'aws_key',
         'awsRegion',
         'awsSignatureVersion',
         'evaporateChanged'
