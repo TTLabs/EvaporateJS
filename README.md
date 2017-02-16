@@ -542,7 +542,6 @@ With the exception of the following options, all other Evaporate configuration o
 - `onlyRetryForSameFileName`
 - `timeUrl`
 - `cryptoMd5Method`
-- `aws_key`
 - `aws_url`
 - `cryptoHexEncodedHash256`
 - `awsRegion`
