@@ -26,7 +26,7 @@ const baseAddConfig = {
   })
 }
 
-let server
+let server, fileObject, blobObject, arrayBuffer
 
 function testCommon(t, addConfig, initConfig) {
   let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, initConfig)
@@ -56,6 +56,9 @@ test.before(() => {
   sinon.xhr.supportsCORS = true
   global.XMLHttpRequest = sinon.useFakeXMLHttpRequest()
   server = serverCommonCase()
+  fileObject = global.File
+  blobObject = global.Blob
+  arrayBuffer = global.FileReader.prototype.readAsArrayBuffer
 })
 
 test.beforeEach((t) =>{
@@ -210,7 +213,7 @@ test('new Evaporate() calls timeUrl only once', (t) => {
 // Unsupported
 test('should require configuration options on instantiation', (t) => {
   return Evaporate.create()
-      .then(function (evaporate) {
+      .then(function () {
           t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -220,7 +223,7 @@ test('should require configuration options on instantiation', (t) => {
 })
 test('should signerUrl is required unless signResponseHandler is present', (t) => {
   return Evaporate.create({signerUrl: null, signResponseHandler: null})
-      .then(function (evaporate) {
+      .then(function () {
             t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -231,7 +234,7 @@ test('should signerUrl is required unless signResponseHandler is present', (t) =
 
 test('should require an AWS bucket with a signerUrl', (t) => {
   return Evaporate.create({signerUrl: 'https://sign.com/sign'})
-      .then(function (evaporate) {
+      .then(function () {
             t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -241,7 +244,7 @@ test('should require an AWS bucket with a signerUrl', (t) => {
 })
 test('should require an AWS bucket without a signerUrl but with a signResponseHandler', (t) => {
   return Evaporate.create({signResponseHandler: function () {}})
-      .then(function (evaporate) {
+      .then(function () {
             t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -251,7 +254,7 @@ test('should require an AWS bucket without a signerUrl but with a signResponseHa
 })
 test('should require a cryptoMd5Method if computeContentMd5 is enabled', (t) => {
   return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', computeContentMd5: true})
-      .then(function (evaporate) {
+      .then(function () {
             t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -267,7 +270,7 @@ test('should require a cryptoHexEncodedHash256 method if computeContentMd5 is en
     awsSignatureVersion: '4',
     cryptoMd5Method: function () {}
   })
-      .then(function (evaporate) {
+      .then(function () {
             t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -277,7 +280,7 @@ test('should require a cryptoHexEncodedHash256 method if computeContentMd5 is en
 })
 test('should require computeContentMd5 if V4 signatures enabled', (t) => {
   return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', awsSignatureVersion: '4'})
-      .then(function (evaporate) {
+      .then(function () {
             t.fail('Evaporate instantiated but should not have.')
           },
           function (reason) {
@@ -285,10 +288,43 @@ test('should require computeContentMd5 if V4 signatures enabled', (t) => {
           })
 })
 
-test.todo('should require browser File support')
-test.todo('should require browser Blob support')
+test.serial('should require browser File support', (t) => {
+  global['File'] = undefined
+  return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', awsSignatureVersion: '2'})
+      .then(function () {
+            global.File = fileObject
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            global.File = fileObject
+            t.pass(reason)
+          })
+})
+test.serial('should require browser Blob support', (t) => {
+  global['Blob'] = undefined
+  return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', awsSignatureVersion: '2'})
+      .then(function () {
+            global.Blob = blobObject
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            global.Blob = blobObject
+            t.pass(reason)
+          })
+})
+test.serial('should require browser FileReader#readAsArrayBuffer support if computeContentMd5 enabled', (t) => {
+  global['FileReader'].prototype.readAsArrayBuffer = undefined
+  return Evaporate.create({bucket: 'asdafsa', signerUrl: 'https://sign.com/sign', awsSignatureVersion: '2', computeContentMd5: true, cryptoMd5Method: function () {}})
+      .then(function () {
+            global['FileReader'].prototype.readAsArrayBuffer = arrayBuffer
+            t.fail('Evaporate instantiated but should not have.')
+          },
+          function (reason) {
+            global['FileReader'].prototype.readAsArrayBuffer = arrayBuffer
+            t.pass(reason)
+          })
+})
 test.todo('should require browser Blob slice support')
-test.todo('should require browser FileReader#readAsArrayBuffer support if computeContentMd5 enabled')
 test.todo('should require browser Promise support')
 test.todo('should validate readableStream and readableStreamPartMethod')
 

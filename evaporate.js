@@ -2123,7 +2123,7 @@
   var historyCache;
   function HistoryCache(mockLocalStorage) {
     var supported = HistoryCache.supported();
-    this.cacheStore = supported ? localStorage : (mockLocalStorage ? {} : undefined);
+    this.cacheStore = mockLocalStorage ? {} : (supported ? localStorage : undefined);
   }
   HistoryCache.prototype.supported = false;
   HistoryCache.prototype.cacheStore = undefined;
