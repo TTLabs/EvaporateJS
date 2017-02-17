@@ -5,7 +5,7 @@ import test from 'ava'
 // consts
 
 let server
-// test that AWS Url obeys the contract
+// test that AWS Configuration obeys the contract
 
 function testAwsConfig(t, input, addC) {
   return new Promise(function (resolve) {
@@ -53,6 +53,14 @@ test('should respect awsRegion and cloudfront when true', (t) => {
   return testAwsConfig(t, { cloudfront: true })
       .then(function (config) {
         expect(config.url).to.match(new RegExp('https://bucket.s3.amazonaws.com'))
+      })
+})
+
+test('should allow the aws_url to be overriddden on add', (t) => {
+  return testAwsConfig(t, { awsRegion: 'eu-central-1', aws_url: 'https://s3.dualstack.us-east-1.amazonaws.com', cloudfront: true },
+      { configOverrides: { aws_url: 'https://s3.dualstack.us-east-3.amazonaws.com'} })
+      .then(function (config) {
+        expect(config.url).to.match(new RegExp('https://s3.dualstack.us-east-3.amazonaws.com'))
       })
 })
 
