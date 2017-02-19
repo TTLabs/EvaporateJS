@@ -389,7 +389,7 @@ Available configuration options:
 * **cryptoHexEncodedHash256**: default=undefined, a method that computes the lowercase base 16 encoded SHA256 hash. Required when `awsSignatureVersion` is `'4'`.
     - Node.js: `function (data) { return crypto.createHash('sha256').update(data).digest('hex'); }`.
     - AWS SDK for JavaScript: `function (data) { return AWS.util.crypto.sha256(data, 'hex'); }`.
-* **mockLocalStorage**: default=false, whether to for use a local object to cache Evaporate upload attempts, rather than
+* **mockLocalStorage**: default=false, whether to use a local object to cache Evaporate upload attempts, rather than
     `localStorage`. Set this if you want to resume uploads in non-browser environments. If set, then a plain old
     JavaScript object will be used instead of `localStorage`, even if `localStorage` is supported by the environment.
 * **s3FileCacheHoursAgo**: default=null (no cache), whether to use the S3 uploaded cache of parts and files for ease of recovering after
