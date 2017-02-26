@@ -1978,11 +1978,12 @@
   function uri(url) {
     var p,
         href = url || '/';
-    if (typeof URL === 'undefined') {
+    
+    try {
+      p = new URL(href);
+    } catch (e) {
       p = document.createElement('a');
       p.href = href;
-    } else {
-      p = new URL(href);
     }
 
     return {
