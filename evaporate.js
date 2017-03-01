@@ -58,6 +58,7 @@
       progressIntervalMS: 1000,
       cloudfront: false,
       s3Acceleration: false,
+      mockLocalStorage: false,
       encodeFilename: true,
       computeContentMd5: false,
       allowS3ExistenceOptimization: false,
@@ -116,6 +117,7 @@
     this.pendingFiles = {};
     this.queuedFiles = [];
     this.filesInProcess = [];
+    historyCache = new HistoryCache(this.config.mockLocalStorage);
   };
   Evaporate.create = function (config) {
     var evapConfig = extend({}, config);
@@ -2118,54 +2120,35 @@
     return [size.toFixed(2).replace('.00', ''), units[i]].join(" ");
   }
 
-  var historyCache = {
-    supported: function () {
-      var result = false;
-      if (typeof window !== 'undefined') {
-        if (!('localStorage' in window)) {
-          return result;
-        }
-      } else {
+  var historyCache;
+  function HistoryCache(mockLocalStorage) {
+    var supported = HistoryCache.supported();
+    this.cacheStore = mockLocalStorage ? {} : (supported ? localStorage : undefined);
+  }
+  HistoryCache.prototype.supported = false;
+  HistoryCache.prototype.cacheStore = undefined;
+  HistoryCache.prototype.getItem = function (key) { if (this.cacheStore) { return this.cacheStore[key]; }};
+  HistoryCache.prototype.setItem = function (key, value) { if (this.cacheStore) { this.cacheStore[key] = value; }};
+  HistoryCache.prototype.removeItem = function (key) { if (this.cacheStore) { return delete this.cacheStore[key] }};
+  HistoryCache.supported = function () {
+    var result = false;
+    if (typeof window !== 'undefined') {
+      if (!('localStorage' in window)) {
         return result;
       }
-
-      // Try to use storage (it might be disabled, e.g. user is in private mode)
-      try {
-        localStorage.setItem('___test', 'OK');
-        var test = localStorage.getItem('___test');
-        localStorage.removeItem('___test');
-
-        result = test === 'OK';
-      } catch (e) {
-        return result;
-      }
-
+    } else {
       return result;
-    },
-    getItem: function (key) {
-      if (this.supported()) {
-        return localStorage.getItem(key)
-      }
-    },
-    setItem: function (key, value) {
-      if (this.supported()) {
-        return localStorage.setItem(key, value);
-      }
-    },
-    clear: function () {
-      if (this.supported()) {
-        return localStorage.clear();
-      }
-    },
-    key: function (key) {
-      if (this.supported()) {
-        return localStorage.key(key);
-      }
-    },
-    removeItem: function (key) {
-      if (this.supported()) {
-        return localStorage.removeItem(key);
-      }
+    }
+
+    // Try to use storage (it might be disabled, e.g. user is in private mode)
+    try {
+      var k = '___test';
+      localStorage[k] = 'OK';
+      var test = localStorage[k];
+      delete localStorage[k];
+      return test === 'OK';
+    } catch (e) {
+      return result;
     }
   };
 

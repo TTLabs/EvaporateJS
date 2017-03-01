@@ -4,9 +4,9 @@ import test from 'ava'
 
 // constants
 
-let server
+let server, storage
 
-function testCachedParts(t, addConfig, maxGetParts, partNumberMarker) {
+function testCachedParts(t, addConfig, maxGetParts, partNumberMarker, evapCfg) {
   t.context.partNumberMarker = partNumberMarker
   t.context.maxGetParts = maxGetParts
 
@@ -14,7 +14,7 @@ function testCachedParts(t, addConfig, maxGetParts, partNumberMarker) {
     awsSignatureVersion: '2',
     s3FileCacheHoursAgo: 24
   }
-  return testBase(t, addConfig, evapConfig)
+  return testBase(t, addConfig, Object.assign({}, evapConfig, evapCfg))
       .then(function () {
         partNumberMarker = 0
         t.context.originalUploadObjectKey = t.context.requestedAwsObjectKey
@@ -33,6 +33,7 @@ test.before(() => {
   };
 
   server = serverCommonCase()
+  storage = global.localStorage
 })
 
 test.beforeEach((t) => {
@@ -46,11 +47,32 @@ test('should check for parts when re-uploading a cached file and not call crypto
         expect(t.context.cryptoMd5.called).to.be.false
       })
 })
+test.serial('should check for parts when re-uploading a cached file and not call cryptoMd5, mocking localStorage', (t) => {
+  return testCachedParts(t, {}, 1, 0, { mockLocalStorage: true })
+      .then(function () {
+        expect(t.context.cryptoMd5.called).to.be.false
+      })
+})
 test('should check for parts when re-uploading a cached file with S3 requests in the correct order', (t) => {
 
   return testCachedParts(t, {}, 1, 0)
       .then(function () {
         expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,check for parts,PUT:partNumber=2,complete')
+      })
+})
+test.serial('should check for parts when re-uploading a cached file with S3 requests in the correct order, mocking localStorage', (t) => {
+
+  return testCachedParts(t, {}, 1, 0, { mockLocalStorage: true })
+      .then(function () {
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,check for parts,PUT:partNumber=2,complete')
+      })
+})
+test.serial('should not check for parts when re-uploading a cached file with S3 requests in the correct order, no localStorage, not mocking', (t) => {
+  global['localStorage'] = undefined
+  return testCachedParts(t, {}, 1, 0)
+      .then(function () {
+        global.localStorage = storage
+        expect(requestOrder(t)).to.equal('initiate,PUT:partNumber=1,PUT:partNumber=2,complete,initiate,PUT:partNumber=1,PUT:partNumber=2,complete')
       })
 })
 test('should check for parts when re-uploading a cached file with S3 requests callback complete with first param instance of xhr', (t) => {
