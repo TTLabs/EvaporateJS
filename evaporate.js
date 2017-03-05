@@ -820,25 +820,23 @@
   };
   FileUpload.prototype.listPartsSuccess = function (listPartsRequest, partsXml) {
     this.info('uploadId', this.uploadId, 'is not complete. Fetching parts from part marker', listPartsRequest.partNumberMarker);
-    var oDOM = parseXml(partsXml),
-        listPartsResult = oDOM.getElementsByTagName("ListPartsResult")[0],
-        uploadedParts = oDOM.getElementsByTagName("Part"),
-        parts_len = uploadedParts.length,
-        cp, partSize;
+    partsXml = partsXml.replace(/(\r\n|\n|\r)/gm, ""); // strip line breaks to ease the regex requirements
+    var partRegex = /<Part>(.+?)<\/Part\>/g;
 
-    for (var i = 0; i < parts_len; i++) {
-      cp = uploadedParts[i];
-      partSize = parseInt(nodeValue(cp, "Size"), 10);
+    while (true) {
+      var cp = (partRegex.exec(partsXml) || [])[1];
+      if (!cp) { break; }
+
+      var partSize = parseInt(elementText(cp, "Size"), 10);
       this.fileTotalBytesUploaded += partSize;
       this.partsOnS3.push({
-        eTag: nodeValue(cp, "ETag"),
-        partNumber: parseInt(nodeValue(cp, "PartNumber"), 10),
+        eTag: elementText(cp, "ETag").replace(/&quot;/g, '"'),
+        partNumber: parseInt(elementText(cp, "PartNumber"), 10),
         size: partSize,
-        LastModified: nodeValue(cp, "LastModified")
+        LastModified: elementText(cp, "LastModified")
       });
     }
-
-    return listPartsResult;
+    return elementText(partsXml, "IsTruncated") === 'true' ? elementText(partsXml, "NextPartNumberMarker") : undefined;
   };
   FileUpload.prototype.makePartsfromPartsOnS3 = function () {
     if (ACTIVE_STATUSES.indexOf(this.status) === -1) { return; }
@@ -1337,11 +1335,9 @@
       return this.rejectedSuccess('uploadId ', this.fileUpload.id, ' not found on S3.');
     }
 
-    var listPartsResult = this.fileUpload.listPartsSuccess(this, xhr.responseText);
-    var isTruncated = nodeValue(listPartsResult, "IsTruncated") === 'true';
-
-    if (isTruncated) {
-      var request = this.setupRequest(nodeValue(listPartsResult, "NextPartNumberMarker")); // let's fetch the next set of parts
+    var nextPartNumber = this.fileUpload.listPartsSuccess(this, xhr.responseText);
+    if (nextPartNumber) {
+      var request = this.setupRequest(nextPartNumber); // let's fetch the next set of parts
       this.updateRequest(request);
       this.trySend();
     } else {
@@ -2043,15 +2039,6 @@
     ext(obj1, obj2);
 
     return obj1;
-  }
-
-  function parseXml(body) {
-    var parser = new DOMParser();
-    return parser.parseFromString(body, "text/xml");
-  }
-
-  function nodeValue(parent, nodeName) {
-    return parent.getElementsByTagName(nodeName)[0].textContent;
   }
 
   function getSavedUploads(purge) {
