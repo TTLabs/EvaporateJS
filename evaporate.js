@@ -2006,14 +2006,14 @@
   }
 
   function getAwsResponse(xhr) {
-    var oParser = new DOMParser(),
-        oDOM = oParser.parseFromString(xhr.responseText, "text/html"),
-        code = oDOM.getElementsByTagName("Code"),
-        msg = oDOM.getElementsByTagName("Message");
-    code = code && code.length ? (code[0].innerHTML || code[0].textContent) : '';
-    msg = msg && msg.length ? (msg[0].innerHTML || msg[0].textContent) : '';
-
+    var code = elementText(xhr.responseText, "Code"),
+        msg = elementText(xhr.responseText, "Message");
     return code.length ? ['AWS Code: ', code, ', Message:', msg].join("") : '';
+  }
+
+  function elementText(source, element) {
+    var match = source.match(["<", element, ">(.+)</", element, ">"].join(""));
+    return match ? match[1] : '';
   }
 
   function defer() {
