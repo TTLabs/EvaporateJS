@@ -857,9 +857,7 @@
         .send()
         .then(
             function (xhr) {
-              var oDOM = parseXml(xhr.responseText),
-                  result = oDOM.getElementsByTagName("CompleteMultipartUploadResult")[0];
-              self.eTag = nodeValue(result, "ETag");
+              self.eTag = elementText(xhr.responseText, "ETag").replace(/&quot;/g, '"');
               self.completeUploadFile(xhr);
             });
   };
