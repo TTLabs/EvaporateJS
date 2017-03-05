@@ -111,7 +111,7 @@
                          nameChanged: callback_methods.nameChanged
                       },
                       {
-                         bucket: AWS_BUCKET // Shows that the bucket can be changed per
+                         bucket: $("#s3Bucket").val() // Shows that the bucket can be changed per
                       }
               )
               .then((function (requestedName) {
@@ -315,7 +315,6 @@
         }
      },
      function (reason) {
-        console.log('Evaporate failed to initialize: ', reason);
         $("div.errors").html('Evaporate failed to initialize: ' + reason + '. Change parameters and refresh page.');
      });
 
