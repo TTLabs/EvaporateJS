@@ -1,3 +1,21 @@
+# v2.0.9
+
+## Enhancements ##
+- Issue #333. The sample page `example/evaporate_example.html` now allows
+  AWS conifguration options to be temporarily stored on the page and provides
+  a `customAuthMethod` backed by JavaScript. This should make it easier to
+  test EvaporateJS with specific AWS settings.
+- Issue #309, #312, #314. Allows AWS_URL and AWS_KEY to be overridden when a file
+  is added for upload.
+- Issue #320. Adds an optional localCache polyfill if localStorage is not
+  available. Must be explicitly enabled with `mockLocalStorage`.
+- Issue #329. A contributor provided a signing example for PHP.Laraval.
+
+## Bug Fixes ##
+- Issues #316, #325. Restores Microsoft Windows compatibilty with Edge and Google
+  Chrome that broken when Evaporate started to parse URLs using the URL
+  object and incorrectly use the unsupported `Object.assign` method.
+
 # v2.0.8
 
 ## Bug Fixes ##
