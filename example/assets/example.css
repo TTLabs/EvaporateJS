@@ -1,6 +1,18 @@
 #files {
     display: inline;
 }
+#awsKey {
+    width: 200px;
+}
+#s3Bucket {
+    width: 250px;
+}
+#signerUrl {
+    width: 350px;
+}
+.errors {
+    color: #ff0000;
+}
 .progress-clock {
     min-width: 100px;
     min-height: 60px;
