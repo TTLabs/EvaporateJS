@@ -1,7 +1,7 @@
 #files {
     display: inline;
 }
-#awsKey {
+#awsKey, #awsRegion {
     width: 200px;
 }
 #s3Bucket {
@@ -10,6 +10,7 @@
 #signerUrl {
     width: 350px;
 }
+label, input[type=radio], input[type=checkbox] { cursor: pointer }
 .errors {
     color: #ff0000;
 }

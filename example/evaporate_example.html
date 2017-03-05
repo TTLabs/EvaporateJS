@@ -8,7 +8,7 @@
    <link rel="stylesheet" type="text/css" href="assets/example.css">
 
    <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.6.4/jquery.js"></script>
-   <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js"></script>
+   <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.22.0/aws-sdk.min.js"></script>
    <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.1.3/js.cookie.js"></script>
    <script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/progressbar.js/1.0.1/progressbar.min.js"></script>
    <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
@@ -22,12 +22,15 @@
       <dd><input id="awsKey" type="text" placeholder="AWS Key"/></dd>
       <dt>S3 Bucket</dt>
       <dd><input id="s3Bucket" type="text" placeholder="S3 Bucket"/></dd>
-      <dt>Signer Url</dt>
+      <dt id="signerLabel">Signer Url</dt>
       <dd><input id="signerUrl" type="text" placeholder="Signer URL"/></dd>
+      <dt>Signing</dt>
+      <dd><label><input id="signingMethod" type="checkbox"/>&nbsp;Use unsafe JavaScript custom auth method</label></dd>
+      <dt class="awsRegion">AWS Region</dt>
+      <dd class="awsRegion"><input id="awsRegion" type="text" placeholder="us-east-1"/></dd>
       <dt>Persist values</dt>
       <dd class="cookie">
          <label><input name="persist" type="radio" value="off" checked="true"/>&nbsp;No</label>
-         <label><input name="persist" type="radio" value="transient"/>&nbsp;Transient</label>
          <label><input name="persist" type="radio" value="1d"/>&nbsp;1 Day</label>
       </dd>
       <div class="errors"></div>
@@ -47,7 +50,7 @@
    var filePromises = [], allCompleted
        COOKIE = 'evaporate_example',
        cookie_data = { persist: "off" },
-       cookie_options = {};
+       cookie_options = { expires: 1 };
 
    // Change these to reflect your local settings
    var persist = $("input[name=persist]").val();
@@ -56,26 +59,30 @@
        cookie_data = JSON.parse(Cookies.get(COOKIE) || '{ "persist": "off" }');
 
        $("input[type=radio][name=persist][value=" + cookie_data.persist + "]").attr("checked", true);
+
+       updateSignerUi(cookie_data.useUnsafeJavaScript);
+
        $("#awsKey").val(decodeURIComponent(cookie_data.awsKey || ''));
+       $("#awsRegion").val(decodeURIComponent(cookie_data.awsRegion || ''));
        $("#s3Bucket").val(decodeURIComponent(cookie_data.s3Bucket || ''));
        $("#signerUrl").val(decodeURIComponent(cookie_data.signerUrl || ''));
      } catch (e) {
        console.log(e);
      }
    }
-
+   var customAuth = $("#signingMethod")[0].checked;
    Evaporate.create({
-      signerUrl: $("#signerUrl").val(),
+      signerUrl: customAuth ? undefined : $("#signerUrl").val(),
       aws_key: $("#awsKey").val(),
       bucket: $("#s3Bucket").val(),
       cloudfront: true,
       computeContentMd5: true,
-      cryptoMd5Method: function (data) { return CryptoJS.MD5(data).toString(CryptoJS.enc.Base64); },
-      logging: true,
-      cryptoHexEncodedHash256: function (data) { return CryptoJS.SHA256(data).toString(CryptoJS.enc.hex); },
+      cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
+      cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); },
       logging: false,
       s3FileCacheHoursAgo: 1,
       allowS3ExistenceOptimization: true,
+      customAuthMethod: customAuth? doNotUseUnsafeJavaScriptV4Signer : undefined,
       evaporateChanged: function (file, evaporatingCount) {
          $('#totalParts').text(evaporatingCount);
          if (evaporatingCount > 0) {
@@ -319,12 +326,14 @@
      });
 
    $(document).ready(function() {
+     $("#signingMethod").change(function () { updateSignerUi(this.checked); });
+
      $("input[type=text]").change(function () {
        cookie_data[this.id] = this.value;
        setDevCookie();
      });
 
-     $("input[type=radio][name=persist]").change(setDevCookie);
+     $("input[type=radio][name=persist], #signingMethod").change(setDevCookie);
 
      function setDevCookie() {
        Cookies.remove(COOKIE, cookie_options);
@@ -332,11 +341,10 @@
        var v = $("input[type=radio][name=persist]:checked").val();
        if (v === "off") { return; }
 
-       cookie_options = { path: "" }
-       if (v === "1d") { cookie_options.expires = 1; }
-
        cookie_data.persist = v;
+       cookie_data.useUnsafeJavaScript = $("#signingMethod")[0].checked;
        cookie_data.awsKey = encodeURIComponent($("#awsKey").val().trim());
+       cookie_data.awsRegion = encodeURIComponent($("#awsRegion").val().trim());
        cookie_data.s3Bucket = encodeURIComponent($("#s3Bucket").val().trim());
        cookie_data.signerUrl = encodeURIComponent($("#signerUrl").val().trim());
 
@@ -344,6 +352,30 @@
      }
    });
 
+   function updateSignerUi(checked) {
+     $("#signingMethod")[0].checked = checked;
+     $("#signerLabel").html(checked ? "AWS Secret" : "Signer URL");
+     $("#signerUrl").attr('placeholder', checked ? "AWS Secret" : "Signer URL");
+     $(".awsRegion")[checked ? 'show' : 'hide']();
+   }
+
+   function doNotUseUnsafeJavaScriptV4Signer(_signParams, _signHeaders, stringToSign, dateString) {
+     // http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
+     // DO NOT USE JavaScript to sign requests as it risks exposing your AWS secret
+     // This method is provided for development testing and learning
+     return new Promise(function (resolve, reject) {
+       var hmac = function (k, v) { return AWS.util.crypto.hmac(k, v, 'buffer'); },
+           awsSecret = $("#signerUrl").val().trim(),
+           awsRegion = ($("#awsRegion").val() || '').trim() || "us-east-1",
+           date = hmac(["AWS4", awsSecret].join(""), dateString.substr(0, 8)),
+           region = hmac(date, awsRegion),
+           service = hmac(region, "s3"),
+           signing = hmac(service, "aws4_request"),
+           signingKey = AWS.util.crypto.hmac(signing, decodeURIComponent(stringToSign), 'hex');
+
+       resolve(signingKey);
+     });
+   }
 </script>
 
 </body>
