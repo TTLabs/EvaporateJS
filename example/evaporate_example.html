@@ -118,7 +118,8 @@
                          nameChanged: callback_methods.nameChanged
                       },
                       {
-                         bucket: $("#s3Bucket").val() // Shows that the bucket can be changed per
+                         bucket: $("#s3Bucket").val(), // Shows that the bucket can be changed per
+                         aws_key: $("#awsKey").val() // Shows that aws_key can be changed per
                       }
               )
               .then((function (requestedName) {
