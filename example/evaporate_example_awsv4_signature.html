@@ -2,13 +2,6 @@
 <html>
 <head>
    <title>Evaporate Example</title>
-
-   <style>
-
-   </style>
-
-
-   <script language="javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.2.43.min.js"></script>
    <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
 </head>
@@ -27,13 +20,14 @@
 
 
   <script language="javascript">
-  var files, filePromises = [], allCompleted;
 
   Evaporate.create({
+    /* START EDITS */
+    aws_key: '<aws_key>', // REQUIRED -- set this to your AWS_ACCESS_KEY_ID
+    bucket: '<bucket-name>', // REQUIRED -- set this to your s3 bucket name
+    awsRegion: 'us-east-1', // OPTIONAL -- change this if your bucket is outside us-east-1
+    /* END EDITS */
     signerUrl: 'http://localhost:3000/signv4_auth',
-    aws_key: '<aws_key>',
-    awsRegion: 'us-east-1',
-    bucket: '<bucket-name>',
     awsSignatureVersion: '4',
     computeContentMd5: true,
     cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
@@ -41,34 +35,42 @@
   })
   .then(
     // Successfully created evaporate instance `_e_`
-    function (_e_) {
-      files = evt.target.files;
-      for (var i = 0; i < files.length; i++) {
-        var promise = _e_.add({
-          name: 'test_' + Math.floor(1000000000*Math.random()),
-          file: files[i],
-          progress: function (progress) {
-            console.log('making progress: ' + progress);
-          }
-        })
-        .then(function (awsKey) {
-          console.log(awsKey, 'complete!');
-        });
-        filePromises.push(promise);
-      }
+    function success(_e_) {
+      var fileInput = document.getElementById('files'),
+          filePromises = [];
 
-      allCompleted = Promise.all(filePromises)
-        .then(function () {
-          console.log('All files were uploaded successfully.');
-        }, function (reason) {
-          console.log('All files were not uploaded successfully:', reason);
-        });
+      // Start a new evaporate upload anytime new files are added in the file input
+      fileInput.onchange = function(evt) {
+        var files = evt.target.files;
+        for (var i = 0; i < files.length; i++) {
+          var promise = _e_.add({
+            name: 'test_' + Math.floor(1000000000*Math.random()),
+            file: files[i],
+            progress: function (progress) {
+              console.log('making progress: ' + progress);
+            }
+          })
+          .then(function (awsKey) {
+            console.log(awsKey, 'complete!');
+          });
+          filePromises.push(promise);
+        }
 
-      $(evt.target).val('');
+        // Wait until all promises are complete
+        Promise.all(filePromises)
+          .then(function () {
+            console.log('All files were uploaded successfully.');
+          }, function (reason) {
+            console.log('All files were not uploaded successfully:', reason);
+          });
+
+        // Clear out the file picker input
+        evt.target.value = '';
+      };
     },
 
     // Failed to create new instance of evaporate
-    function (reason) {
+    function failure(reason) {
        console.log('Evaporate failed to initialize: ', reason)
     }
   );
