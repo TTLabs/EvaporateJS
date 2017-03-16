@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-
    <title>Evaporate Example</title>
 
    <style>
@@ -12,7 +11,6 @@
    <script language="javascript" type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.2/jquery.min.js"></script>
    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.2.43.min.js"></script>
    <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
-
 </head>
 <body>
 
@@ -21,52 +19,52 @@
 </div>
 
 
-<script language="javascript">
+  <script language="javascript">
+  var files, filePromises = [], allCompleted;
 
-   var files, filePromises = [], allCompleted;
-
-   Evaporate.create({
-      signerUrl: 'http://localhost:3000/signv4_auth',
-      aws_key: '<aws_key>',
-      awsRegion: 'us-east-1',
-      bucket: '<bucket-name>',
-      awsSignatureVersion: '4',
-      computeContentMd5: true,
-      cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
-      cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); }
-   })
-   .then(function (_e_) {
-              files = evt.target.files;
-
-              for (var i = 0; i < files.length; i++) {
-                 var promise = _e_.add({
-                    name: 'test_' + Math.floor(1000000000*Math.random()),
-                    file: files[i],
-                    progress: function (progress) {
-                       console.log('making progress: ' + progress);
-                    }
-                 })
-                 .then(function (awsKey) {
-                       console.log(awsKey, 'complete!');
-                    });
-
-                 filePromises.push(promise);
-              }
-
-              allCompleted = Promise.all(filePromises)
-                      .then(function () {
-                         console.log('All files were uploaded successfully.');
-                      }, function (reason) {
-                         console.log('All files were not uploaded successfully:', reason);
-                      });
-
-              $(evt.target).val('');
-      },
-      function (reason) {
-         console.log('Evaporate failed to initialize: ', reason)
+  Evaporate.create({
+    signerUrl: 'http://localhost:3000/signv4_auth',
+    aws_key: '<aws_key>',
+    awsRegion: 'us-east-1',
+    bucket: '<bucket-name>',
+    awsSignatureVersion: '4',
+    computeContentMd5: true,
+    cryptoMd5Method: function (data) { return AWS.util.crypto.md5(data, 'base64'); },
+    cryptoHexEncodedHash256: function (data) { return AWS.util.crypto.sha256(data, 'hex'); }
+  })
+  .then(
+    // Successfully created evaporate instance `_e_`
+    function (_e_) {
+      files = evt.target.files;
+      for (var i = 0; i < files.length; i++) {
+        var promise = _e_.add({
+          name: 'test_' + Math.floor(1000000000*Math.random()),
+          file: files[i],
+          progress: function (progress) {
+            console.log('making progress: ' + progress);
+          }
+        })
+        .then(function (awsKey) {
+          console.log(awsKey, 'complete!');
+        });
+        filePromises.push(promise);
       }
-   );
-</script>
 
+      allCompleted = Promise.all(filePromises)
+        .then(function () {
+          console.log('All files were uploaded successfully.');
+        }, function (reason) {
+          console.log('All files were not uploaded successfully:', reason);
+        });
+
+      $(evt.target).val('');
+    },
+
+    // Failed to create new instance of evaporate
+    function (reason) {
+       console.log('Evaporate failed to initialize: ', reason)
+    }
+  );
+  </script>
 </body>
 </html>
