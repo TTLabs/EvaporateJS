@@ -13,10 +13,17 @@
    <script language="javascript" type="text/javascript" src="../evaporate.js"></script>
 </head>
 <body>
-
-<div>
-   <input type="file" id="files"  multiple />
-</div>
+  <h1>Using EvaporateJS with AWS V4 Signatures</h1>
+  <div>
+    <h2>Demo</h2>
+    <input type="file" id="files"  multiple />
+  </div>
+  <p>To get this code working, you'll need to setup your S3 bucket first (see the <a href="https://github.com/TTLabs/EvaporateJS#configuring-the-aws-s3-bucket">README</a>). You'll also need to change <strong>this</strong> file's <code>Evaporate.create()</code> call:</p>
+  <ul>
+    <li>aws_key -- change this to your AWS_ACCESS_KEY_ID</li>
+    <li>awsRegion -- change if your bucket is not us-east-1</li>
+    <li>bucket -- set this to your actual bucket name</li>
+  </ul>
 
 
   <script language="javascript">
