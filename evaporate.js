@@ -1567,15 +1567,18 @@
     var file = this.fileUpload.file,
         slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice')),
         blob = file[slicerFn](this.start, this.end);
-    return new Promise(function (resolve) {
-      var reader = new FileReader();
-      reader.onloadend = function () {
-        var buffer = this.result && typeof this.result.buffer !== 'undefined',
-            result = buffer ? new Uint8Array(this.result.buffer) : this.result;
-        resolve(result);
-      };
-      reader.readAsArrayBuffer(blob);
-    });
+    if (this.con.computeContentMd5) {
+      return new Promise(function (resolve) {
+        var reader = new FileReader();
+        reader.onloadend = function () {
+          var buffer = this.result && typeof this.result.buffer !== 'undefined',
+              result = buffer ? new Uint8Array(this.result.buffer) : this.result;
+          resolve(result);
+        };
+        reader.readAsArrayBuffer(blob);
+      });
+    }
+    return Promise.resolve(blob);
   };
   PutPart.prototype.stalledInterval = -1;
   PutPart.prototype.getStartedPromise = function () {
