@@ -1,3 +1,12 @@
+# v2.1.0
+
+## Enhancements ##
+- the example html now allows the aws_key to be changed
+- Improved examples for node.js
+
+## Bug Fixes ##
+- Issues #340. Resolved memory retention issue when using V2 signatures without `computeContentMd5`.
+
 # v2.0.9
 
 ## Enhancements ##
