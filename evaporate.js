@@ -147,8 +147,9 @@
           if (xhr.readyState === 4) {
             if (xhr.status === 200) {
               var server_date = new Date(Date.parse(xhr.responseText)),
-                  now = new Date();
-              resolve(server_date - now);
+                  offset = server_date - new Date();
+              l.d('localTimeOffset is', offset, 'ms');
+              resolve(offset);
             }
           }
         };
@@ -161,13 +162,7 @@
       } else {
         resolve(0);
       }
-    })
-        .then(function (offset) {
-          l.d('localTimeOffset is', offset, 'ms');
-          return new Promise(function (resolve) {
-            resolve(offset);
-          });
-        });
+    });
   };
   Evaporate.prototype.config = {};
   Evaporate.prototype.localTimeOffset = 0;
