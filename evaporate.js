@@ -1528,10 +1528,7 @@
   };
   PutPart.prototype.getPayload = function () {
     if (typeof this.payloadPromise === 'undefined') {
-      this.payloadPromise = new Promise(function (resolve, reject) {
-        var promise = this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
-        promise.then(resolve, reject);
-      }.bind(this));
+      this.payloadPromise = this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
     }
     return this.payloadPromise;
   };
