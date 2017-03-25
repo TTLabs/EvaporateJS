@@ -1458,16 +1458,8 @@
     return [CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1;
   };
   PutPart.prototype.delaySend = function () {
-    var backOffWait;
-
-    if (this.part.status === ERROR) {
-      backOffWait = this.backOffWait();
-
-      this.attempts += 1;
-    } else {
-      backOffWait = 0;
-    }
-
+    var backOffWait = this.backOffWait();
+    this.attempts += 1;
     setTimeout(this.send.bind(this), backOffWait);
   };
   PutPart.prototype.errorHandler = function (reason) {
@@ -1497,7 +1489,7 @@
   };
   PutPart.size = 0;
   PutPart.prototype.streamToArrayBuffer = function (stream) {
-    var promise = new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
       // stream is empty or ended
       if (!stream.readable) { return resolve([]); }
 
@@ -1533,8 +1525,6 @@
         stream.removeListener('close', onClose);
       }
     }.bind(this));
-
-    return promise;
   };
   PutPart.prototype.getPayload = function () {
     if (typeof this.payloadPromise === 'undefined') {
