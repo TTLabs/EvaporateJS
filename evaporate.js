@@ -476,7 +476,7 @@
   FileUpload.prototype.progressInterval = undefined;
   FileUpload.prototype.startTime = undefined;
   FileUpload.prototype.loaded = 0;
-  FileUpload.prototype.totalUpoaded = 0;
+  FileUpload.prototype.totalUploaded = 0;
   FileUpload.prototype.updateLoaded = function (loadedNow) {
     this.loaded += loadedNow;
     this.fileTotalBytesUploaded += loadedNow;
@@ -488,9 +488,9 @@
       return {};
     }
 
-    this.totalUpoaded += this.loaded;
+    this.totalUploaded += this.loaded;
     var delta = (new Date() - this.startTime) / 1000,
-        avgSpeed = this.totalUpoaded / delta,
+        avgSpeed = this.totalUploaded / delta,
         stats = {
           speed: avgSpeed,
           readableSpeed: readableFileSize(avgSpeed),
@@ -513,7 +513,7 @@
     clearInterval(this.progressInterval);
     this.startTime = new Date();
     this.loaded = 0;
-    this.totalUpoaded = 0;
+    this.totalUploaded = 0;
     this.onProgress();
     this.progressInterval = setInterval(this.onProgress.bind(this), this.con.progressIntervalMS);
   };
@@ -932,7 +932,7 @@
   };
   FileUpload.prototype.uploadParts = function () {
     this.loaded = 0;
-    this.totalUpoaded = 0;
+    this.totalUploaded = 0;
     if (ACTIVE_STATUSES.indexOf(this.status) === -1) {
       return Promise.reject('Part uploading stopped because the file was canceled');
     }
