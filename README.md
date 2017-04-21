@@ -91,7 +91,7 @@ var config = {
 
 return Evaporate.create(config)
     .then(function (evaporate) {
-      
+
       var file = new File([""], "file_object_to_upload"),
           addConfig = {
             name: file.name,
@@ -170,7 +170,7 @@ correct Policies and CORS configurations applied.
         ]
     }
     ```
-    
+
     If you configure the uploader to enable the S3 existence check optimization (configuration
     option `allowS3ExistenceOptimization`), then you should add the `s3:GetObject` action to
     your bucket object statement and your S3 CORS settings must include `HEAD` method if you
@@ -202,12 +202,12 @@ correct Policies and CORS configurations applied.
         ]
     }
     ```
-    
+
 4. Setup a signing handler on your application server (see `signer_example.py`).
    This handler will create a signature for your multipart request that is sent
    to S3.  This handler will be contacted via AJAX on your site by evaporate.js.
    You can monitor these requests by using developer tools of most browsers.
-   
+
    Evaporate supports using an AWS lambda for signing. The `example` folder
    contains skeleton implementations of signing handlers implemented
    in several common languages.
@@ -265,7 +265,7 @@ Evaporate.create(config)
         function (reason) {
             console.log('Evaporate failed to initialize:', reason);
         });
-            
+
 ```
 
 The promise `create` returns will resolve with a reference to the fully initialized evaporate instance or reject with a reason as to why
@@ -337,7 +337,7 @@ Available configuration options:
 * **maxConcurrentParts**: default=5, how many concurrent file PUTs will be attempted
 * **partSize**: default = 6 * 1024 * 1024 bytes, the size of the parts into which the file is broken
 * **retryBackoffPower**: default=2, how aggressively to back-off on the delay between retries of a part PUT
-* **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries 
+* **maxRetryBackoffSecs**: default=300, the maximum number of seconds to wait between retries
 * **maxFileSize**: default=no limit, the allowed maximum files size, in bytes.
 * **progressIntervalMS**: default=1000, the frequency (in milliseconds) at which progress events are dispatched
 * **readableStreams**: default=false, if the file you upload is a Node [`ReadableStream`](https://nodejs.org/api/stream.html#stream_readable_streams), set this option to `true` and
@@ -352,21 +352,21 @@ Available configuration options:
     }
     ```
 * **aws_url**: default='https://s3.amazonaws.com', the S3 endpoint URL. If you have a bucket in a region other than US
-    Standard, you will need to change this to the correct endpoint from the 
+    Standard, you will need to change this to the correct endpoint from the
     [AWS Region list](http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region).
-    
+
     ##### How Evaporate Determines the Default AWS Url
-    
+
     Evaporate will create a virutal host that includes the `bucket` when `cloudfront` is set when it creates
     the default AWS url. Evaporate always creates a virtual host with S3 transfer acceleration enabled.
-    
+
     1. With `s3Acceleration`: `https://<bucket>.s3-accelerate.amazonaws.com`.
     2. When `awsRegion` is 'us-east-1': `https://s3.amazonaws.com`.
     3. Otherwise, for any other value like 'eu-central-1': `https://s3-eu-central-1.amazonaws.com`.
 
     To use a dualstack endpoint for the 'us-east-1' region, specify `aws_url` like so:
     `https://s3.dualstack.us-east-1.amazonaws.com`.
-    
+
     Note: If you specify your own `aws_url` as an S3 virtual host, then you must also explicitly set `cloudfront`.
 * **aws_key**: default=undefined, the AWS Account key to use. Required when `awsSignatureVersion` is `'4'`.
 * **awsRegion**: default='us-east-1', Required when `awsSignatureVersion` is `'4'`. When set, the awsRegion will help
@@ -378,7 +378,7 @@ Available configuration options:
     with `cloudfront` set, as part of the host: `https://<bucket>.s3.amazonaws.com`.
 * **s3Acceleration**: default=false, whether to use [S3 Transfer Acceleration](http://docs.aws.amazon.com/AmazonS3/latest/dev/transfer-acceleration.html).
 * **xhrWithCredentials**: default=false, set the XMLHttpRequest xhr object to use [credentials](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials).
-* **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a 
+* **timeUrl**: default=undefined, a url on your application server which will return a DateTime. for example '/sign_auth/time' and return a
     RF 2616 Date (http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html) e.g. "Tue, 01 Jan 2013 04:39:43 GMT".  See https://github.com/TTLabs/EvaporateJS/issues/74.
 * **cryptoMd5Method**: default=undefined, a method that computes the MD5 digest according to https://www.ietf.org/rfc/rfc1864.txt. Only applicable when `computeContentMd5` is set.
     Method signature is `function (data) { return 'computed MD5 digest of data'; }` where `data` is a JavaScript `ArrayBuffer` representation of the part
@@ -396,7 +396,7 @@ Available configuration options:
     client failure or page refresh. The value should be a whole number representing the number of hours ago to check for uploaded parts
     and files. The uploaded parts and and file status are retrieved from S3. If no cache is set, Evaporate will not resume uploads after
     client or user errors. Refer to the section below for more information on this configuration option.
-* **onlyRetryForSameFileName**: default=false, if the same file is uploaded again, should a retry only be attempted 
+* **onlyRetryForSameFileName**: default=false, if the same file is uploaded again, should a retry only be attempted
     if the file name matches the time that file name was previously uploaded. Otherwise the upload is resumed to the
     previous file name that was used.
 * **allowS3ExistenceOptimization**: default=false, whether to verify file existence against S3 storage. Enabling this option requires
@@ -434,7 +434,7 @@ signHeaders: {
 * **file**: _File_. The reference to the JavaScript [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
   object to upload.
 
-  The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+  The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The
   promise resolves with the AWS object key of the uploaded object. This object key may be different than the requested
   object key if `allowS3ExistenceOptimization` is enabled and Evaporate was able to identify the already uploaded
   object in the requested bucket. The promise rejects with a message as to why the file could not
@@ -525,7 +525,11 @@ to pause.
     {
         speed: 70343222.003493043, // avgSpeedBytesPerSecond,
         readableSpeed: "703 Kb",
-        loaded: 7034333 // Bytes loaded since the last call
+        loaded: 7034333, // Bytes loaded since the last call. it's for part upload.
+        totalUploaded: 10024457, // Total bytes uploaded
+        remainingSize: 20000000,
+        secondsLeft: 10, //when -1, it's unknown.
+        fileSize: 30024457
     }
     ```
 
@@ -533,9 +537,9 @@ to pause.
 
 * **beforeSigner**: _function(xhr, url)_. a function that will be just before the `signUrl` is sent.
 
-`overrideOptions`, an object, when present, will override th Evaporate global configuration options for the added file only. 
+`overrideOptions`, an object, when present, will override th Evaporate global configuration options for the added file only.
 With the exception of the following options, all other Evaporate configuration options can be overridden:
- 
+
 - `maxConcurrentParts`
 - `logging`
 - `cloudfront`
@@ -567,7 +571,7 @@ parts complete. Refer to the `.paused` and `.pausing` callbacks for status feedb
 `file_key` is the optional file key of the upload that you want to pause. If `file_key` is not defined, then all
 files will be paused. File key is constructed as `bucket + '/' + object_name`.
 
-The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+The `completionPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The
 promise resolves when the upload pauses and rejects with a message if the upload could not be fulfilled.
 
 #### Evaporate.prototype.resume()
@@ -598,7 +602,7 @@ on the final outcome of the upload.
             .then(function (awsKey) {
                 console.log('Completed', awsKey);
             });
-            
+
             evaporate.pause('mybucket/myFile', {force: true}) // or 'evaporate.pause()' to pause all
                 .then(function () {
                     console.log('Paused!');
@@ -606,7 +610,7 @@ on the final outcome of the upload.
                 .catch(function (reason) {
                     console.log('Failed to pause:', reason);
                 };
-            
+
             evaporate.resume('mybucket/myFile')
                 .then(function () {
                     console.log('Resumed!');
@@ -616,7 +620,7 @@ on the final outcome of the upload.
                 };
         })
 ```
-  
+
 #### Evaporate.prototype.cancel()
 
 `var cancellationPromise = evaporate.cancel([file_key])`
@@ -626,7 +630,7 @@ files will be canceled. File key is constructed as `bucket + '/' + object_name`.
 
 The completion promise rejects after the file upload aborts.
 
-The `cancellationPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The 
+The `cancellationPromise` is an implementation of [Promises/A+](http://promises-aplus.github.com/promises-spec/). The
 promise resolves when the upload is completely canceled or rejects if the upload could not be canceled without errors.
 
 ```javascript
@@ -644,7 +648,7 @@ promise resolves when the upload is completely canceled or rejects if the upload
             function (reason) {
                 console.log('Did not upload', reason);
             });
-            
+
             evaporate.cancel('mybucket/myFile')
                 .then(function () {
                     console.log('Canceled!');
@@ -654,7 +658,7 @@ promise resolves when the upload is completely canceled or rejects if the upload
 
 #### Evaporate.prototype.supported
 
-A _Boolean_ that indicates whether the browser supports Evaporate.  
+A _Boolean_ that indicates whether the browser supports Evaporate.
 
 ### Important Usage Notes
 
@@ -663,10 +667,10 @@ A _Boolean_ that indicates whether the browser supports Evaporate.
 When `s3FileCacheHoursAgo` is enabled, the uploader will create a small footprint of the uploaded file in `localStorage.awsUploads`. Before a
 file is uploaded, this cache is queried by a key consisting of the file's name, size, mimetype and date timestamp.
 It then verifies that the `partSize` used when uploading matches the partSize currenlty in use. To prevent false positives, the
-upload then calcuates the MD5 digest of the first part for final verification. If you specify `onlyRetryForSameFileName`, 
+upload then calcuates the MD5 digest of the first part for final verification. If you specify `onlyRetryForSameFileName`,
 then a further check is done that the specified destination file name matches the destination file name used previously.
 
-If the uploaded file has an unfinished S3 multipart upload ID associated with it, then the uploader queries S3 for the parts that 
+If the uploaded file has an unfinished S3 multipart upload ID associated with it, then the uploader queries S3 for the parts that
 have been uploaded. It then uploads only the unfinished parts.
 
 If the uploaded file has no open multipart upload, then the ETag of the last time the file was uploaded to S3 is compared to
@@ -702,7 +706,7 @@ The sample S3 bucket policy shown above should configure your S3 bucket to allow
 not part of Evaporate. A separate tool or task will need to be created to query orphaned multipart uploads and abort them using some appropriate
 heuristic.
 
-Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.  
+Refer to this functioning [Ruby on Rails rake task](https://github.com/bikeath1337/evaporate/blob/master/lib/tasks/cleanup.rake) for ideas.
 
 As of March 2016, AWS supports cleaning up multipart uploads using an S3 Lifecycle Management in which new rules are added to delete Expired and Incompletely multipart
 uploads. for more information, refer to [S3 Lifecycle Management Update – Support for Multipart Uploads and Delete Markers](https://aws.amazon.com/blogs/aws/s3-lifecycle-management-update-support-for-multipart-uploads-and-delete-markers/).
