@@ -485,7 +485,12 @@
     // Adapted from https://github.com/fkjaekel
     // https://github.com/TTLabs/EvaporateJS/issues/13
     if (this.fileTotalBytesUploaded === 0) {
-      return {};
+      return {
+        speed: 0,
+        readableSpeed: "",
+        loaded: 0,
+        uploaded: 0,
+      };
     }
 
     this.totalUploaded += this.loaded;
@@ -494,7 +499,8 @@
         stats = {
           speed: avgSpeed,
           readableSpeed: readableFileSize(avgSpeed),
-          loaded: this.loaded
+          loaded: this.loaded,
+          uploaded: this.fileTotalBytesUploaded,
         },
         remainingSize = this.sizeBytes - this.fileTotalBytesUploaded;
 
@@ -1977,7 +1983,7 @@
   function uri(url) {
     var p,
         href = url || '/';
-    
+
     try {
       p = new URL(href);
     } catch (e) {
