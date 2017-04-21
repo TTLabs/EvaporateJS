@@ -21,8 +21,8 @@ class EvaporateJSController extends Controller
    */
   public function getS3Signature(Request $request)
   {
-     // make sure you are getting the correct values from EvaporateJS, otherwise stop
-    $validationRules =  [
+      // make sure you are getting the correct values from EvaporateJS, otherwise stop
+      $validationRules =  [
         'to_sign' => ['bail','required'],
         'datetime' => ['bail','required'],
       ];
@@ -30,7 +30,7 @@ class EvaporateJSController extends Controller
       $validation = Validator::make($request->all(), $validationRules);
       if ($validation->fails()) {
           //let's just return plain text
-          return response($validation->errors()->first());
+          return response($validation->errors()->first(), 422);
           // $response = ["success"=>false, "message"=>['errors'=>$validation->errors()->all()]];
           // return response()->json($response);
       }
