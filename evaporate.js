@@ -499,7 +499,7 @@
     this.totalUploaded += this.loaded;
     var delta = (new Date() - this.startTime) / 1000,
         avgSpeed = this.totalUploaded / delta,
-        remainingSize = this.sizeBytes - this.fileTotalBytesUploaded;
+        remainingSize = this.sizeBytes - this.fileTotalBytesUploaded,
         stats = {
           speed: avgSpeed,
           readableSpeed: readableFileSize(avgSpeed),
@@ -509,7 +509,7 @@
           secondsLeft: -1,
           fileSize: this.sizeBytes,
 
-        },
+        };
 
     if (avgSpeed > 0) {
       stats.secondsLeft = Math.round(remainingSize / avgSpeed);
