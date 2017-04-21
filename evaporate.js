@@ -486,22 +486,36 @@
     // Adapted from https://github.com/fkjaekel
     // https://github.com/TTLabs/EvaporateJS/issues/13
     if (this.fileTotalBytesUploaded === 0) {
-      return {};
+      return {
+        speed: 0,
+        readableSpeed: "",
+        loaded: 0,
+        totalUploaded: 0,
+        remainingSize: this.sizeBytes,
+        secondsLeft: -1,
+        fileSize: this.sizeBytes,
+      };
     }
 
     this.totalUploaded += this.loaded;
     var delta = (new Date() - this.startTime) / 1000,
         avgSpeed = this.totalUploaded / delta,
+        remainingSize = this.sizeBytes - this.fileTotalBytesUploaded,
         stats = {
           speed: avgSpeed,
           readableSpeed: readableFileSize(avgSpeed),
-          loaded: this.loaded
-        },
-        remainingSize = this.sizeBytes - this.fileTotalBytesUploaded;
+          loaded: this.loaded,
+          totalUploaded: this.fileTotalBytesUploaded,
+          remainingSize: remainingSize,
+          secondsLeft: -1,
+          fileSize: this.sizeBytes,
+
+        };
 
     if (avgSpeed > 0) {
       stats.secondsLeft = Math.round(remainingSize / avgSpeed);
     }
+
     return stats;
   };
   FileUpload.prototype.onProgress = function () {
