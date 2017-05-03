@@ -372,7 +372,7 @@
             var fileParts = fileName.split('/'),
                 encodedParts = [];
             fileParts.forEach(function (p) {
-                encodedParts.push(encodeURIComponent(p).replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/'/g, "%27"));
+                encodedParts.push(encodeURIComponent(p).replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/'/g, "%27").replace(/!/g, "%21"));
             });
             return encodedParts.join('/');
         }
