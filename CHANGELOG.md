@@ -1,3 +1,6 @@
+# v1.6.5#
+- Correctly encodes exclamation points in S3 object name that broke AWS signatures.
+
 # v1.6.4#
 - Correctly encodes all single quotes in an S3 object name. Issue #264 (revisited)
 
