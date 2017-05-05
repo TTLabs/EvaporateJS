@@ -43,6 +43,12 @@
         'awsSignatureVersion',
         'evaporateChanged'
       ],
+      S3_EXTRA_ENCODED_CHARS =  {
+        33: "%21", // !
+        39: "%27", // '
+        40: "%28", // (
+        41: "%29" // )
+      },
       l;
 
   var Evaporate = function (config) {
@@ -1944,7 +1950,12 @@
     var fileParts = fileName.split('/'),
         encodedParts = [];
     fileParts.forEach(function (p) {
-      encodedParts.push(encodeURIComponent(p).replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/'/g, "%27"));
+      var buf = [],
+          enc = encodeURIComponent(p);
+      for (var i = 0; i < enc.length; i++) {
+        buf.push(S3_EXTRA_ENCODED_CHARS[enc.charCodeAt(i)] || enc.charAt(i));
+      }
+      encodedParts.push(buf.join(""));
     });
     return encodedParts.join('/');
   }

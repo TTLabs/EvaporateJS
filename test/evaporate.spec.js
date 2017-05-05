@@ -470,10 +470,10 @@ test('should correctly encode parentheses for S3', (t) => {
 
 })
 
-test('should correctly encode single quotes for S3', (t) => {
+test('should correctly encode single quotes, exclamation points for S3', (t) => {
   let complete_id
 
-  const c = Object.assign({}, baseAddConfig, {name: "'name'"})
+  const c = Object.assign({}, baseAddConfig, {name: "'na!me'"})
 
   let config = Object.assign({}, c, {
     complete: sinon.spy(function (xhr, name) { complete_id = name; })
@@ -481,7 +481,7 @@ test('should correctly encode single quotes for S3', (t) => {
 
   return testCommon(t, config)
       .then(function () {
-        expect(complete_id).to.equal('%27name%27')
+        expect(complete_id).to.equal('%27na%21me%27')
       })
 })
 
