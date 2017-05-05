@@ -1,3 +1,12 @@
+# v2.1.1
+
+## Enhancements ##
+- PR #357. The progress callback response now includes more stats
+
+## Bug Fixes ##
+- Issue #356. Filenames containing "!" are now correctly encoded for S3 so that
+  signatures match
+
 # v2.1.0
 
 ## Enhancements ##
@@ -95,7 +104,7 @@ npm install git://github.com/TTLabs/EvaporateJS.git#1.6.4
 - Adds new callback "nameChanged" called when the requested S3 object key
   was not used because an interrupted upload was resumed or a previously
   uploaded object was used instead.
-- Adds signing example for Go.  
+- Adds signing example for Go.
 
 ## Enhancements ##
 - File processing is now distributed. Previously, Evaporate would upload

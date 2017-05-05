@@ -1,6 +1,6 @@
 {
   "name": "evaporate",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Javascript library for browser to S3 multipart resumable uploads for browsers and with Node FileSystem (fs) Stream Support",
   "main": "evaporate.js",
   "directories": {
