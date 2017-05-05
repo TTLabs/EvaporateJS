@@ -1963,7 +1963,7 @@
   function uri(url) {
     var p,
         href = url || '/';
-    
+
     try {
       p = new URL(href);
     } catch (e) {
