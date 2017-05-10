@@ -1040,7 +1040,7 @@
     var SigningClass = signingVersion(this, l);
     this.signer = new SigningClass(request);
   };
-  SignedS3AWSRequest.prototype.success = function () { return true; };
+  SignedS3AWSRequest.prototype.success = function () { this.awsDeferred.resolve(this.currentXhr); };
   SignedS3AWSRequest.prototype.backOffWait = function () {
     return (this.attempts === 1) ? 0 : 1000 * Math.min(
             this.con.maxRetryBackoffSecs,
@@ -1116,7 +1116,7 @@
                 xhr.response.match(new RegExp(self.request.response_match)) === undefined) {
               reject('AWS response does not match set pattern: ' + self.request.response_match);
             } else {
-              resolve(xhr);
+              resolve();
             }
           } else {
             var reason = xhr.responseText ? getAwsResponse(xhr) : ' ';
@@ -1185,14 +1185,7 @@
             function (value) {
               self.authorizationSuccess(value);
               if (self.fileUpload.status === ABORTED) { return; }
-              self.sendRequestToAWS()
-                  .then(
-                      function (value) {
-                        if (self.success(value)) {
-                          self.awsDeferred.resolve(value);
-                        }
-                      },
-                      self.error.bind(self));
+              self.sendRequestToAWS().then(self.success.bind(self), self.error.bind(self));
             },
             self.error.bind(self));
   };
@@ -1253,13 +1246,13 @@
   }
   InitiateMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
   InitiateMultipartUpload.prototype.constructor = InitiateMultipartUpload;
-  InitiateMultipartUpload.prototype.success = function (xhr) {
-    var match = xhr.response.match(new RegExp(this.request.response_match));
+  InitiateMultipartUpload.prototype.success = function () {
+    var match = this.currentXhr.response.match(new RegExp(this.request.response_match));
     this.fileUpload.uploadId = match[1];
     this.fileUpload.awsKey = this.awsKey;
     l.d('InitiateMultipartUpload ID is', this.fileUpload.uploadId);
     this.fileUpload.createUploadFile();
-    return true;
+    this.awsDeferred.resolve(this.currentXhr);
   };
 
   //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
@@ -1299,12 +1292,11 @@
   ReuseS3Object.prototype = Object.create(SignedS3AWSRequestWithRetryLimit.prototype);
   ReuseS3Object.prototype.constructor = ReuseS3Object;
   ReuseS3Object.prototype.awsKey = undefined;
-  ReuseS3Object.prototype.success = function (xhr) {
-    var eTag = xhr.getResponseHeader('Etag');
-    if (eTag !== this.fileUpload.eTag) {
-      return this.rejectedSuccess('uploadId ', this.fileUpload.id, ' found on S3 but the Etag doesn\'t match.');
-    }
-    return true;
+  ReuseS3Object.prototype.success = function () {
+    var eTag = this.currentXhr.getResponseHeader('Etag');
+    if (eTag !== this.fileUpload.eTag &&
+        !this.rejectedSuccess('uploadId ', this.fileUpload.id, ' found on S3 but the Etag doesn\'t match.')) { return; }
+    this.awsDeferred.resolve(this.currentXhr);
   };
 
   //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
@@ -1337,20 +1329,21 @@
     this.request = request;
     return request;
   };
-  ResumeInterruptedUpload.prototype.success = function (xhr) {
-    if (xhr.status === 404) {
+  ResumeInterruptedUpload.prototype.success = function () {
+    if (this.currentXhr.status === 404) {
       // Success! Upload is no longer recognized, so there is nothing to fetch
-      return this.rejectedSuccess('uploadId ', this.fileUpload.id, ' not found on S3.');
+      if (this.rejectedSuccess('uploadId ', this.fileUpload.id, ' not found on S3.')) { this.awsDeferred.resolve(this.currentXhr); }
+      return;
     }
 
-    var nextPartNumber = this.fileUpload.listPartsSuccess(this, xhr.responseText);
+    var nextPartNumber = this.fileUpload.listPartsSuccess(this, this.currentXhr.responseText);
     if (nextPartNumber) {
       var request = this.setupRequest(nextPartNumber); // let's fetch the next set of parts
       this.updateRequest(request);
       this.trySend();
     } else {
       this.fileUpload.makePartsfromPartsOnS3();
-      return true;
+      this.awsDeferred.resolve(this.currentXhr);
     }
   };
 
@@ -1428,10 +1421,11 @@
           });
     }
   };
-  PutPart.prototype.success = function (xhr) {
+  PutPart.prototype.success = function () {
     clearInterval(this.stalledInterval);
-    var eTag = xhr.getResponseHeader('ETag');
-    return this.fileUpload.partSuccess(eTag, this);
+    var eTag = this.currentXhr.getResponseHeader('ETag');
+    this.currentXhr = null;
+    if (this.fileUpload.partSuccess(eTag, this)) { this.awsDeferred.resolve(this.currentXhr); }
   };
   PutPart.prototype.onProgress = function (evt) {
     if (evt.loaded > 0) {
@@ -1602,7 +1596,7 @@
   DeleteMultipartUpload.prototype.maxRetries = 1;
   DeleteMultipartUpload.prototype.success = function () {
     this.fileUpload.setStatus(ABORTED);
-    return true;
+    this.awsDeferred.resolve(this.currentXhr);
   };
   DeleteMultipartUpload.prototype.errorHandler =  function (reason) {
     if (this.attempts > this.maxRetries) {
