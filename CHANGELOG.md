@@ -1,3 +1,10 @@
+# v2.1.2
+
+## Bug Fixes ##
+- Issue #355. Addresses memory retention issue that arose in a recent Chrome update.
+  Chrome was keeping a reference to the Xhr object in a system array because
+  EvaporateJS was passing an XHR reference as a parameter to Promise.resolve().
+
 # v2.1.1
 
 ## Enhancements ##
