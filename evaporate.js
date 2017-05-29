@@ -1364,6 +1364,10 @@
       onProgress: this.onProgress.bind(this)
     };
 
+    if(/Edge\/\d+/.test(navigator.userAgent) && fileUpload.contentType) {
+      request.contentType = fileUpload.contentType;
+    }
+
     SignedS3AWSRequest.call(this, fileUpload, request);
   }
   PutPart.prototype = Object.create(SignedS3AWSRequest.prototype);
