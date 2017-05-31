@@ -21,6 +21,8 @@
 (function () {
   "use strict";
 
+  var Promise = require("es6-promise-polyfill").Promise;
+
   var FAR_FUTURE = new Date('2060-10-22'),
       HOURS_AGO,
       PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30,
