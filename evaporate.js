@@ -232,6 +232,13 @@
         file.name = s3EncodedObjectName(file.name);
       }
 
+      let xAmzHeadersAtUpload = {};
+      if (fileConfig.copy) {
+          xAmzHeadersAtUpload = {
+              'x-amz-copy-source': `/${self.config.bucket}/${file.file.path}`
+          }
+      }
+
       var fileUpload = new FileUpload(extend({
             started: function () {},
             uploadInitiated: function () {},
@@ -249,7 +256,7 @@
             xAmzHeadersAtInitiate: {},
             notSignedHeadersAtInitiate: {},
             xAmzHeadersCommon: null,
-            xAmzHeadersAtUpload: {},
+            xAmzHeadersAtUpload,
             xAmzHeadersAtComplete: {}
           }, file, {
             status: PENDING,
@@ -1352,14 +1359,17 @@
     this.part = part;
 
     this.partNumber = part.partNumber;
+    this.copy = fileUpload.con.copy;
     this.start = (this.partNumber - 1) * fileUpload.con.partSize;
     this.end = Math.min(this.partNumber * fileUpload.con.partSize, fileUpload.sizeBytes);
+
+    let xAmzHeaders = extend({}, {'x-amz-copy-source-range': `bytes=${this.start}-${this.end-1}`}, fileUpload.xAmzHeadersAtUpload);
 
     var request = {
       method: 'PUT',
       path: '?partNumber=' + this.partNumber + '&uploadId=' + fileUpload.uploadId,
       step: 'upload #' + this.partNumber,
-      x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtUpload,
+      x_amz_headers: fileUpload.xAmzHeadersCommon || xAmzHeaders,
       contentSha256: "UNSIGNED-PAYLOAD",
       onProgress: this.onProgress.bind(this)
     };
@@ -1373,6 +1383,7 @@
   PutPart.prototype.start = 0;
   PutPart.prototype.end = 0;
   PutPart.prototype.partNumber = undefined;
+  PutPart.prototype.copy = undefined;
   PutPart.prototype.getPartMd5Digest = function () {
     var self = this,
         part = this.part;
@@ -1414,16 +1425,19 @@
       this.part.loadedBytesPrevious = null;
 
       var self = this;
-      return this.getPartMd5Digest()
-          .then(function () {
+
+      let sendRequest = function () {
             l.d('Sending', self.request.step);
             SignedS3AWSRequest.prototype.send.call(self);
-          });
+      };
+
+      return this.copy ? sendRequest() : this.getPartMd5Digest().then(sendRequest);
     }
   };
   PutPart.prototype.success = function () {
     clearInterval(this.stalledInterval);
-    var eTag = this.currentXhr.getResponseHeader('ETag');
+    var eTag = this.con.copy? elementText(this.currentXhr.responseText, "ETag").replace(/&quot;/g, '"')
+                                : this.currentXhr.getResponseHeader('ETag');
     this.currentXhr = null;
     if (this.fileUpload.partSuccess(eTag, this)) { this.awsDeferred.resolve(this.currentXhr); }
   };
@@ -1534,6 +1548,11 @@
     }.bind(this));
   };
   PutPart.prototype.getPayload = function () {
+
+    /* ToDo: Can be removed */
+    if (this.con.copy)
+        return new Promise((resolve) => resolve(''));
+
     if (typeof this.payloadPromise === 'undefined') {
       this.payloadPromise = this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
     }
