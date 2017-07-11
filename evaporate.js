@@ -1363,7 +1363,8 @@
     this.start = (this.partNumber - 1) * fileUpload.con.partSize;
     this.end = Math.min(this.partNumber * fileUpload.con.partSize, fileUpload.sizeBytes);
 
-    var xAmzHeaders = extend({}, {'x-amz-copy-source-range': 'bytes=' + this.start + '-' + this.end-1 }, fileUpload.xAmzHeadersAtUpload);
+    var xAmzHeaders = this.copy ? extend({}, {'x-amz-copy-source-range': 'bytes=' + this.start + '-' + (this.end-1) }, fileUpload.xAmzHeadersAtUpload)
+        : fileUpload.xAmzHeadersAtUpload;
 
     var request = {
       method: 'PUT',
