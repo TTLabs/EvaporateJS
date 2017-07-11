@@ -232,11 +232,11 @@
         file.name = s3EncodedObjectName(file.name);
       }
 
-      let xAmzHeadersAtUpload = {};
+      var xAmzHeadersAtUpload = {};
       if (fileConfig.copy) {
           xAmzHeadersAtUpload = {
-              'x-amz-copy-source': `/${self.config.bucket}/${file.file.path}`
-          }
+              'x-amz-copy-source': '/' + self.config.bucket + '/' + file.file.path
+          };
       }
 
       var fileUpload = new FileUpload(extend({
@@ -256,7 +256,7 @@
             xAmzHeadersAtInitiate: {},
             notSignedHeadersAtInitiate: {},
             xAmzHeadersCommon: null,
-            xAmzHeadersAtUpload,
+            xAmzHeadersAtUpload: xAmzHeadersAtUpload,
             xAmzHeadersAtComplete: {}
           }, file, {
             status: PENDING,
@@ -1363,7 +1363,7 @@
     this.start = (this.partNumber - 1) * fileUpload.con.partSize;
     this.end = Math.min(this.partNumber * fileUpload.con.partSize, fileUpload.sizeBytes);
 
-    let xAmzHeaders = extend({}, {'x-amz-copy-source-range': `bytes=${this.start}-${this.end-1}`}, fileUpload.xAmzHeadersAtUpload);
+    var xAmzHeaders = extend({}, {'x-amz-copy-source-range': 'bytes=' + this.start + '-' + this.end-1 }, fileUpload.xAmzHeadersAtUpload);
 
     var request = {
       method: 'PUT',
@@ -1426,7 +1426,7 @@
 
       var self = this;
 
-      let sendRequest = function () {
+      var sendRequest = function () {
             l.d('Sending', self.request.step);
             SignedS3AWSRequest.prototype.send.call(self);
       };
@@ -1549,9 +1549,8 @@
   };
   PutPart.prototype.getPayload = function () {
 
-    /* ToDo: Can be removed */
     if (this.con.copy)
-        return new Promise((resolve) => resolve(''));
+        return new Promise(function (resolve) { resolve('') });
 
     if (typeof this.payloadPromise === 'undefined') {
       this.payloadPromise = this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
