@@ -1440,7 +1440,13 @@
     var eTag = this.con.copy? elementText(this.currentXhr.responseText, "ETag").replace(/&quot;/g, '"')
                                 : this.currentXhr.getResponseHeader('ETag');
     this.currentXhr = null;
-    if (this.fileUpload.partSuccess(eTag, this)) { this.awsDeferred.resolve(this.currentXhr); }
+    if (this.fileUpload.partSuccess(eTag, this)) {
+
+     if (this.con.copy)
+        this.fileUpload.updateLoaded(this.end - this.start);
+
+     this.awsDeferred.resolve(this.currentXhr);
+    }
   };
   PutPart.prototype.onProgress = function (evt) {
     if (evt.loaded > 0) {
