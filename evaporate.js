@@ -462,6 +462,7 @@
     this.evaporate = evaporate;
     this.localTimeOffset = evaporate.localTimeOffset;
     this.deferredCompletion = defer();
+    this.computedPartSize = this.con.partSize;
 
     extend(this, file);
 
@@ -481,6 +482,7 @@
   FileUpload.prototype.s3Parts = [];
   FileUpload.prototype.partsOnS3 = [];
   FileUpload.prototype.deferredCompletion = undefined;
+  FileUpload.prototype.computedPartSize = undefined;
   FileUpload.prototype.abortedByUser = false;
 
   // Progress and Stats
@@ -686,8 +688,9 @@
     });
   };
   FileUpload.prototype.makeParts = function (firstPart) {
-      var numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1;
-      this.numParts = Math.min(numParts, S3_MAX_SUPPORTED_PARTS); // issue #58
+    var numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1;
+    this.numParts = Math.min(numParts, S3_MAX_SUPPORTED_PARTS); // issue #58
+    this.computedPartSize = Math.ceil(this.sizeBytes / this.numParts);
     var partsDeferredPromises = [];
 
     var self = this;
@@ -759,7 +762,7 @@
           fileSize: this.sizeBytes,
           fileType: this.file.type,
           lastModifiedDate: dateISOString(this.file.lastModified),
-          partSize: this.con.partSize,
+          partSize: this.computedPartSize,
           signParams: this.con.signParams,
           createdAt: new Date().toISOString()
         };
@@ -813,7 +816,7 @@
 
     // check that the part sizes and bucket match, and if the file name of the upload
     // matches if onlyRetryForSameFileName is true
-    return this.con.partSize === u.partSize &&
+    return this.computedPartSize === u.partSize &&
         completedAt > HOURS_AGO &&
         this.con.bucket === u.bucket &&
         (this.con.onlyRetryForSameFileName ? this.name === u.awsKey : true);
@@ -1363,8 +1366,8 @@
     this.part = part;
 
     this.partNumber = part.partNumber;
-    this.start = (this.partNumber - 1) * fileUpload.con.partSize;
-    this.end = Math.min(this.partNumber * fileUpload.con.partSize, fileUpload.sizeBytes);
+    this.start = (this.partNumber - 1) * fileUpload.computedPartSize;
+    this.end = Math.min(this.partNumber * fileUpload.computedPartSize, fileUpload.sizeBytes);
 
     var xAmzHeaders = fileUpload.con.isMultipartCopy ?
                           extend({'x-amz-copy-source-range': 'bytes=' + this.start + '-' + (this.end-1) }, fileUpload.xAmzHeadersAtUpload)
@@ -1524,7 +1527,7 @@
       // stream is empty or ended
       if (!stream.readable) { return resolve([]); }
 
-      var arr = new Uint8Array(Math.min(this.con.partSize, this.end - this.start)),
+      var arr = new Uint8Array(Math.min(this.computedPartSize, this.end - this.start)),
           i = 0;
       stream.on('data', onData);
       stream.on('end', onEnd);
