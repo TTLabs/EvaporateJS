@@ -16,6 +16,7 @@ Major features include:
 - Configurable MD5 Checksum calculations and handling for each uploaded
   part (`computeContentMd5`)
 - AWS Signature Version 2 and 4 (`awsSignatureVersion`)
+- Multipart copy
 - S3 Transfer Acceleration (`s3Acceleration`)
 - Robust recovery when uploading huge files. Only parts that
   have not been fully uploaded again. (`s3FileCacheHoursAgo`, `allowS3ExistenceOptimization`)
@@ -97,6 +98,7 @@ See more examples on [wiki](https://github.com/TTLabs/EvaporateJS/wiki/Examples)
 
 - [#create()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.create())
 - [#add()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.add())
+- [#copy()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.copy())
 - [#cancel()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.cancel())
 - [#pause()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.pause())
 - [#resume()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.resume())

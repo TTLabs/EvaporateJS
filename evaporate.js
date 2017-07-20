@@ -28,6 +28,7 @@
       ACTIVE_STATUSES = [PENDING, EVAPORATING, ERROR],
       ETAG_OF_0_LENGTH_BLOB = '"d41d8cd98f00b204e9800998ecf8427e"',
       PARTS_MONITOR_INTERVAL_MS = 2 * 60 * 1000,
+      S3_MAX_SUPPORTED_PARTS = 10000,
       IMMUTABLE_OPTIONS = [
         'maxConcurrentParts',
         'logging',
@@ -208,85 +209,87 @@
     }
   };
   Evaporate.prototype.add = function (file,  pConfig) {
-    var self = this,
-        fileConfig;
-    return new Promise(function (resolve, reject) {
-      var c = extend(pConfig, {});
-
-      IMMUTABLE_OPTIONS.forEach(function (a) { delete c[a]; });
-
-      fileConfig = extend(self.config, c);
-
-      if (typeof file === 'undefined' || typeof file.file === 'undefined') {
-        return reject('Missing file');
-      }
-      if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
-        return reject('File size too large. Maximum size allowed is ' + fileConfig.maxFileSize);
-      }
-      if (typeof file.name === 'undefined') {
-        return reject('Missing attribute: name');
-      }
-
-      if (fileConfig.encodeFilename) {
-        // correctly encode to an S3 object name, considering '/' and ' '
-        file.name = s3EncodedObjectName(file.name);
-      }
-
-      var xAmzHeadersAtUpload = {};
-      if (fileConfig.copy) {
-          xAmzHeadersAtUpload = {
-              'x-amz-copy-source': '/' + self.config.bucket + '/' + file.file.path
-          };
-      }
-
-      var fileUpload = new FileUpload(extend({
-            started: function () {},
-            uploadInitiated: function () {},
-            progress: function () {},
-            complete: function () {},
-            cancelled: function () {},
-            paused: function () {},
-            resumed: function () {},
-            pausing: function () {},
-            nameChanged: function () {},
-            info: function () {},
-            warn: function () {},
-            error: function () {},
-            beforeSigner: undefined,
-            xAmzHeadersAtInitiate: {},
-            notSignedHeadersAtInitiate: {},
-            xAmzHeadersCommon: null,
-            xAmzHeadersAtUpload: xAmzHeadersAtUpload,
-            xAmzHeadersAtComplete: {}
-          }, file, {
-            status: PENDING,
-            priority: 0,
-            loadedBytes: 0,
-            sizeBytes: file.file.size,
-            eTag: ''
-          }), fileConfig, self),
-          fileKey = fileUpload.id;
-
-      self.pendingFiles[fileKey] = fileUpload;
-
-      self.queueFile(fileUpload);
-
-      // Resolve or reject the Add promise based on how the fileUpload completes
-      fileUpload.deferredCompletion.promise
-          .then(
-              function () {
-                self.fileCleanup(fileUpload);
-                resolve(decodeURIComponent(fileUpload.name));
-              },
-              function (reason) {
-                self.fileCleanup(fileUpload);
-                reject(reason);
-              }
-          );
-    })
+    return this._createFileUploadAndAddToQueue(file, pConfig);
+  };
+  Evaporate.prototype.copy = function (file,  pConfig) {
+      return this._createFileUploadAndAddToQueue(file, extend(pConfig, { isMultipartCopy: true}));
   };
   Evaporate.prototype.cancel = function (id) {
     return typeof id === 'undefined' ? this._cancelAll() : this._cancelOne(id);
+  };
+  Evaporate.prototype._createFileUploadAndAddToQueue = function (file,  pConfig) {
+      var self = this,
+          fileConfig;
+      return new Promise(function (resolve, reject) {
+          var c = extend({}, pConfig);
+
+          IMMUTABLE_OPTIONS.forEach(function (a) { delete c[a]; });
+
+          fileConfig = extend(extend({}, self.config), c);
+
+          if (typeof file === 'undefined' || typeof file.file === 'undefined') {
+              return reject('Missing file');
+          }
+          if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
+              return reject('File size too large. Maximum size allowed is ' + fileConfig.maxFileSize);
+          }
+          if (typeof file.name === 'undefined') {
+              return reject('Missing attribute: name');
+          }
+
+          if (fileConfig.encodeFilename) {
+              // correctly encode to an S3 object name, considering '/' and ' '
+              file.name = s3EncodedObjectName(file.name);
+          }
+
+          var xAmzHeadersAtUpload = fileConfig.isMultipartCopy ? { 'x-amz-copy-source': encodeURIComponent('/' + self.config.bucket + '/' + file.file.path) }
+                                                               : {};
+
+          var fileUpload = new FileUpload(extend({
+                  started: function () {},
+                  uploadInitiated: function () {},
+                  progress: function () {},
+                  complete: function () {},
+                  cancelled: function () {},
+                  paused: function () {},
+                  resumed: function () {},
+                  pausing: function () {},
+                  nameChanged: function () {},
+                  info: function () {},
+                  warn: function () {},
+                  error: function () {},
+                  beforeSigner: undefined,
+                  xAmzHeadersAtInitiate: {},
+                  notSignedHeadersAtInitiate: {},
+                  xAmzHeadersCommon: null,
+                  xAmzHeadersAtUpload: xAmzHeadersAtUpload,
+                  xAmzHeadersAtComplete: {}
+              }, file, {
+                  status: PENDING,
+                  priority: 0,
+                  loadedBytes: 0,
+                  sizeBytes: file.file.size,
+                  eTag: ''
+              }), fileConfig, self),
+              fileKey = fileUpload.id;
+
+          self.pendingFiles[fileKey] = fileUpload;
+
+          self.queueFile(fileUpload);
+
+          // Resolve or reject the Add promise based on how the fileUpload completes
+          fileUpload.deferredCompletion.promise
+              .then(
+                  function () {
+                      self.fileCleanup(fileUpload);
+                      resolve(decodeURIComponent(fileUpload.name));
+                  },
+                  function (reason) {
+                      self.fileCleanup(fileUpload);
+                      reject(reason);
+                  }
+              );
+      })
   };
   Evaporate.prototype._cancelAll = function () {
     l.d('Canceling all file uploads');
@@ -683,7 +686,8 @@
     });
   };
   FileUpload.prototype.makeParts = function (firstPart) {
-    this.numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1; // issue #58
+      var numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1;
+      this.numParts = Math.min(numParts, S3_MAX_SUPPORTED_PARTS); // issue #58
     var partsDeferredPromises = [];
 
     var self = this;
@@ -1359,12 +1363,12 @@
     this.part = part;
 
     this.partNumber = part.partNumber;
-    this.copy = fileUpload.con.copy;
     this.start = (this.partNumber - 1) * fileUpload.con.partSize;
     this.end = Math.min(this.partNumber * fileUpload.con.partSize, fileUpload.sizeBytes);
 
-    var xAmzHeaders = this.copy ? extend({}, {'x-amz-copy-source-range': 'bytes=' + this.start + '-' + (this.end-1) }, fileUpload.xAmzHeadersAtUpload)
-        : fileUpload.xAmzHeadersAtUpload;
+    var xAmzHeaders = fileUpload.con.isMultipartCopy ?
+                          extend({'x-amz-copy-source-range': 'bytes=' + this.start + '-' + (this.end-1) }, fileUpload.xAmzHeadersAtUpload)
+                          : fileUpload.xAmzHeadersAtUpload;
 
     var request = {
       method: 'PUT',
@@ -1384,7 +1388,6 @@
   PutPart.prototype.start = 0;
   PutPart.prototype.end = 0;
   PutPart.prototype.partNumber = undefined;
-  PutPart.prototype.copy = undefined;
   PutPart.prototype.getPartMd5Digest = function () {
     var self = this,
         part = this.part;
@@ -1432,18 +1435,18 @@
             SignedS3AWSRequest.prototype.send.call(self);
       };
 
-      return this.copy ? sendRequest() : this.getPartMd5Digest().then(sendRequest);
+      return this.con.isMultipartCopy ? sendRequest() : this.getPartMd5Digest().then(sendRequest);
     }
   };
   PutPart.prototype.success = function () {
     clearInterval(this.stalledInterval);
-    var eTag = this.con.copy? elementText(this.currentXhr.responseText, "ETag").replace(/&quot;/g, '"')
+    var eTag = this.con.isMultipartCopy? elementText(this.currentXhr.responseText, "ETag").replace(/&quot;/g, '"')
                                 : this.currentXhr.getResponseHeader('ETag');
     this.currentXhr = null;
     if (this.fileUpload.partSuccess(eTag, this)) {
 
-     if (this.con.copy)
-        this.fileUpload.updateLoaded(this.end - this.start);
+     if (this.con.isMultipartCopy)
+        this.fileUpload.updateLoaded(this.end - this.start); // updating progress on part complete as copy doesn't have any payload
 
      this.awsDeferred.resolve(this.currentXhr);
     }
@@ -1556,11 +1559,9 @@
   };
   PutPart.prototype.getPayload = function () {
 
-    if (this.con.copy)
-        return new Promise(function (resolve) { resolve('') });
-
     if (typeof this.payloadPromise === 'undefined') {
-      this.payloadPromise = this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
+      this.payloadPromise = this.con.isMultipartCopy ? Promise.resolve('')
+                                        : this.con.readableStreams ? this.payloadFromStream() : this.payloadFromBlob();
     }
     return this.payloadPromise;
   };

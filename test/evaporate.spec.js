@@ -94,6 +94,16 @@ test('#create evaporate should support #add', (t) => {
           })
 
 })
+test('#create evaporate should support #copy', (t) => {
+    return Evaporate.create(baseConfig)
+        .then(function (evaporate) {
+                expect(evaporate.copy).to.be.instanceof(Function)
+            },
+            function (reason) {
+                t.fail(reason)
+            })
+
+})
 test('#create evaporate should support #cancel', (t) => {
   return Evaporate.create(baseConfig)
       .then(function (evaporate) {
@@ -330,10 +340,49 @@ test.todo('should validate readableStream and readableStreamPartMethod')
 
 // add
 
-test('should fail to add() when no file is present', (t) => {
+test('should invoke _createFileUploadAndAddToQueue() when add is called', (t) => {
+    return Evaporate.create(baseConfig)
+        .then(function (evaporate) {
+            var createUploadStub = sinon.stub(evaporate, '_createFileUploadAndAddToQueue');
+            var targetFile = {
+                name: 'test',
+                file: new File({
+                    name: 'test',
+                    path: '/tmp/file',
+                    size: 1024
+                })
+            };
+            createUploadStub.calledWith();
+            evaporate.add(targetFile);
+            expect(createUploadStub.calledOnce).to.be.true;
+            expect(createUploadStub.calledWith(targetFile, undefined)).to.be.true;
+            sinon.restore(evaporate._createFileUploadAndAddToQueue);
+            t.pass()
+        })
+});
+test('should invoke _createFileUploadAndAddToQueue() when copy is called', (t) => {
+    return Evaporate.create(baseConfig)
+        .then(function (evaporate) {
+            var createUploadStub = sinon.stub(evaporate, '_createFileUploadAndAddToQueue');
+            var targetFile = {
+                name: 'test',
+                file: new File({
+                    name: 'test',
+                    path: '/tmp/file',
+                    size: 1024
+                })
+            };
+            evaporate.copy(targetFile);
+            expect(createUploadStub.calledOnce).to.be.true;
+            expect(createUploadStub.calledWith(targetFile, { isMultipartCopy: true })).to.be.true;
+            sinon.restore(evaporate._createFileUploadAndAddToQueue);
+            t.pass()
+        })
+});
+test('should fail to _createFileUploadAndAddToQueue() when no file is present', (t) => {
   return Evaporate.create(baseConfig)
       .then(function (evaporate) {
-        evaporate.add({ name: 'test' })
+        evaporate._createFileUploadAndAddToQueue({ name: 'test' })
             .then(function () {
                   t.fail('Evaporate added a new file but should not have.')
                 },
@@ -342,10 +391,10 @@ test('should fail to add() when no file is present', (t) => {
                 })
       })
 });
-test('should fail to add() when empty config is present', (t) => {
+test('should fail to _createFileUploadAndAddToQueue() when empty config is present', (t) => {
   return Evaporate.create(baseConfig)
       .then(function (evaporate) {
-        evaporate.add({})
+        evaporate._createFileUploadAndAddToQueue({})
             .then(function () {
                   t.fail('Evaporate added a new file but should not have.')
                 },
@@ -354,10 +403,10 @@ test('should fail to add() when empty config is present', (t) => {
                 })
       })
 });
-test('should fail to add() when no config is present', (t) => {
+test('should fail to _createFileUploadAndAddToQueue() when no config is present', (t) => {
   return Evaporate.create(baseConfig)
       .then(function (evaporate) {
-        evaporate.add()
+        evaporate._createFileUploadAndAddToQueue()
             .then(function () {
                   t.fail('Evaporate added a new file but should not have.')
                 },
@@ -369,7 +418,7 @@ test('should fail to add() when no config is present', (t) => {
 test('should require a name if file is present', (t) => {
   return Evaporate.create(baseConfig)
       .then(function (evaporate) {
-        evaporate.add({
+        evaporate._createFileUploadAndAddToQueue({
           file: new File({
             path: '/tmp/file',
             size: 50000
@@ -386,7 +435,7 @@ test('should require a name if file is present', (t) => {
 test('should respect maxFileSize', (t) => {
   return Evaporate.create(Object.assign({}, baseConfig, {maxFileSize: 10}))
       .then(function (evaporate) {
-        evaporate.add({
+        evaporate._createFileUploadAndAddToQueue({
           file: new File({
             path: '/tmp/file',
             size: 50000
