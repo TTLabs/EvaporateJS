@@ -688,9 +688,10 @@
     });
   };
   FileUpload.prototype.makeParts = function (firstPart) {
-    var numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1;
-    this.numParts = Math.min(numParts, S3_MAX_SUPPORTED_PARTS); // issue #58
-    this.computedPartSize = Math.ceil(this.sizeBytes / this.numParts);
+    var numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1; // issue #58
+    numParts = Math.min(numParts, S3_MAX_SUPPORTED_PARTS);
+    this.computedPartSize = Math.ceil(this.sizeBytes / numParts);
+    this.numParts = Math.ceil(this.sizeBytes / this.computedPartSize) || 1;
     var partsDeferredPromises = [];
 
     var self = this;
