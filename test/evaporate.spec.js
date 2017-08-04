@@ -485,6 +485,21 @@ test('should correctly encode single quotes, exclamation points for S3', (t) => 
       })
 })
 
+test('should correctly encode asterisk for S3', (t) => {
+  let complete_id
+
+  const c = Object.assign({}, baseAddConfig, {name: "foo*"})
+
+  let config = Object.assign({}, c, {
+    complete: sinon.spy(function (xhr, name) { complete_id = name; })
+  })
+
+  return testCommon(t, config)
+      .then(function () {
+        expect(complete_id).to.equal('foo%2A')
+      })
+})
+
 test('should correctly encode spaces for S3', (t) => {
   let complete_id
 
