@@ -1018,7 +1018,12 @@
     this.awsUrl = awsUrl(this.con);
     this.awsHost = uri(this.awsUrl).hostname;
 
-    this.updateRequest(request);
+    var r = extend({}, request);
+    if (fileUpload.contentType) {
+      r.contentType = fileUpload.contentType;
+    }
+
+    this.updateRequest(r);
   }
   SignedS3AWSRequest.prototype.fileUpload = undefined;
   SignedS3AWSRequest.prototype.con = undefined;
@@ -1237,10 +1242,6 @@
       not_signed_headers: fileUpload.notSignedHeadersAtInitiate,
       response_match: '<UploadId>(.+)<\/UploadId>'
     };
-
-    if (fileUpload.contentType) {
-      request.contentType = fileUpload.contentType;
-    }
 
     CancelableS3AWSRequest.call(this, fileUpload, request);
     this.awsKey = awsKey;

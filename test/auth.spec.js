@@ -38,7 +38,7 @@ function testV2ToSign(t, request, amzHeaders, addConfig, evapConfig) {
       .then(function () {
         var qp = params(testRequests[t.context.testId][2].url),
             h = Object.assign({}, amzHeaders, {testId: t.context.testId, 'x-amz-date': qp.datetime}),
-            r = Object.assign({}, request, {x_amz_headers: h}),
+            r = Object.assign({}, request, {x_amz_headers: h, contentType: (addConfig ? addConfig.contentType : undefined)}),
             expected = encodeURIComponent(stringToSignV2('/' + AWS_BUCKET + '/' + t.context.config.name +
                 '?partNumber=1&uploadId=Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--', 'PUT', r))
 
@@ -221,6 +221,12 @@ test.beforeEach((t) =>{
 
 test('should correctly create V2 string to sign for PUT', (t) => {
   return testV2ToSign(t)
+      .then(function (result) {
+        expect(result.result).to.equal(result.expected)
+      })
+})
+test('should correctly create V2 string to sign with contentType', (t) => {
+  return testV2ToSign(t, {}, {}, {contentType: 'video/mp4'})
       .then(function (result) {
         expect(result.result).to.equal(result.expected)
       })
