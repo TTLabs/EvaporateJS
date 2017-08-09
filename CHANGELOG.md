@@ -1,3 +1,9 @@
+# v2.1.3
+
+## Bug Fixes ##
+- Issue #375. Encodes asterisk (*) in file names to fix signature
+  mismatches.
+
 # v2.1.2
 
 ## Bug Fixes ##
