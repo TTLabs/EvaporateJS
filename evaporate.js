@@ -1381,7 +1381,13 @@
       if (self.con.computeContentMd5 && !part.md5_digest) {
         self.getPayload()
             .then(function (data) {
-              var md5_digest = self.con.cryptoMd5Method(data);
+              try {
+                var md5_digest = self.con.cryptoMd5Method(data);
+              }
+              catch(e) {
+                reject(e);
+                return;
+              }
               if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
                 self.fileUpload.firstMd5Digest = md5_digest;
                 self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
@@ -1419,7 +1425,7 @@
           .then(function () {
             l.d('Sending', self.request.step);
             SignedS3AWSRequest.prototype.send.call(self);
-          });
+		}, console.error);
     }
   };
   PutPart.prototype.success = function () {
