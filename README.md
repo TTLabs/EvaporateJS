@@ -80,7 +80,7 @@ return Evaporate.create(config)
           overrides = {
             bucket: AWS_BUCKET // Shows that the bucket can be changed per
           };
-      evaporate.add(addConfig, overrrides)
+      evaporate.add(addConfig, overrides)
           .then(function (awsObjectKey) {
                 console.log('File successfully uploaded to:', awsObjectKey);
               },
