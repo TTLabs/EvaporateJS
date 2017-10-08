@@ -21,6 +21,8 @@
 (function () {
   "use strict";
 
+  var Promise = require("es6-promise-polyfill").Promise;
+
   var FAR_FUTURE = new Date('2060-10-22'),
       HOURS_AGO,
       PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30,
@@ -453,12 +455,11 @@
     this.evaporate = evaporate;
     this.localTimeOffset = evaporate.localTimeOffset;
     this.deferredCompletion = defer();
+    this.signParams = con.signParams;
 
     extend(this, file);
 
     this.id = decodeURIComponent(this.con.bucket + '/' + this.name);
-
-    this.signParams = con.signParams;
   }
   FileUpload.prototype.con = undefined;
   FileUpload.prototype.evaporate = undefined;
@@ -750,7 +751,7 @@
           fileType: this.file.type,
           lastModifiedDate: dateISOString(this.file.lastModified),
           partSize: this.con.partSize,
-          signParams: this.con.signParams,
+          signParams: this.signParams || this.con.signParams,
           createdAt: new Date().toISOString()
         };
     saveUpload(fileKey, newUpload);
@@ -1365,6 +1366,10 @@
       contentSha256: "UNSIGNED-PAYLOAD",
       onProgress: this.onProgress.bind(this)
     };
+
+    if(/Edge\/\d+/.test(navigator.userAgent) && fileUpload.contentType) {
+      request.contentType = fileUpload.contentType;
+    }
 
     SignedS3AWSRequest.call(this, fileUpload, request);
   }
