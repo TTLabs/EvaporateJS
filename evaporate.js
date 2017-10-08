@@ -623,6 +623,7 @@
     this.status = PAUSING;
     if (force) {
       this.abortParts(true);
+      this.status = PAUSED;
     } else {
       promises = this.partsInProcess.map(function (p) {
         return this.s3Parts[p].awsRequest.awsDeferred.promise
