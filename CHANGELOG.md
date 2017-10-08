@@ -1,3 +1,9 @@
+# v2.1.4
+
+## Bug Fixes ##
+- Issue #377. Sends Content-Type header for all request types to address
+  compatibility issue with Microsoft Edge.
+
 # v2.1.3
 
 ## Bug Fixes ##
