@@ -1210,6 +1210,20 @@
     return [ABORTED, CANCELED].indexOf(this.fileUpload.status) > -1;
   };
 
+  function CancelableS3MultipartRequest(fileUpload, request) {
+    CancelableS3AWSRequest.call(this, fileUpload, request);
+  }
+  CancelableS3MultipartRequest.prototype = Object.create(CancelableS3AWSRequest.prototype);
+  CancelableS3MultipartRequest.prototype.constructor = CancelableS3MultipartRequest;
+  CancelableS3MultipartRequest.prototype.send = function () {
+    if (this.fileUpload.numParts === 1 && this.con.enablePartSizeOptimization) {
+      this.awsDeferred.resolve();
+    } else {
+      this.trySend();
+    }
+    return this.awsDeferred.promise;
+  };
+
   function SignedS3AWSRequestWithRetryLimit(fileUpload, request, maxRetries) {
     if (maxRetries > -1) {
       this.maxRetries = maxRetries;
@@ -1244,10 +1258,10 @@
       response_match: '<UploadId>(.+)<\/UploadId>'
     };
 
-    CancelableS3AWSRequest.call(this, fileUpload, request);
+    CancelableS3MultipartRequest.call(this, fileUpload, request);
     this.awsKey = awsKey;
   }
-  InitiateMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
+  InitiateMultipartUpload.prototype = Object.create(CancelableS3MultipartRequest.prototype);
   InitiateMultipartUpload.prototype.constructor = InitiateMultipartUpload;
   InitiateMultipartUpload.prototype.success = function () {
     var match = this.currentXhr.response.match(new RegExp(this.request.response_match));
@@ -1268,9 +1282,9 @@
       x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtComplete,
       step: 'complete'
     };
-    CancelableS3AWSRequest.call(this, fileUpload, request);
+    CancelableS3MultipartRequest.call(this, fileUpload, request);
   }
-  CompleteMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
+  CompleteMultipartUpload.prototype = Object.create(CancelableS3MultipartRequest.prototype);
   CompleteMultipartUpload.prototype.constructor = CompleteMultipartUpload;
   CompleteMultipartUpload.prototype.getPayload = function () {
     return Promise.resolve(this.fileUpload.getCompletedPayload());
