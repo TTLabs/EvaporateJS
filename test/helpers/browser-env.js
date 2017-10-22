@@ -75,7 +75,8 @@ let requestMap = {
   'POST:uploads': 'initiate',
   'POST:uploadId': 'complete',
   'DELETE:uploadId': 'cancel',
-  'GET:uploadId': 'check for parts'
+  'GET:uploadId': 'check for parts',
+  'PUT': 'put object'
 }
 
 global.requestOrder = function (t) {
