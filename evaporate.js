@@ -1592,6 +1592,27 @@
   };
 
 
+  //http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
+  function PutObject(fileUpload, part) {
+    this.part = part;
+
+    this.partNumber = 1;
+    this.start = 0;
+    this.end = fileUpload.sizeBytes;
+
+    var request = {
+      method: 'PUT',
+      step: 'upload #' + this.partNumber,
+      x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtUpload,
+      onProgress: this.onProgress.bind(this)
+    };
+
+    SignedS3AWSRequest.call(this, fileUpload, request);
+  }
+  PutObject.prototype = Object.create(PutPart.prototype);
+  PutObject.prototype.constructor = PutObject;
+
+
   //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
   function DeleteMultipartUpload(fileUpload) {
     fileUpload.info('will attempt to abort the upload');
