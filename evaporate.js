@@ -460,6 +460,7 @@
     this.id = decodeURIComponent(this.con.bucket + '/' + this.name);
 
     this.signParams = con.signParams;
+    this.numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1; // issue #58
   }
   FileUpload.prototype.con = undefined;
   FileUpload.prototype.evaporate = undefined;
@@ -678,7 +679,6 @@
     });
   };
   FileUpload.prototype.makeParts = function (firstPart) {
-    this.numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1; // issue #58
     var partsDeferredPromises = [];
 
     var self = this;
