@@ -712,7 +712,7 @@
       } else {
         s3Part = this.makePart(part, PENDING, this.sizeBytes);
       }
-      s3Part.awsRequest = new PutPart(this, s3Part);
+      s3Part.awsRequest = this.numParts === 1 && this.con.enablePartSizeOptimization ?  new PutObject(this, s3Part) : new PutPart(this, s3Part);
       s3Part.awsRequest.awsDeferred.promise
           .then(resolve(s3Part), reject(s3Part));
 
@@ -863,7 +863,11 @@
         .send()
         .then(
             function (xhr) {
-              self.eTag = elementText(xhr.responseText, "ETag").replace(/&quot;/g, '"');
+              if (self.numParts === 1 && self.con.enablePartSizeOptimization) {
+                self.eTag = self.partsOnS3[0].eTag;
+              } else {
+                self.eTag = elementText(xhr.responseText, "ETag").replace(/&quot;/g, '"');
+              }
               self.completeUploadFile(xhr);
             });
   };
