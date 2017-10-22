@@ -60,6 +60,7 @@
       logging: true,
       maxConcurrentParts: 5,
       partSize: 6 * 1024 * 1024,
+      enablePartSizeOptimization: true,
       retryBackoffPower: 2,
       maxRetryBackoffSecs: 300,
       progressIntervalMS: 1000,
