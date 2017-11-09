@@ -1865,7 +1865,7 @@
             url = [con.signerUrl, '?to_sign=', stringToSign, '&datetime=', request.dateString];
         if (con.sendCanonicalRequestToSignerUrl) {
           url.push('&canonical_request=');
-          url.push(encodeURIComponent(awsRequest.canonicalRequest()));
+          url.push(encodeURIComponent(decodeURI(awsRequest.canonicalRequest())));
         }
         url = url.join("");
 
