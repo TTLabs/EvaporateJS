@@ -1976,6 +1976,7 @@
 
     try {
       p = new URL(href);
+      p.search = p.search || "";
     } catch (e) {
       p = document.createElement('a');
       p.href = href;
