@@ -222,7 +222,7 @@
         return reject('Missing file');
       }
       if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
-        return reject('File size too large. Maximum size allowed is ' + fileConfig.maxFileSize);
+        return reject('File size too large. Maximum size allowed is ' + readableFileSize(fileConfig.maxFileSize));
       }
       if (typeof file.name === 'undefined') {
         return reject('Missing attribute: name');
