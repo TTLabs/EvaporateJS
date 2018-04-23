@@ -22,7 +22,7 @@ app.listen(8080, '127.0.0.1', function () {
 });
 
 app.use('/sign_auth', function (req, res) {
-  
+
   const timestamp = req.query.datetime.substr(0, 8);
 
   const dateKey = hmac('AWS4' + process.env.AWS_SECRET, timestamp);
@@ -34,13 +34,13 @@ app.use('/sign_auth', function (req, res) {
 
 	console.log('Created signature "' + signature + '" from ' + req.query.to_sign);
 	res.send(signature);
-  
+
   // ===========
-  
+
   function hmac(key, string){
-    crypto.createHmac('sha256', key);
-      hmac.end(string);
-      return hmac.read();
+    const hmac = crypto.createHmac('sha256', key);
+    hmac.end(string);
+    return hmac.read();
   }
 });
 
