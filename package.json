@@ -63,11 +63,16 @@
     ]
   },
   "nyc": {
-    "include": ["evaporate.js"]
+    "include": [
+      "evaporate.js"
+    ]
   },
   "babel": {
     "presets": [
       "es2015"
     ]
+  },
+  "dependencies": {
+    "localforage": "^1.7.1"
   }
 }

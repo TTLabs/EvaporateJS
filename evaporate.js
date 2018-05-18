@@ -21,6 +21,8 @@
 (function () {
   "use strict";
 
+  var historyCache = require("localforage");
+
   var FAR_FUTURE = new Date('2060-10-22'),
       HOURS_AGO,
       PENDING = 0, EVAPORATING = 2, COMPLETE = 3, PAUSED = 4, CANCELED = 5, ERROR = 10, ABORTED = 20, PAUSING = 30,
@@ -50,6 +52,7 @@
         41: "%29", // )
         42: "%2A"  // *
       },
+      STORAGE_KEY = 'awsUploads',
       l;
 
   var Evaporate = function (config) {
@@ -124,7 +127,6 @@
     this.pendingFiles = {};
     this.queuedFiles = [];
     this.filesInProcess = [];
-    historyCache = new HistoryCache(this.config.mockLocalStorage);
   };
   Evaporate.create = function (config) {
     var evapConfig = extend({}, config);
@@ -559,6 +561,7 @@
   FileUpload.prototype.lastPartSatisfied = Promise.resolve('onStart');
 
   FileUpload.prototype.start = function () {
+    var self = this;
     this.status = EVAPORATING;
     this.startMonitor();
     this.started(this.id);
@@ -570,26 +573,26 @@
 
     var awsKey = this.name;
 
-    this.getUnfinishedFileUpload();
+    this.getUnfinishedFileUpload().then(function () {
+      var existenceOptimized = self.con.computeContentMd5 &&
+        self.con.allowS3ExistenceOptimization &&
+        typeof self.firstMd5Digest !== 'undefined' &&
+        typeof self.eTag !== 'undefined';
 
-    var existenceOptimized = this.con.computeContentMd5 &&
-            this.con.allowS3ExistenceOptimization &&
-            typeof this.firstMd5Digest !== 'undefined' &&
-            typeof this.eTag !== 'undefined';
-
-        if (this.uploadId) {
-          if (existenceOptimized) {
-            return this.reuseS3Object(awsKey)
-                .then(this.deferredCompletion.resolve)
-                .catch(this.uploadFileFromScratch.bind(this));
-          }
-
-          this.resumeInterruptedUpload()
-              .then(this._uploadComplete.bind(this))
-              .catch(this.uploadFileFromScratch.bind(this));
-        } else {
-          this.uploadFileFromScratch("");
+      if (self.uploadId) {
+        if (existenceOptimized) {
+          return self.reuseS3Object(awsKey)
+            .then(self.deferredCompletion.resolve)
+            .catch(self.uploadFileFromScratch.bind(self));
         }
+
+        self.resumeInterruptedUpload()
+          .then(self._uploadComplete.bind(self))
+          .catch(self.uploadFileFromScratch.bind(self));
+      } else {
+        self.uploadFileFromScratch("");
+      }
+    });
   };
   FileUpload.prototype.uploadFileFromScratch = function (reason) {
     if (ACTIVE_STATUSES.indexOf(this.status) === -1) { return; }
@@ -740,7 +743,7 @@
   };
 
   FileUpload.prototype.createUploadFile = function () {
-    if (this.status === ABORTED) { return; }
+    if (this.status === ABORTED) { return Promise.resolve(); }
     var fileKey = uploadKey(this),
         newUpload = {
           awsKey: this.name,
@@ -753,46 +756,62 @@
           signParams: this.con.signParams,
           createdAt: new Date().toISOString()
         };
-    saveUpload(fileKey, newUpload);
+
+    return saveUpload(fileKey, newUpload);
   };
   FileUpload.prototype.updateUploadFile = function (updates) {
-    var fileKey = uploadKey(this),
-        uploads = getSavedUploads(),
-        upload = extend({}, uploads[fileKey], updates);
-    saveUpload(fileKey, upload);
+    var fileKey = uploadKey(this);
+
+    return getSavedUploads().then(function (uploads) {
+      var upload = extend({}, uploads[fileKey], updates);
+
+      return saveUpload(fileKey, upload);
+    });
   };
   FileUpload.prototype.completeUploadFile = function (xhr) {
-    var uploads = getSavedUploads(),
-        upload = uploads[uploadKey(this)];
+    var self = this;
+    var fileKey = uploadKey(this);
 
-    if (typeof upload !== 'undefined') {
-      upload.completedAt = new Date().toISOString();
-      upload.eTag = this.eTag;
-      upload.firstMd5Digest = this.firstMd5Digest;
-      uploads[uploadKey(this)] = upload;
-      historyCache.setItem('awsUploads', JSON.stringify(uploads));
-    }
+    return getSavedUploads().then(function (uploads) {
+      var upload = uploads[fileKey];
 
-    this.complete(xhr, this.name, this.progessStats());
-    this.setStatus(COMPLETE);
-    this.onProgress();
+      if (typeof upload !== 'undefined') {
+        upload.completedAt = new Date().toISOString();
+        upload.eTag = self.eTag;
+        upload.firstMd5Digest = self.firstMd5Digest;
+        uploads[fileKey] = upload;
+
+        return historyCache.setItem(STORAGE_KEY, JSON.stringify(uploads));
+      }
+
+      return Promise.resolve();
+    }).then(function () {
+      self.complete(xhr, self.name, self.progessStats());
+      self.setStatus(COMPLETE);
+      self.onProgress();
+    });
   };
   FileUpload.prototype.removeUploadFile = function (){
     if (typeof this.file !== 'undefined') {
-      removeUpload(uploadKey(this));
+      return removeUpload(uploadKey(this));
     }
+
+    return Promise.resolve();
   };
   FileUpload.prototype.getUnfinishedFileUpload = function () {
-    var savedUploads = getSavedUploads(true),
-        u = savedUploads[uploadKey(this)];
+    var self = this;
 
-    if (this.canRetryUpload(u)) {
-      this.uploadId = u.uploadId;
-      this.name = u.awsKey;
-      this.eTag = u.eTag;
-      this.firstMd5Digest = u.firstMd5Digest;
-      this.signParams = u.signParams;
-    }
+    return getSavedUploads(true).then(function (uploads) {
+      var upload = uploads[uploadKey(self)];
+
+      if (self.canRetryUpload(upload)) {
+        self.uploadId = upload.uploadId;
+        self.name = upload.awsKey;
+        self.eTag = upload.eTag;
+        self.firstMd5Digest = upload.firstMd5Digest;
+        self.signParams = upload.signParams;
+      }
+    });
   };
   FileUpload.prototype.canRetryUpload = function (u) {
     // Must be the same file name, file size, last_modified, file type as previous upload
@@ -2042,25 +2061,30 @@
   }
 
   function getSavedUploads(purge) {
-    var uploads = JSON.parse(historyCache.getItem('awsUploads') || '{}');
+    return historyCache.getItem(STORAGE_KEY).then(function (json) {
+      var uploads = JSON.parse(json || '{}');
 
-    if (purge) {
-      for (var key in uploads) {
-        if (uploads.hasOwnProperty(key)) {
-          var upload = uploads[key],
+      if (purge) {
+        for (var key in uploads) {
+          if (uploads.hasOwnProperty(key)) {
+            var upload = uploads[key],
               completedAt = new Date(upload.completedAt || FAR_FUTURE);
 
-          if (completedAt < HOURS_AGO) {
-            // The upload is recent, let's keep it
-            delete uploads[key];
+            if (completedAt < HOURS_AGO) {
+              // The upload is recent, let's keep it
+              delete uploads[key];
+            }
           }
         }
+
+        return historyCache.setItem(STORAGE_KEY, JSON.stringify(uploads))
+          .then(function () {
+            return uploads;
+          });
       }
 
-      historyCache.setItem('awsUploads', JSON.stringify(uploads));
-    }
-
-    return uploads;
+      return uploads;
+    });
   }
 
   function uploadKey(fileUpload) {
@@ -2075,15 +2099,17 @@
   }
 
   function saveUpload(uploadKey, upload) {
-    var uploads = getSavedUploads();
-    uploads[uploadKey] = upload;
-    historyCache.setItem('awsUploads', JSON.stringify(uploads));
+    return getSavedUploads().then(function (uploads) {
+      uploads[uploadKey] = upload;
+      return historyCache.setItem(STORAGE_KEY, JSON.stringify(uploads));
+    });
   }
 
   function removeUpload(uploadKey) {
-    var uploads = getSavedUploads();
-    delete uploads[uploadKey];
-    historyCache.setItem('awsUploads', JSON.stringify(uploads));
+    return getSavedUploads().then(function (uploads) {
+      delete uploads[uploadKey];
+      return historyCache.setItem(STORAGE_KEY, JSON.stringify(uploads));
+    });
   }
 
   function removeAtIndex(a, i) {
@@ -2105,38 +2131,6 @@
     }
     return [size.toFixed(2).replace('.00', ''), units[i]].join(" ");
   }
-
-  var historyCache;
-  function HistoryCache(mockLocalStorage) {
-    var supported = HistoryCache.supported();
-    this.cacheStore = mockLocalStorage ? {} : (supported ? localStorage : undefined);
-  }
-  HistoryCache.prototype.supported = false;
-  HistoryCache.prototype.cacheStore = undefined;
-  HistoryCache.prototype.getItem = function (key) { if (this.cacheStore) { return this.cacheStore[key]; }};
-  HistoryCache.prototype.setItem = function (key, value) { if (this.cacheStore) { this.cacheStore[key] = value; }};
-  HistoryCache.prototype.removeItem = function (key) { if (this.cacheStore) { return delete this.cacheStore[key] }};
-  HistoryCache.supported = function () {
-    var result = false;
-    if (typeof window !== 'undefined') {
-      if (!('localStorage' in window)) {
-        return result;
-      }
-    } else {
-      return result;
-    }
-
-    // Try to use storage (it might be disabled, e.g. user is in private mode)
-    try {
-      var k = '___test';
-      localStorage[k] = 'OK';
-      var test = localStorage[k];
-      delete localStorage[k];
-      return test === 'OK';
-    } catch (e) {
-      return result;
-    }
-  };
 
   function noOpLogger() { return {d: function () {}, w: function () {}, e: function () {}}; }
 
