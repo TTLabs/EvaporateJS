@@ -1016,7 +1016,7 @@
     this.started = defer();
 
     this.awsUrl = awsUrl(this.con);
-    this.awsHost = uri(this.awsUrl).hostname;
+    this.awsHost = uri(this.awsUrl).host;
 
     var r = extend({}, request);
     if (fileUpload.contentType) {
