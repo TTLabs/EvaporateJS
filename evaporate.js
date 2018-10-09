@@ -20,6 +20,7 @@
 
 (function () {
   "use strict";
+  var circular = require( 'circular-json' );
 
   var FAR_FUTURE = new Date('2060-10-22'),
       HOURS_AGO,
@@ -770,7 +771,7 @@
       upload.eTag = this.eTag;
       upload.firstMd5Digest = this.firstMd5Digest;
       uploads[uploadKey(this)] = upload;
-      historyCache.setItem('awsUploads', JSON.stringify(uploads));
+      historyCache.setItem('awsUploads', circular.stringify(uploads));
     }
 
     this.complete(xhr, this.name, this.progessStats());
@@ -2057,7 +2058,7 @@
         }
       }
 
-      historyCache.setItem('awsUploads', JSON.stringify(uploads));
+      historyCache.setItem('awsUploads', circular.stringify(uploads));
     }
 
     return uploads;
@@ -2077,13 +2078,13 @@
   function saveUpload(uploadKey, upload) {
     var uploads = getSavedUploads();
     uploads[uploadKey] = upload;
-    historyCache.setItem('awsUploads', JSON.stringify(uploads));
+    historyCache.setItem('awsUploads', circular.stringify(uploads));
   }
 
   function removeUpload(uploadKey) {
     var uploads = getSavedUploads();
     delete uploads[uploadKey];
-    historyCache.setItem('awsUploads', JSON.stringify(uploads));
+    historyCache.setItem('awsUploads', circular.stringify(uploads));
   }
 
   function removeAtIndex(a, i) {
