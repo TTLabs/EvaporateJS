@@ -63,11 +63,16 @@
     ]
   },
   "nyc": {
-    "include": ["evaporate.js"]
+    "include": [
+      "evaporate.js"
+    ]
   },
   "babel": {
     "presets": [
       "es2015"
     ]
+  },
+  "dependencies": {
+    "circular-json": "^0.5.7"
   }
 }
