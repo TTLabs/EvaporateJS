@@ -1555,6 +1555,7 @@
     // 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end).
     // As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See
     // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
+    var that = this;
     var file = this.fileUpload.file,
         slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice')),
         blob = file[slicerFn](this.start, this.end);
@@ -1565,6 +1566,9 @@
           var buffer = this.result && typeof this.result.buffer !== 'undefined',
               result = buffer ? new Uint8Array(this.result.buffer) : this.result;
           resolve(result);
+        };
+        reader.onerror = function() {
+        	that.fileUpload.error("Problem occured while reading file " + file.name);
         };
         reader.readAsArrayBuffer(blob);
       });
