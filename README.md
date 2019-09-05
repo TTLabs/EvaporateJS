@@ -50,7 +50,7 @@ $ npm install evaporate
 Otherwise, include it in your HTML:
 
 ```html
-<script language="javascript" type="text/javascript" src="../evaporate.js"></script>
+<script src="evaporate.js"></script>
 ```
 
 ## Example
