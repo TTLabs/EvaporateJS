@@ -1,0 +1,14 @@
+{
+  "name": "evaporate-codemod",
+  "version": "0.0.1",
+  "description": "Fork with an automatic refactor based on an AST. EvaporateJS is a Javascript library for browser to S3 multipart resumable uploads",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "author": "Matheus Moreira",
+  "license": "MIT",
+  "devDependencies": {
+    "recast": "^0.18.5"
+  }
+}
