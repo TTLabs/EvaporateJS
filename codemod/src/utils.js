@@ -74,9 +74,16 @@ const buildMemberExpression = config => new recast.types.NodePath(
 
 function createNodePrefix(traversedPaths, scope, identifiers, path) {
   const { name } = path.value;
-  const { name: parentPathObjectName } = path.parentPath.value.object || {};
 
-  if (!identifiers.includes(name) || parentPathObjectName === scope) {
+  const { object: parentPathObject = {} } = path.parentPath.value;
+
+  const shouldSkip = (
+    !identifiers.includes(name) 
+    || parentPathObject.name === scope
+    || path.parentPath.name === 'params'
+  )
+
+  if (shouldSkip) {
     return this.traverse(path)
   }
 
