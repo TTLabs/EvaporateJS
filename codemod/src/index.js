@@ -31,7 +31,7 @@ Files
   .map((filename, i) => {
     const fileAST = Files.getFileAST(filename)
 
-    const globalPrefixedIdentifiers = filename !== 'Global' ? Utils.replaceGlobalIdentifier(fileAST) : [];
+    const globalPrefixedIdentifiers = filename !== 'Global' ? Utils.addGlobalPrefix(fileAST) : [];
     
     const requires = Imports.getRequires({
       filename,

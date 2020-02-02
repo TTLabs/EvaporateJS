@@ -76,7 +76,7 @@ function createNodePrefix(traversedPaths, scope, identifiers, path) {
   this.traverse(path)
 }
 
-function replaceGlobalIdentifier(fileAST) {
+function addGlobalPrefix(fileAST) {
   const globalAST = Files.getFileAST('Global')[0];
 
   const globalNodes = globalAST.program.body.filter(node => 
@@ -85,19 +85,19 @@ function replaceGlobalIdentifier(fileAST) {
   )
   .map(node => node.expression.left.property.name)
 
-  const traversedPaths = {}
+  const prefixedIdentifiers = {}
 
-  function addGlobalPrefix(path) {
-    createNodePrefix.call(this, traversedPaths, 'Global', globalNodes, path)
+  function prefix(path) {
+    createNodePrefix.call(this, prefixedIdentifiers, 'Global', globalNodes, path)
   }
 
   recast.types.visit(fileAST, {
-    visitIdentifier: addGlobalPrefix
+    visitIdentifier: prefix
   })
 
-  return Object.keys(traversedPaths);
+  return Object.keys(prefixedIdentifiers);
 }
 
-module.exports.replaceGlobalIdentifier = replaceGlobalIdentifier;
+module.exports.addGlobalPrefix = addGlobalPrefix;
 module.exports.collectIdentifiers = collectIdentifiers;
 module.exports.collectClasses = collectClasses;
