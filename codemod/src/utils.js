@@ -2,15 +2,6 @@ const Files = require('./files');
 
 const recast = require('recast');
 
-const getFileFunctions = file => Files
-  .getFileAST(file)
-  .map(func => func.id.name);
-
-const getConstants = () => Files
-  .getFileAST('Constants')
-  .map(variable => variable.declarations[0])
-  .map(variable => variable.id.name);
-
 function collectIdentifiers(ast, identifiers) {
   const existingIdentifiers = new Set();
 
@@ -32,6 +23,30 @@ function collectIdentifiers(ast, identifiers) {
   return Array.from(existingIdentifiers);
 }
 
+function collectClasses(ast) {
+  const IGNORED_CLASSES = ['Date', 'Promise', 'XMLHttpRequest']
+
+  const existingClasses = new Set()
+
+  function visitClassDeclaration(path) {
+    const { superClass } = path.value;
+    superClass && existingClasses.add(superClass.name);
+    
+    return this.traverse(path);
+  }
+
+  function visitNewExpression(path) {
+    existingClasses.add(path.value.callee.name)
+    return this.traverse(path);
+  }
+
+  recast.visit(ast, { visitClassDeclaration, visitNewExpression }) 
+
+  return Array.from(existingClasses)
+    .filter(Boolean)
+    .filter(existing => !IGNORED_CLASSES.includes(existing));
+}
+
 const buildMemberExpression = config => new recast.types.NodePath(
   recast.types.builders.memberExpression(
     recast.types.builders.identifier(config.object),
@@ -43,8 +58,9 @@ const buildMemberExpression = config => new recast.types.NodePath(
 
 function createNodePrefix(traversedPaths, scope, identifiers, path) {
   const { name } = path.value;
+  const { name: parentPathObjectName } = path.parentPath.value.object || {};
 
-  if (!identifiers.includes(name) || Boolean(traversedPaths[name])) {
+  if (!identifiers.includes(name) || parentPathObjectName === scope) {
     return this.traverse(path)
   }
 
@@ -76,52 +92,10 @@ function replaceGlobalIdentifier(fileAST) {
   }
 
   recast.types.visit(fileAST, {
-    visitIdentifier: addGlobalPrefix,
-    // visitMemberExpression: addGlobalPrefix,
+    visitIdentifier: addGlobalPrefix
   })
-}
-
-function importUtils(filename, ast) {
-  if (filename === 'Utils') {
-    return '';
-  }
-
-  const utilFunctions = getFileFunctions('Utils');
-
-  return collectIdentifiers(ast, utilFunctions);
-}
-
-function importConstants(filename, ast) {
-  if (filename === 'Constants') {
-    return '';
-  }
-
-  const constants = getConstants();
-  return collectIdentifiers(ast, constants);
-}
-
-function formatRequires(filename, requires) {
-  if (requires.length === 0) {
-    return '';
-  }
-
-  return `const { ${requires.join(', ')} } = require('./${filename}');\n`;
-}
-
-function getRequires(filename, ast) {
-  const utils = importUtils(filename, ast);
-  const constants = importConstants(filename, ast);
-
-  const requires = [
-    formatRequires('Constants', constants),
-    formatRequires('Utils', utils)
-  ]
-  .filter(Boolean)
-  .join('');
-
-  return `${requires}\n`;
 }
 
 module.exports.replaceGlobalIdentifier = replaceGlobalIdentifier;
 module.exports.collectIdentifiers = collectIdentifiers;
-module.exports.getRequires = getRequires;
+module.exports.collectClasses = collectClasses;

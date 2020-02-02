@@ -6,9 +6,11 @@ const recast = require('recast');
 
 const TransformersMap = require('./transformers');
 const Files = require('./files');
-const Utils = require('../utils');
+const Utils = require('./utils');
+const Imports = require('./imports');
 
-const code = fs.readFileSync('../../evaporate.js');
+// const code = fs.readFileSync('../evaporate.js');
+const code = fs.readFileSync('./examples/example-1.js');
 
 const ast = recast.parse(code);
 const body = ast.program.body[0];
@@ -33,7 +35,7 @@ Files
       Utils.replaceGlobalIdentifier(fileAST);
     }
     
-    const requires = Utils.getRequires(filename, fileAST);
+    const requires = Imports.getRequires(filename, fileAST);
 
     let code = fileAST
       .map(statement => recast.prettyPrint(statement, { tabWidth: 2 }).code)
