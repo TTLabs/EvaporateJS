@@ -31,11 +31,13 @@ Files
   .map((filename, i) => {
     const fileAST = Files.getFileAST(filename)
 
-    if (filename !== 'Global') {
-      Utils.replaceGlobalIdentifier(fileAST);
-    }
+    const globalPrefixedIdentifiers = filename !== 'Global' ? Utils.replaceGlobalIdentifier(fileAST) : [];
     
-    const requires = Imports.getRequires(filename, fileAST);
+    const requires = Imports.getRequires({
+      filename,
+      fileAST,
+      hasGlobal: Boolean(globalPrefixedIdentifiers.length) 
+    });
 
     let code = fileAST
       .map(statement => recast.prettyPrint(statement, { tabWidth: 2 }).code)

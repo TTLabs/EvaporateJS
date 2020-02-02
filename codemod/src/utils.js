@@ -94,6 +94,8 @@ function replaceGlobalIdentifier(fileAST) {
   recast.types.visit(fileAST, {
     visitIdentifier: addGlobalPrefix
   })
+
+  return Object.keys(traversedPaths);
 }
 
 module.exports.replaceGlobalIdentifier = replaceGlobalIdentifier;

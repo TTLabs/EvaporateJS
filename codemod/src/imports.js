@@ -42,7 +42,7 @@ function formatDefaultRequire(require) {
   return `const ${require} = require('./${require}');\n`;
 }
 
-function getRequires(filename, ast) {
+function getRequires({ filename, ast, hasGlobal }) {
   const utils = importUtils(filename, ast);
   const constants = importConstants(filename, ast);  
 
@@ -52,6 +52,7 @@ function getRequires(filename, ast) {
 
   const requires = [
     ...requireClasses,
+    hasGlobal && formatDefaultRequire('Global'),
     formatNamedRequire('Constants', constants),
     formatNamedRequire('Utils', utils)
   ]
