@@ -2,7 +2,7 @@ import chai, { expect } from 'chai'
 import chaiSinon from 'sinon-chai'
 import sinon from 'sinon'
 import test from 'ava'
-import Evaporate from '../evaporate'
+import { Evaporate } from '../codemod/output/Evaporate';
 
 chai.use(chaiSinon)
 
