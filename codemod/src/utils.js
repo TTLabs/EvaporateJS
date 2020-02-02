@@ -2,6 +2,15 @@ const Files = require('./files');
 
 const recast = require('recast');
 
+const getFileFunctions = file => Files
+  .getFileAST(file)
+  .map(func => func.id.name);
+
+const getConstants = () => Files
+  .getFileAST('Constants')
+  .map(variable => variable.declarations[0])
+  .map(variable => variable.id.name);
+
 function collectIdentifiers(ast, identifiers) {
   const existingIdentifiers = new Set();
 
@@ -99,5 +108,8 @@ function addGlobalPrefix(fileAST) {
 }
 
 module.exports.addGlobalPrefix = addGlobalPrefix;
+
 module.exports.collectIdentifiers = collectIdentifiers;
 module.exports.collectClasses = collectClasses;
+module.exports.getFileFunctions = getFileFunctions;
+module.exports.getConstants = getConstants;

@@ -1,15 +1,6 @@
 const Files = require('./files');
 
-const { collectIdentifiers, collectClasses } = require('./utils');
-
-const getFileFunctions = file => Files
-  .getFileAST(file)
-  .map(func => func.id.name);
-
-const getConstants = () => Files
-  .getFileAST('Constants')
-  .map(variable => variable.declarations[0])
-  .map(variable => variable.id.name);
+const { collectIdentifiers, collectClasses, getConstants, getFileFunctions } = require('./utils');
 
 function importUtils(filename, ast) {
   if (filename === 'Utils') {
@@ -38,8 +29,8 @@ function formatNamedRequire(filename, requires) {
   return `const { ${requires.join(', ')} } = require('./${filename}');\n`;
 }
 
-function formatDefaultRequire(require) {
-  return `const ${require} = require('./${require}');\n`;
+function formatSingleRequire(require) {
+  return `const { ${require} } = require('./${require}');\n`;
 }
 
 function getRequires({ filename, ast, hasGlobal }) {
@@ -48,11 +39,11 @@ function getRequires({ filename, ast, hasGlobal }) {
 
   const requireClasses = collectClasses(ast)
     .filter(collected => collected !== filename)
-    .map(formatDefaultRequire);
+    .map(formatSingleRequire);
 
   const requires = [
     ...requireClasses,
-    hasGlobal && formatDefaultRequire('Global'),
+    hasGlobal && formatSingleRequire('Global'),
     formatNamedRequire('Constants', constants),
     formatNamedRequire('Utils', utils)
   ]

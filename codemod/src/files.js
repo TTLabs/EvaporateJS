@@ -1,6 +1,7 @@
 const recast = require('recast');
 
 const Utils = require('./utils');
+const Exports = require('./exports');
 
 const Files = {
   Utils: new Set(),
@@ -22,8 +23,6 @@ const getGlobalFile = () => {
     const Global = {};
 
     ${variables}
-    
-    module.exports.Global = Global;
   `
 }
 
@@ -47,6 +46,4 @@ module.exports.getFileAST = (filename) => {
   return Array.from(Files[filename]);
 }
 
-module.exports.getFilenames = () => {
-  return Object.keys(Files);
-}
+module.exports.getFilenames = () => Object.keys(Files)

@@ -8,6 +8,7 @@ const TransformersMap = require('./transformers');
 const Files = require('./files');
 const Utils = require('./utils');
 const Imports = require('./imports');
+const Exports = require('./exports');
 
 // const code = fs.readFileSync('../evaporate.js');
 const code = fs.readFileSync('./examples/example-1.js');
@@ -39,11 +40,13 @@ Files
       hasGlobal: Boolean(globalPrefixedIdentifiers.length) 
     });
 
+    const exports = Exports.getExports(filename)
+
     let code = fileAST
       .map(statement => recast.prettyPrint(statement, { tabWidth: 2 }).code)
       .join('\n');
-
-    code = `${requires}${code}`;
+    
+    code = `${requires}${code}\n${exports}`;
 
     return { code, filename }
   })
