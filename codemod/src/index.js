@@ -4,16 +4,38 @@
 const fs = require('fs');
 const recast = require('recast');
 
+const { transform: lebabTransform } = require('lebab');
+
 const TransformersMap = require('./transformers');
 const Files = require('./files');
 const Utils = require('./utils');
 const Imports = require('./imports');
 const Exports = require('./exports');
 
-// const code = fs.readFileSync('../evaporate.js');
-const code = fs.readFileSync('./examples/example-1.js');
+const rawCode = fs.readFileSync('../evaporate.js').toString();
 
-const ast = recast.parse(code);
+const transformsToApply = [
+  "arrow",
+  "arrow-return",
+  "for-of",
+  "for-each",
+  "arg-rest",
+  "obj-method",
+  "obj-shorthand",
+  "no-strict",
+  "exponent",
+  "multi-var",
+  "let",
+  "class",
+  "commonjs",
+  "template",
+  "default-param",
+  "includes"
+]
+
+const { code: es6Code } = lebabTransform(rawCode, transformsToApply);
+
+const ast = recast.parse(es6Code);
 const body = ast.program.body[0];
 const blockStatement = body.expression.callee.body;
 

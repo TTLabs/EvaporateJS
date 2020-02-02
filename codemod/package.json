@@ -9,6 +9,7 @@
   "author": "Matheus Moreira",
   "license": "MIT",
   "devDependencies": {
+    "lebab": "^3.1.0",
     "recast": "^0.18.5"
   }
 }
