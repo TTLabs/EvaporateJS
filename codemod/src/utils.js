@@ -39,7 +39,8 @@ function collectClasses(ast) {
     'XMLHttpRequest', 
     'Uint8Array', 
     'RegExp',
-    'FileReader'
+    'FileReader',
+    'URL'
   ]
 
   const existingClasses = new Set()
