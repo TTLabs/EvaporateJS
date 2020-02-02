@@ -33,11 +33,11 @@ function formatSingleRequire(require) {
   return `const { ${require} } = require('./${require}');\n`;
 }
 
-function getRequires({ filename, ast, hasGlobal }) {
-  const utils = importUtils(filename, ast);
-  const constants = importConstants(filename, ast);  
+function getRequires({ filename, fileAST, hasGlobal }) {
+  const utils = importUtils(filename, fileAST);
+  const constants = importConstants(filename, fileAST);  
 
-  const requireClasses = collectClasses(ast)
+  const requireClasses = collectClasses(fileAST)
     .filter(collected => collected !== filename)
     .map(formatSingleRequire);
 
