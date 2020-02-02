@@ -33,7 +33,14 @@ function collectIdentifiers(ast, identifiers) {
 }
 
 function collectClasses(ast) {
-  const IGNORED_CLASSES = ['Date', 'Promise', 'XMLHttpRequest']
+  const IGNORED_CLASSES = [
+    'Date', 
+    'Promise', 
+    'XMLHttpRequest', 
+    'Uint8Array', 
+    'RegExp',
+    'FileReader'
+  ]
 
   const existingClasses = new Set()
 
