@@ -1,10 +1,10 @@
 const Utils = require('./utils');
 
 const formatExports = (exports) => exports
-  .map(itemExport => `module.exports.${itemExport} = ${itemExport};`)
-  .join('\n');
+  .map(itemExport => `${itemExport}`)
+  .join(',\n');
 
-module.exports.getExports = (filename) => {
+const getFormatedExports = (filename) => {
   if (filename === 'Utils') {
     return formatExports(Utils.getFileFunctions(filename))
   }
@@ -14,4 +14,8 @@ module.exports.getExports = (filename) => {
   }
 
   return formatExports([filename]);
+}
+
+module.exports.getExports = (filename) => {
+  return `\nexport {\n${getFormatedExports(filename)}\n};`
 }

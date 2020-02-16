@@ -26,11 +26,11 @@ function formatNamedRequire(filename, requires) {
     return '';
   }
 
-  return `const { ${requires.join(', ')} } = require('./${filename}');\n`;
+  return `import { ${requires.join(', ')} } from './${filename}';\n`;
 }
 
 function formatSingleRequire(require) {
-  return `const { ${require} } = require('./${require}');\n`;
+  return `import { ${require} } from './${require}';\n`;
 }
 
 function getRequires({ filename, fileAST, hasGlobal }) {
