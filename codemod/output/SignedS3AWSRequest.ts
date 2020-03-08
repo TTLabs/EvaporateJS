@@ -192,7 +192,7 @@ class SignedS3AWSRequest {
         xhr.setRequestHeader("Content-MD5", self.request.md5_digest);
       }
 
-      xhr.onerror = xhr => {
+      xhr.onerror = ev => {
         const reason = xhr.responseText
           ? getAwsResponse(xhr)
           : "transport error";

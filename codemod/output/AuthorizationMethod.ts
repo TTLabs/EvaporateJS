@@ -80,7 +80,7 @@ class AuthorizationMethod {
         }
       };
 
-      xhr.onerror = xhr => {
+      xhr.onerror = ev => {
         reject(`authorizedSend transport error: ${xhr.responseText}`);
       };
 

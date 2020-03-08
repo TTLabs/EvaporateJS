@@ -516,7 +516,7 @@ Evaporate.getLocalTimeOffset = config =>
         }
       };
 
-      xhr.onerror = xhr => {
+      xhr.onerror = ev => {
         Global.l.e("xhr error timeUrl", xhr);
         reject(`Fetching offset time failed with status: ${xhr.status}`);
       };
