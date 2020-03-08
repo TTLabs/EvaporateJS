@@ -23,7 +23,7 @@ class PutPart extends SignedS3AWSRequest {
   static size: number;
 
   constructor(fileUpload, part) {
-    super(fileUpload, request);
+    super(fileUpload);
 
     this.part = part;
     this.partNumber = part.partNumber;
@@ -43,6 +43,7 @@ class PutPart extends SignedS3AWSRequest {
       onProgress: this.onProgress.bind(this)
     };
 
+    this.updateRequest(request);
   }
 
   getPartMd5Digest() {
@@ -313,12 +314,7 @@ class PutPart extends SignedS3AWSRequest {
         const reader = new FileReader();
 
         reader.onloadend = function() {
-          const buffer =
-            this.result && typeof this.result.buffer !== "undefined";
-          const result = buffer
-            ? new Uint8Array(this.result.buffer)
-            : this.result;
-          resolve(result);
+          resolve(this.result);
         };
 
         reader.readAsArrayBuffer(blob);

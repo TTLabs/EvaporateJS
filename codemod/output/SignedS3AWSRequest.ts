@@ -24,7 +24,7 @@ class SignedS3AWSRequest {
 	public currentXhr: any;
 	public payloadPromise: any;
 
-  constructor(fileUpload, request) {
+  constructor(fileUpload, request?) {
     this.fileUpload = fileUpload;
     this.con = fileUpload.con;
     this.attempts = 1;
