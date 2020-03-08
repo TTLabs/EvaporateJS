@@ -4,6 +4,8 @@
   "description": "Fork with an automatic refactor based on an AST. EvaporateJS is a Javascript library for browser to S3 multipart resumable uploads",
   "main": "src/index.js",
   "scripts": {
+    "clean": "rm ./output/* || true",
+    "prestart": "npm run clean",
     "start": "node src/index.js"
   },
   "author": "Matheus Moreira",
