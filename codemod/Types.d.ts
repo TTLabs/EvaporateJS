@@ -1,7 +1,7 @@
 export {};
 
 declare global {
-  interface Blob extends Blob {
+  interface Blob {
     webkitSlice
     mozSlice
   }
