@@ -4,6 +4,7 @@
 const fs = require('fs');
 const util = require('util');
 const recast = require('recast');
+const prettier = require('prettier');
 const { convertJsToTs } = require('js-to-ts-converter');
 
 const promWriteFile = util.promisify(fs.writeFile)
@@ -60,13 +61,15 @@ const transformedFiles = Files
     return { code, filename }
   })
 
-const writeFiles = ({ code, filename }) => promWriteFile(`./output/${filename}.js`, code)
+const prettifyFile = ({ code, ...params }) => ({ code: prettier.format(code), ...params });
+const writeFile = ({ code, filename }) => promWriteFile(`./output/${filename}.js`, code)
   
 const execute = async () => {
-  const writtenFiles = transformedFiles.map(writeFiles)
+  const prettifiedFiles = transformedFiles.map(prettifyFile)
+  const writtenFiles = prettifiedFiles.map(writeFile)
   
   await Promise.all(writtenFiles);
-  // await convertJsToTs('./output')
+  await convertJsToTs('./output')
 }
 
 execute();

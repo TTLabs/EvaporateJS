@@ -14,5 +14,8 @@
     "js-to-ts-converter": "^0.16.3",
     "lebab": "^3.1.0",
     "recast": "^0.18.5"
+  },
+  "dependencies": {
+    "prettier": "^1.19.1"
   }
 }
