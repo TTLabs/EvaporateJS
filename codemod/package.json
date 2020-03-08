@@ -2,7 +2,7 @@
   "name": "evaporate-codemod",
   "version": "0.0.1",
   "description": "Fork with an automatic refactor based on an AST. EvaporateJS is a Javascript library for browser to S3 multipart resumable uploads",
-  "main": "src/index.js",
+  "main": "dist/bundle.js",
   "scripts": {
     "clean": "rm ./output/* || true",
     "prestart": "npm run clean",
