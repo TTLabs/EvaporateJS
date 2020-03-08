@@ -27,7 +27,7 @@ function collectClassesDeclaration(ast) {
   const declaredClasses = new Set();
 
   function visitClassDeclaration(path) {
-    declaredClasses.add(path.value)
+    declaredClasses.add(path)
 
     return this.traverse(path);
   }

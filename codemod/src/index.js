@@ -18,7 +18,7 @@ const { addGlobalPrefix } = require('./utils');
 const { collectClassesDeclaration } = require('./collector');
 
 const { 
-  ExecuteTransformerMap, 
+  transformNodeType, 
   transformerClassDeclaration,
   transformES6
 } = require('./transformer');
@@ -33,16 +33,8 @@ const ast = recast.parse(es6Code);
 const body = ast.program.body[0];
 const blockStatement = body.expression.callee.body;
 
-const executeTransformer = item => {
-  const itemTypeTransformer = ExecuteTransformerMap[item.type];
-
-  return itemTypeTransformer && itemTypeTransformer(item);
-}
-
-const mapClasses = collectClassesDeclaration(blockStatement.body);
-Array.from(mapClasses).forEach(transformerClassDeclaration)
-
-blockStatement.body.forEach(executeTransformer)
+transformerClassDeclaration(blockStatement.body);
+blockStatement.body.forEach(transformNodeType)
 
 const transformedFiles = Files
   .getFilenames()
@@ -74,7 +66,7 @@ const execute = async () => {
   const writtenFiles = transformedFiles.map(writeFiles)
   
   await Promise.all(writtenFiles);
-  await convertJsToTs('./output')
+  // await convertJsToTs('./output')
 }
 
 execute();
