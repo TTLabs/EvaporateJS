@@ -1,13 +1,3 @@
-const IgnoredNewExpressions = [
-  'Date', 
-  'Promise', 
-  'XMLHttpRequest', 
-  'Uint8Array', 
-  'RegExp',
-  'FileReader',
-  'URL'
-]
-
 const TransformsToApply = [
   "arrow",
   "arrow-return",
@@ -28,4 +18,3 @@ const TransformsToApply = [
 ];
 
 module.exports.TransformsToApply = TransformsToApply;
-module.exports.IgnoredNewExpressions = IgnoredNewExpressions;

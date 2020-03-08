@@ -1,6 +1,6 @@
 const recast = require('recast');
 
-const { IgnoredNewExpressions } = require('./constants');
+const { getFilenames } = require('./files');
 
 function collectIdentifiers(ast, identifiers) {
   const existingIdentifiers = new Set();
@@ -39,8 +39,13 @@ function collectClassesDeclaration(ast) {
 
 function collectClassesUsage(ast) {
   const usedClasses = new Set();
+  const existingFilenames = getFilenames();
 
-  const addUsedClass = name => !IgnoredNewExpressions.includes(name) && usedClasses.add(name);
+  const addUsedClass = name => {
+    if (existingFilenames.includes(name)) {
+      usedClasses.add(name);
+    }
+  }
   
   function visitClassDeclaration(path) {
     const { superClass } = path.value;
