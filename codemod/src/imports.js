@@ -1,6 +1,11 @@
 const Files = require('./files');
 
-const { collectIdentifiers, collectClasses, getConstants, getFileFunctions } = require('./utils');
+const { 
+  collectIdentifiers,
+  collectClassesUsage,
+  getConstants,
+  getFileFunctions 
+} = require('./utils');
 
 function importUtils(filename, ast) {
   if (filename === 'Utils') {
@@ -37,7 +42,7 @@ function getRequires({ filename, fileAST, hasGlobal }) {
   const utils = importUtils(filename, fileAST);
   const constants = importConstants(filename, fileAST);  
 
-  const requireClasses = collectClasses(fileAST)
+  const requireClasses = collectClassesUsage(fileAST)
     .filter(collected => collected !== filename)
     .map(formatSingleRequire);
 

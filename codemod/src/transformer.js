@@ -1,9 +1,12 @@
 const { types } = require('recast');
+const { transform: lebabTransform } = require('lebab');
 
 const Files = require('./files');
 const Utils = require('./utils');
 
-function transformerVariableDeclaration(item) {
+const Constants = require('./constants');
+
+const transformerVariableDeclaration = function (item) {
   if (item.kind === 'const') {
     return Files.setNodeItem('Constants', item)
   } else {
@@ -11,15 +14,15 @@ function transformerVariableDeclaration(item) {
   }
 }
 
-function transformerUtils(item) {
+const transformerUtils = function (item) {
   Files.setNodeItem('Utils', item)
 }
 
-function transformerClassDeclaration(item) {
+const transformerClassDeclaration = function (item) {
   Files.setNodeItem(item.id.name, item)
 }
 
-function transformerExpressionStatement(item) {
+const transformerExpressionStatement = function (item) {
   const leftToken = item.expression.left.object;
 
   if (!leftToken) { return transformerGlobal(item) }
@@ -29,16 +32,25 @@ function transformerExpressionStatement(item) {
   Files.setNodeItem(name, item)
 }
 
-function transformerGlobal(item) {
+const transformerGlobal = function (item) {
   return Files.setNodeItem('Global', Utils.collectIdentifiers(item))
 }
 
-const TransformerMap = {
+const transformES6 = function (rawCode) {
+  const result = lebabTransform(rawCode, Constants.TransformsToApply);
+
+  return result.code;
+}
+
+const ExecuteTransformerMap = {
   VariableDeclaration: transformerVariableDeclaration,
   FunctionDeclaration: transformerUtils,
-  ClassDeclaration: transformerClassDeclaration,
   ExpressionStatement: transformerExpressionStatement,
   Global: transformerGlobal
 }
 
-module.exports = TransformerMap
+module.exports = {
+  ExecuteTransformerMap,
+  transformES6,
+  transformerClassDeclaration
+}

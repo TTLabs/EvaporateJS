@@ -1,6 +1,8 @@
+const recast = require('recast');
+
 const Files = require('./files');
 
-const recast = require('recast');
+const { IgnoredNewExpressions } = require('./constants');
 
 const getFileFunctions = file => Files
   .getFileAST(file)
@@ -32,36 +34,40 @@ function collectIdentifiers(ast, identifiers) {
   return Array.from(existingIdentifiers);
 }
 
-function collectClasses(ast) {
-  const IGNORED_CLASSES = [
-    'Date', 
-    'Promise', 
-    'XMLHttpRequest', 
-    'Uint8Array', 
-    'RegExp',
-    'FileReader',
-    'URL'
-  ]
-
-  const existingClasses = new Set()
+function collectClassesDeclaration(ast) {
+  const declaredClasses = new Set();
 
   function visitClassDeclaration(path) {
-    const { superClass } = path.value;
-    superClass && existingClasses.add(superClass.name);
-    
+    declaredClasses.add(path.value)
+
+    return this.traverse(path);
+  }
+
+  recast.visit(ast, { visitClassDeclaration }) 
+
+  return Array.from(declaredClasses).filter(Boolean);
+}
+
+function collectClassesUsage(ast) {
+  const usedClasses = new Set();
+  
+  function visitClassDeclaration(path) {
+    if (!IgnoredNewExpressions.includes(path.value.id.name)) {
+      const { superClass } = path.value;
+      superClass && usedClasses.add(superClass.name);
+    }
+
     return this.traverse(path);
   }
 
   function visitNewExpression(path) {
-    existingClasses.add(path.value.callee.name)
+    usedClasses.add(path.value.callee.name)
     return this.traverse(path);
   }
 
-  recast.visit(ast, { visitClassDeclaration, visitNewExpression }) 
+  recast.visit(ast, { visitClassDeclaration }) 
 
-  return Array.from(existingClasses)
-    .filter(Boolean)
-    .filter(existing => !IGNORED_CLASSES.includes(existing));
+  return Array.from(usedClasses).filter(Boolean);
 }
 
 const buildMemberExpression = config => new recast.types.NodePath(
@@ -125,6 +131,7 @@ function addGlobalPrefix(fileAST) {
 module.exports.addGlobalPrefix = addGlobalPrefix;
 
 module.exports.collectIdentifiers = collectIdentifiers;
-module.exports.collectClasses = collectClasses;
+module.exports.collectClassesDeclaration = collectClassesDeclaration;
+module.exports.collectClassesUsage = collectClassesUsage;
 module.exports.getFileFunctions = getFileFunctions;
 module.exports.getConstants = getConstants;

@@ -1,8 +1,5 @@
 const recast = require('recast');
 
-const Utils = require('./utils');
-const Exports = require('./exports');
-
 const Files = {
   Utils: new Set(),
   Global: new Map(),
