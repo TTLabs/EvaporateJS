@@ -1842,7 +1842,7 @@
     function AuthorizationMethod() {
       this.request = request;
     }
-    AuthorizationMethod.prototype = Object.create(AuthorizationMethod.prototype);
+
     AuthorizationMethod.prototype.request = {};
     AuthorizationMethod.makeSignParamsObject = function (params) {
       var out = {};
