@@ -6,14 +6,20 @@
   "scripts": {
     "clean": "rm ./output/* || true",
     "prestart": "npm run clean",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "build": "webpack"
   },
   "author": "Matheus Moreira",
   "license": "MIT",
   "devDependencies": {
     "js-to-ts-converter": "^0.16.3",
     "lebab": "^3.1.0",
-    "recast": "^0.18.5"
+    "recast": "^0.18.5",
+    "ts-loader": "^6.2.1",
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.0",
+    "webpack-bundle-analyzer": "^3.6.0",
+    "webpack-cli": "^3.3.11"
   },
   "dependencies": {
     "prettier": "^1.19.1"
