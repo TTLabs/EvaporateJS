@@ -28,7 +28,7 @@ const rawCode = fs.readFileSync('../evaporate.js').toString();
 // const rawCode = fs.readFileSync('./examples/example-1.js').toString();
 
 const es6Code = transformES6(rawCode);
-fs.writeFileSync('./output/es6Code.js', es6Code);
+// fs.writeFileSync('./output/es6Code.js', es6Code);
 
 const ast = recast.parse(es6Code);
 const body = ast.program.body[0];
