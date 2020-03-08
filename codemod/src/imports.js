@@ -1,11 +1,7 @@
 const Files = require('./files');
 
-const { 
-  collectIdentifiers,
-  collectClassesUsage,
-  getConstants,
-  getFileFunctions 
-} = require('./utils');
+const { getConstants, getFileFunctions } = require('./utils');
+const { collectIdentifiers, collectClassesUsage } = require('./collector');
 
 function importUtils(filename, ast) {
   if (filename === 'Utils') {

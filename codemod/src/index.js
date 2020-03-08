@@ -11,9 +11,11 @@ const promWriteFile = util.promisify(fs.writeFile)
 const Constants = require('./constants');
 
 const Files = require('./files');
-const Utils = require('./utils');
 const Imports = require('./imports');
 const Exports = require('./exports');
+
+const { addGlobalPrefix } = require('./utils');
+const { collectClassesDeclaration } = require('./collector');
 
 const { 
   ExecuteTransformerMap, 
@@ -37,7 +39,7 @@ const executeTransformer = item => {
   return itemTypeTransformer && itemTypeTransformer(item);
 }
 
-const mapClasses = Utils.collectClassesDeclaration(blockStatement.body);
+const mapClasses = collectClassesDeclaration(blockStatement.body);
 Array.from(mapClasses).forEach(transformerClassDeclaration)
 
 blockStatement.body.forEach(executeTransformer)
@@ -47,7 +49,7 @@ const transformedFiles = Files
   .map((filename, i) => {
     const fileAST = Files.getFileAST(filename)
 
-    const globalPrefixedIdentifiers = filename !== 'Global' ? Utils.addGlobalPrefix(fileAST) : [];
+    const globalPrefixedIdentifiers = filename !== 'Global' ? addGlobalPrefix(fileAST) : [];
     
     const requires = Imports.getRequires({
       filename,

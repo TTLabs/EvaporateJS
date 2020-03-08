@@ -2,7 +2,8 @@ const { types } = require('recast');
 const { transform: lebabTransform } = require('lebab');
 
 const Files = require('./files');
-const Utils = require('./utils');
+
+const { collectIdentifiers } = require('./collector');
 
 const Constants = require('./constants');
 
@@ -33,7 +34,7 @@ const transformerExpressionStatement = function (item) {
 }
 
 const transformerGlobal = function (item) {
-  return Files.setNodeItem('Global', Utils.collectIdentifiers(item))
+  return Files.setNodeItem('Global', collectIdentifiers(item))
 }
 
 const transformES6 = function (rawCode) {
