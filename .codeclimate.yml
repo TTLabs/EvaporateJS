@@ -36,3 +36,6 @@ ratings:
 exclude_paths:
 - test/
 - "example/assets/*"
+- "codemod"
+- "!codemod/output"
+- "./evaporate.js"
