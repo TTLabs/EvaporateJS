@@ -39,22 +39,22 @@ function collectClassesDeclaration(ast) {
 
 function collectClassesUsage(ast) {
   const usedClasses = new Set();
+
+  const addUsedClass = name => !IgnoredNewExpressions.includes(name) && usedClasses.add(name);
   
   function visitClassDeclaration(path) {
-    if (!IgnoredNewExpressions.includes(path.value.id.name)) {
-      const { superClass } = path.value;
-      superClass && usedClasses.add(superClass.name);
-    }
+    const { superClass } = path.value;
+    superClass && addUsedClass(superClass.name);
 
     return this.traverse(path);
   }
 
   function visitNewExpression(path) {
-    usedClasses.add(path.value.callee.name)
+    addUsedClass(path.value.callee.name)
     return this.traverse(path);
   }
 
-  recast.visit(ast, { visitClassDeclaration }) 
+  recast.visit(ast, { visitClassDeclaration, visitNewExpression }) 
 
   return Array.from(usedClasses).filter(Boolean);
 }
