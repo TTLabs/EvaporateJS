@@ -534,4 +534,5 @@ Evaporate.prototype.evaporatingCount = 0;
 Evaporate.prototype.pendingFiles = {};
 Evaporate.prototype.filesInProcess = [];
 Evaporate.prototype.queuedFiles = [];
-export { Evaporate };
+
+export default Evaporate;

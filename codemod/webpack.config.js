@@ -25,6 +25,9 @@ module.exports = {
   },
   output: {
     filename: 'bundle.js',
+    library: 'evaporate',
+    libraryTarget: 'umd',
+    globalObject: 'this',
     path: path.resolve(__dirname, 'dist')
   }
 };

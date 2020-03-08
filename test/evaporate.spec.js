@@ -3,7 +3,7 @@ import chaiSinon from 'sinon-chai'
 import sinon from 'sinon'
 import test from 'ava'
 
-import { Evaporate } from '../codemod';
+import Evaporate from '../codemod';
 
 chai.use(chaiSinon)
 
