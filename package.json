@@ -2,7 +2,7 @@
   "name": "evaporate",
   "version": "3.0.0-rc",
   "description": "Javascript library for browser to S3 multipart resumable uploads for browsers and with Node FileSystem (fs) Stream Support",
-  "main": "evaporate.js",
+  "main": "codemod/dist/build.js",
   "directories": {
     "example": "example"
   },
