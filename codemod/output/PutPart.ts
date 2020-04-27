@@ -10,7 +10,7 @@ import {
   ERROR,
   PAUSING
 } from './Constants'
-import { getBlobSlice } from './Utils'
+import { getSupportedBlobSlice } from './Utils'
 
 //http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
 class PutPart extends SignedS3AWSRequest {
@@ -299,10 +299,10 @@ class PutPart extends SignedS3AWSRequest {
     // 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end).
     // As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See
     // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
-    const file = this.fileUpload.file
+    const { file } = this.fileUpload
 
-    const slicerFn = getBlobSlice()
-    const blob = slicerFn(this.start, this.end)
+    const slicerKey = getSupportedBlobSlice()
+    const blob = file[slicerKey](this.start, this.end)
 
     if (this.con.computeContentMd5) {
       return new Promise(resolve => {

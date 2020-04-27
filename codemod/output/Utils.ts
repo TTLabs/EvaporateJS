@@ -234,12 +234,13 @@ function noOpLogger() {
   }
 }
 
-function getBlobSlice() {
-  return (
-    Blob.prototype.slice ||
-    (Blob as any).prototype.webkitSlice ||
-    (Blob as any).prototype.mozSlice
-  )
+function getSupportedBlobSlice() {
+  if (typeof Blob === 'undefined') {
+    return null
+  }
+
+  const blobProperties = Object.keys(Blob.prototype)
+  return blobProperties.find(key => key.toLowerCase().includes('slice'))
 }
 
 export {
@@ -260,5 +261,5 @@ export {
   removeAtIndex,
   readableFileSize,
   noOpLogger,
-  getBlobSlice
+  getSupportedBlobSlice
 }

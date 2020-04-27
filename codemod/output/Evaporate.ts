@@ -14,7 +14,7 @@ import {
   removeAtIndex,
   readableFileSize,
   s3EncodedObjectName,
-  getBlobSlice
+  getSupportedBlobSlice
 } from './Utils'
 
 class Evaporate {
@@ -478,10 +478,7 @@ class Evaporate {
         return 'Option readableStreamPartMethod is required when readableStreams is set.'
       }
     } else {
-      if (
-        typeof Blob === 'undefined' ||
-        typeof getBlobSlice() === 'undefined'
-      ) {
+      if (!getSupportedBlobSlice()) {
         return 'Evaporate requires support for Blob [webkitSlice || mozSlice || slice]'
       }
     }
