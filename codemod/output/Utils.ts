@@ -46,6 +46,7 @@ function awsUrl(con) {
 
   return url.join('')
 }
+
 function s3EncodedObjectName(fileName) {
   const fileParts = fileName.split('/')
   const encodedParts = []
@@ -63,6 +64,7 @@ function s3EncodedObjectName(fileName) {
 
   return encodedParts.join('/')
 }
+
 function uri(url) {
   let p
   const href = url || '/'
@@ -99,19 +101,23 @@ function uri(url) {
     host: p.host
   }
 }
+
 function dateISOString(date) {
   // Try to get the modified date as an ISO String, if the date exists
   return date ? new Date(date).toISOString() : ''
 }
+
 function getAwsResponse(xhr) {
   const code = elementText(xhr.responseText, 'Code')
   const msg = elementText(xhr.responseText, 'Message')
   return code.length ? ['AWS Code: ', code, ', Message:', msg].join('') : ''
 }
+
 function elementText(source, element) {
   const match = source.match(['<', element, '>(.+)</', element, '>'].join(''))
   return match ? match[1] : ''
 }
+
 function defer() {
   let deferred = {} as any
   let promise
@@ -129,6 +135,7 @@ function defer() {
     promise
   }
 }
+
 function extend(obj1, obj2, obj3?) {
   function ext(target, source) {
     if (typeof source !== 'object') {
@@ -149,6 +156,7 @@ function extend(obj1, obj2, obj3?) {
   ext(obj1, obj2)
   return obj1
 }
+
 function getSavedUploads(purge?) {
   const uploads = JSON.parse(Global.historyCache.getItem('awsUploads') || '{}')
 
@@ -170,6 +178,7 @@ function getSavedUploads(purge?) {
 
   return uploads
 }
+
 function uploadKey(fileUpload) {
   // The key tries to give a signature to a file in the absence of its path.
   // "<filename>-<mimetype>-<modifieddate>-<filesize>"
@@ -180,16 +189,19 @@ function uploadKey(fileUpload) {
     fileUpload.sizeBytes
   ].join('-')
 }
+
 function saveUpload(uploadKey, upload) {
   const uploads = getSavedUploads()
   uploads[uploadKey] = upload
   Global.historyCache.setItem('awsUploads', JSON.stringify(uploads))
 }
+
 function removeUpload(uploadKey) {
   const uploads = getSavedUploads()
   delete uploads[uploadKey]
   Global.historyCache.setItem('awsUploads', JSON.stringify(uploads))
 }
+
 function removeAtIndex(a, i) {
   const idx = a.indexOf(i)
 
@@ -198,6 +210,7 @@ function removeAtIndex(a, i) {
     return true
   }
 }
+
 function readableFileSize(size) {
   // Adapted from https://github.com/fkjaekel
   // https://github.com/TTLabs/EvaporateJS/issues/13
@@ -212,6 +225,7 @@ function readableFileSize(size) {
 
   return [size.toFixed(2).replace('.00', ''), units[i]].join(' ')
 }
+
 function noOpLogger() {
   return {
     d() {},
