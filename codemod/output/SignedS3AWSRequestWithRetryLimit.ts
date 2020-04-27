@@ -2,7 +2,7 @@ import { CancelableS3AWSRequest } from './CancelableS3AWSRequest'
 import { Global } from './Global'
 
 class SignedS3AWSRequestWithRetryLimit extends CancelableS3AWSRequest {
-  public maxRetries: any
+  public maxRetries: any = 1
 
   constructor(fileUpload, request?: any, maxRetries?: number) {
     super(fileUpload, request)
@@ -33,5 +33,5 @@ class SignedS3AWSRequestWithRetryLimit extends CancelableS3AWSRequest {
     return false
   }
 }
-SignedS3AWSRequestWithRetryLimit.prototype.maxRetries = 1
+
 export { SignedS3AWSRequestWithRetryLimit }

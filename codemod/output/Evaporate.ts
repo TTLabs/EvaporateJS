@@ -17,14 +17,14 @@ import {
 } from './Utils'
 
 class Evaporate {
-  public config: any
+  public config: any = {}
   public _instantiationError: any
-  public supported: any
-  public localTimeOffset: any
-  public pendingFiles: any
-  public queuedFiles: any
-  public filesInProcess: any
-  public evaporatingCount: any
+  public supported: any = false
+  public localTimeOffset: any = 0
+  public pendingFiles: any = {}
+  public queuedFiles: any = []
+  public filesInProcess: any = []
+  public evaporatingCount: any = 0
   static getLocalTimeOffset: (config: any) => Promise<unknown>
   static create: (config: any) => Promise<unknown>
 
@@ -526,13 +526,5 @@ Evaporate.getLocalTimeOffset = config =>
       resolve(0)
     }
   })
-Evaporate.prototype.config = {}
-Evaporate.prototype.localTimeOffset = 0
-Evaporate.prototype.supported = false
-Evaporate.prototype._instantiationError = undefined
-Evaporate.prototype.evaporatingCount = 0
-Evaporate.prototype.pendingFiles = {}
-Evaporate.prototype.filesInProcess = []
-Evaporate.prototype.queuedFiles = []
 
 export default Evaporate

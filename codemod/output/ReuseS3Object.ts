@@ -35,5 +35,5 @@ class ReuseS3Object extends SignedS3AWSRequestWithRetryLimit {
     this.awsDeferred.resolve(this.currentXhr)
   }
 }
-ReuseS3Object.prototype.awsKey = undefined
+
 export { ReuseS3Object }

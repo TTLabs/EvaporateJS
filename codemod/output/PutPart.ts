@@ -13,12 +13,12 @@ import {
 
 //http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
 class PutPart extends SignedS3AWSRequest {
-  public part: any
+  public part: any = 1
   public partNumber: any
-  public start: any
-  public end: any
-  public stalledInterval: any
-  public size: any
+  public start: any = 0
+  public end: any = 0
+  public stalledInterval: any = -1
+  public size: any = 0
   public result: any
   static size: number
 
@@ -138,7 +138,7 @@ class PutPart extends SignedS3AWSRequest {
     const lastLoaded = this.part.loadedBytes
     const self = this
 
-    return function () {
+    return function() {
       clearInterval(self.stalledInterval)
 
       if (
@@ -311,7 +311,7 @@ class PutPart extends SignedS3AWSRequest {
       return new Promise(resolve => {
         const reader = new FileReader()
 
-        reader.onloadend = function () {
+        reader.onloadend = function() {
           resolve(this.result)
         }
 
@@ -326,11 +326,5 @@ class PutPart extends SignedS3AWSRequest {
     return this.started.promise
   }
 }
-PutPart.prototype.part = 1
-PutPart.prototype.payloadPromise = undefined
-PutPart.prototype.start = 0
-PutPart.prototype.end = 0
-PutPart.prototype.partNumber = undefined
-PutPart.size = 0
-PutPart.prototype.stalledInterval = -1
+
 export { PutPart }

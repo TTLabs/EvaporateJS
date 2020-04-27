@@ -1,5 +1,5 @@
 class AwsSignature {
-  request: any
+  request: any = {}
   awsRequest: any
   con: any
 
@@ -26,5 +26,5 @@ class AwsSignature {
       .replace(/-|:/g, '')}Z`
   }
 }
-AwsSignature.prototype.request = {}
+
 export { AwsSignature }

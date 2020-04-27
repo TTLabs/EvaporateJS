@@ -198,6 +198,5 @@ class AwsSignatureV4 extends AwsSignature {
     xhr.setRequestHeader('x-amz-content-sha256', this.getPayloadSha256Content())
   }
 }
-AwsSignatureV4.prototype._cr = undefined
-AwsSignatureV4.prototype.payload = null
+
 export { AwsSignatureV4 }

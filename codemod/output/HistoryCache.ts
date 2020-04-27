@@ -1,6 +1,6 @@
 class HistoryCache {
   public cacheStore: any
-  supported: boolean
+  supported: boolean = false
   static supported: () => boolean
 
   constructor(mockLocalStorage) {
@@ -30,8 +30,7 @@ class HistoryCache {
     }
   }
 }
-HistoryCache.prototype.supported = false
-HistoryCache.prototype.cacheStore = undefined
+
 HistoryCache.supported = () => {
   const result = false
 

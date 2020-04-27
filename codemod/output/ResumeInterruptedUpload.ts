@@ -4,7 +4,7 @@ import { Global } from './Global'
 //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadListParts.html
 class ResumeInterruptedUpload extends SignedS3AWSRequestWithRetryLimit {
   public awsKey: any
-  public partNumberMarker: any
+  public partNumberMarker: any = 0
 
   constructor(fileUpload) {
     super(fileUpload)
@@ -68,6 +68,5 @@ class ResumeInterruptedUpload extends SignedS3AWSRequestWithRetryLimit {
     }
   }
 }
-ResumeInterruptedUpload.prototype.awsKey = undefined
-ResumeInterruptedUpload.prototype.partNumberMarker = 0
+
 export { ResumeInterruptedUpload }

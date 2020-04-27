@@ -32,24 +32,24 @@ import {
 } from './Utils'
 
 class FileUpload {
-  public fileTotalBytesUploaded: any
-  public s3Parts: any
-  public partsOnS3: any
-  public partsInProcess: any
-  public partsToUpload: any
-  public numParts: any
+  public fileTotalBytesUploaded: any = 0
+  public s3Parts: any = []
+  public partsOnS3: any = []
+  public partsInProcess: any = []
+  public partsToUpload: any = []
+  public numParts: any = -1
   public con: any
   public evaporate: any
-  public localTimeOffset: any
+  public localTimeOffset: any = 0
   public deferredCompletion: any
   public id: any
   public name: any
   public signParams: any
-  public loaded: any
+  public loaded: any = 0
   public sizeBytes: any
-  public totalUploaded: any
+  public totalUploaded: any = 0
   public startTime: any
-  public status: any
+  public status: any = PENDING
   public progress: any
   public progressInterval: any
   public started: any
@@ -65,7 +65,7 @@ class FileUpload {
   public complete: any
   public warn: any
   public nameChanged: any
-  public lastPartSatisfied: any
+  public lastPartSatisfied: any = Promise.resolve('onStart')
   public cancelled: any
   public uploadInitiated: any
 
@@ -753,23 +753,5 @@ class FileUpload {
     })
   }
 }
-FileUpload.prototype.con = undefined
-FileUpload.prototype.evaporate = undefined
-FileUpload.prototype.localTimeOffset = 0
-FileUpload.prototype.id = undefined
-FileUpload.prototype.status = PENDING
-FileUpload.prototype.numParts = -1
-FileUpload.prototype.fileTotalBytesUploaded = 0
-FileUpload.prototype.partsInProcess = []
-FileUpload.prototype.partsToUpload = []
-FileUpload.prototype.s3Parts = []
-FileUpload.prototype.partsOnS3 = []
-FileUpload.prototype.deferredCompletion = undefined
-FileUpload.prototype.abortedByUser = false
-// Progress and Stats
-FileUpload.prototype.progressInterval = undefined
-FileUpload.prototype.startTime = undefined
-FileUpload.prototype.loaded = 0
-FileUpload.prototype.totalUploaded = 0
-FileUpload.prototype.lastPartSatisfied = Promise.resolve('onStart')
+
 export { FileUpload }

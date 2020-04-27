@@ -3,7 +3,7 @@ import { SignedS3AWSRequest } from './SignedS3AWSRequest'
 class AuthorizationMethod {
   fileUpload: any
   awsRequest: SignedS3AWSRequest
-  request: any
+  request: any = {}
   con: any
 
   static makeSignParamsObject(signParams: any): any {
@@ -105,7 +105,7 @@ class AuthorizationMethod {
     })
   }
 }
-AuthorizationMethod.prototype.request = {}
+
 AuthorizationMethod.makeSignParamsObject = params => {
   const out = {}
 

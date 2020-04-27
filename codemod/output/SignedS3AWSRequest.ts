@@ -14,7 +14,7 @@ class SignedS3AWSRequest {
   public fileUpload: any
   public con: any
   public attempts: any
-  public localTimeOffset: any
+  public localTimeOffset: any = 0
   public awsDeferred: any
   public started: any
   public awsUrl: any
@@ -254,11 +254,5 @@ class SignedS3AWSRequest {
     return this.awsDeferred.promise
   }
 }
-SignedS3AWSRequest.prototype.fileUpload = undefined
-SignedS3AWSRequest.prototype.con = undefined
-SignedS3AWSRequest.prototype.awsUrl = undefined
-SignedS3AWSRequest.prototype.awsHost = undefined
-SignedS3AWSRequest.prototype.localTimeOffset = 0
-SignedS3AWSRequest.prototype.awsDeferred = undefined
-SignedS3AWSRequest.prototype.started = undefined
+
 export { SignedS3AWSRequest }
