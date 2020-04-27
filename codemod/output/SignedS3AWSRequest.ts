@@ -13,7 +13,7 @@ import {
 class SignedS3AWSRequest {
   public fileUpload: any
   public con: any
-  public attempts: any
+  public attempts: any = 1
   public localTimeOffset: any = 0
   public awsDeferred: any
   public started: any
@@ -27,7 +27,6 @@ class SignedS3AWSRequest {
   constructor(fileUpload, request?) {
     this.fileUpload = fileUpload
     this.con = fileUpload.con
-    this.attempts = 1
     this.localTimeOffset = this.fileUpload.localTimeOffset
     this.awsDeferred = defer()
     this.started = defer()

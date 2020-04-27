@@ -6,11 +6,6 @@ class AwsSignatureV4 extends AwsSignature {
   public _cr: any
   public payload: any
 
-  constructor(request) {
-    super(request)
-    this._cr = undefined
-  }
-
   error() {
     this._cr = undefined
   }

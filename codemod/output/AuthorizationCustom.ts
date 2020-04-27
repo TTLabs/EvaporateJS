@@ -1,10 +1,6 @@
 import { AuthorizationMethod } from './AuthorizationMethod'
 
 class AuthorizationCustom extends AuthorizationMethod {
-  constructor(awsRequest) {
-    super(awsRequest)
-  }
-
   authorize() {
     return this.con
       .customAuthMethod(

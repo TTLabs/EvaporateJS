@@ -70,12 +70,6 @@ class FileUpload {
   public uploadInitiated: any
 
   constructor(file, con, evaporate) {
-    this.fileTotalBytesUploaded = 0
-    this.s3Parts = []
-    this.partsOnS3 = []
-    this.partsInProcess = []
-    this.partsToUpload = []
-    this.numParts = -1
     this.con = extend({}, con)
     this.evaporate = evaporate
     this.localTimeOffset = evaporate.localTimeOffset

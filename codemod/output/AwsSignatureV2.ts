@@ -2,10 +2,6 @@ import { AwsSignature } from './AwsSignature'
 import { Global } from './Global'
 
 class AwsSignatureV2 extends AwsSignature {
-  constructor(request) {
-    super(request)
-  }
-
   authorizationString() {
     return ['AWS ', this.con.aws_key, ':', this.request.auth].join('')
   }
