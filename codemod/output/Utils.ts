@@ -219,6 +219,15 @@ function noOpLogger() {
     e() {}
   }
 }
+
+function getBlobSlice() {
+  return (
+    Blob.prototype.slice ||
+    (Blob as any).prototype.webkitSlice ||
+    (Blob as any).prototype.mozSlice
+  )
+}
+
 export {
   signingVersion,
   authorizationMethod,
@@ -236,5 +245,6 @@ export {
   removeUpload,
   removeAtIndex,
   readableFileSize,
-  noOpLogger
+  noOpLogger,
+  getBlobSlice
 }

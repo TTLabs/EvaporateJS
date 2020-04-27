@@ -10,6 +10,7 @@ import {
   ERROR,
   PAUSING
 } from './Constants'
+import { getBlobSlice } from './Utils'
 
 //http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
 class PutPart extends SignedS3AWSRequest {
@@ -300,12 +301,8 @@ class PutPart extends SignedS3AWSRequest {
     // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
     const file = this.fileUpload.file
 
-    const slicerFn = file.slice
-      ? 'slice'
-      : file.mozSlice
-      ? 'mozSlice'
-      : 'webkitSlice'
-    const blob = file[slicerFn](this.start, this.end)
+    const slicerFn = getBlobSlice()
+    const blob = slicerFn(this.start, this.end)
 
     if (this.con.computeContentMd5) {
       return new Promise(resolve => {

@@ -13,7 +13,8 @@ import {
   noOpLogger,
   removeAtIndex,
   readableFileSize,
-  s3EncodedObjectName
+  s3EncodedObjectName,
+  getBlobSlice
 } from './Utils'
 
 class Evaporate {
@@ -428,11 +429,7 @@ class Evaporate {
     } else {
       if (
         typeof Blob === 'undefined' ||
-        typeof (
-          Blob.prototype.webkitSlice ||
-          Blob.prototype.mozSlice ||
-          Blob.prototype.slice
-        ) === 'undefined'
+        typeof getBlobSlice() === 'undefined'
       ) {
         return 'Evaporate requires support for Blob [webkitSlice || mozSlice || slice]'
       }
