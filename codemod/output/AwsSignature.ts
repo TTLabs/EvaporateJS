@@ -1,12 +1,12 @@
 class AwsSignature {
-	request: any;
-  awsRequest: any;
-  con: any;
+  request: any
+  awsRequest: any
+  con: any
 
   constructor(awsRequest) {
-    this.awsRequest = awsRequest;
-    this.request = awsRequest.request;
-    this.con = awsRequest.fileUpload.con;
+    this.awsRequest = awsRequest
+    this.request = awsRequest.request
+    this.con = awsRequest.fileUpload.con
   }
 
   error() {}
@@ -16,15 +16,15 @@ class AwsSignature {
   setHeaders(xhr: XMLHttpRequest) {}
 
   datetime(timeOffset) {
-    return new Date(new Date().getTime() + timeOffset);
+    return new Date(new Date().getTime() + timeOffset)
   }
 
   dateString(timeOffset) {
     return `${this.datetime(timeOffset)
       .toISOString()
       .slice(0, 19)
-      .replace(/-|:/g, "")}Z`;
+      .replace(/-|:/g, '')}Z`
   }
 }
-AwsSignature.prototype.request = {};
-export { AwsSignature };
+AwsSignature.prototype.request = {}
+export { AwsSignature }

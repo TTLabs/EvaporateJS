@@ -1,8 +1,8 @@
-import { AuthorizationMethod } from "./AuthorizationMethod";
+import { AuthorizationMethod } from './AuthorizationMethod'
 
 class AuthorizationCustom extends AuthorizationMethod {
   constructor(awsRequest) {
-    super(awsRequest);
+    super(awsRequest)
   }
 
   authorize() {
@@ -15,9 +15,9 @@ class AuthorizationCustom extends AuthorizationMethod {
         this.awsRequest.canonicalRequest()
       )
       .catch(reason => {
-        this.fileUpload.deferredCompletion.reject(reason);
-        throw reason;
-      });
+        this.fileUpload.deferredCompletion.reject(reason)
+        throw reason
+      })
   }
 }
-export { AuthorizationCustom };
+export { AuthorizationCustom }

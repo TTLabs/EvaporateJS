@@ -1,13 +1,13 @@
-import { noOpLogger } from "./Utils";
+import { noOpLogger } from './Utils'
 
 type Global = {
-  HOURS_AGO: Date;
-  historyCache: any;
-  l: any;
+  HOURS_AGO: Date
+  historyCache: any
+  l: any
 }
 
-const Global = {} as Global;
-Global.l = noOpLogger();
-Global.HOURS_AGO = null;
-Global.historyCache = null;
-export { Global };
+const Global = {} as Global
+Global.l = noOpLogger()
+Global.HOURS_AGO = null
+Global.historyCache = null
+export { Global }
