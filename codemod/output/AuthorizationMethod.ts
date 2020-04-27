@@ -6,8 +6,22 @@ class AuthorizationMethod {
   request: any = {}
   con: any
 
-  static makeSignParamsObject(signParams: any): any {
-    throw new Error('Method not implemented.')
+  static makeSignParamsObject(params) {
+    const out = {}
+
+    for (const param in params) {
+      if (!params.hasOwnProperty(param)) {
+        continue
+      }
+
+      if (typeof params[param] === 'function') {
+        out[param] = params[param]()
+      } else {
+        out[param] = params[param]
+      }
+    }
+
+    return out
   }
 
   constructor(awsRequest: SignedS3AWSRequest) {
@@ -106,21 +120,4 @@ class AuthorizationMethod {
   }
 }
 
-AuthorizationMethod.makeSignParamsObject = params => {
-  const out = {}
-
-  for (const param in params) {
-    if (!params.hasOwnProperty(param)) {
-      continue
-    }
-
-    if (typeof params[param] === 'function') {
-      out[param] = params[param]()
-    } else {
-      out[param] = params[param]
-    }
-  }
-
-  return out
-}
 export { AuthorizationMethod }

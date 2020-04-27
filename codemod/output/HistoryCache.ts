@@ -1,7 +1,29 @@
 class HistoryCache {
   public cacheStore: any
   supported: boolean = false
-  static supported: () => boolean
+
+  static supported(): boolean {
+    const result = false
+
+    if (typeof window !== 'undefined') {
+      if (!('localStorage' in window)) {
+        return result
+      }
+    } else {
+      return result
+    }
+
+    // Try to use storage (it might be disabled, e.g. user is in private mode)
+    try {
+      const k = '___test'
+      localStorage[k] = 'OK'
+      const test = localStorage[k]
+      delete localStorage[k]
+      return test === 'OK'
+    } catch (e) {
+      return result
+    }
+  }
 
   constructor(mockLocalStorage) {
     const supported = HistoryCache.supported()
@@ -31,26 +53,4 @@ class HistoryCache {
   }
 }
 
-HistoryCache.supported = () => {
-  const result = false
-
-  if (typeof window !== 'undefined') {
-    if (!('localStorage' in window)) {
-      return result
-    }
-  } else {
-    return result
-  }
-
-  // Try to use storage (it might be disabled, e.g. user is in private mode)
-  try {
-    const k = '___test'
-    localStorage[k] = 'OK'
-    const test = localStorage[k]
-    delete localStorage[k]
-    return test === 'OK'
-  } catch (e) {
-    return result
-  }
-}
 export { HistoryCache }

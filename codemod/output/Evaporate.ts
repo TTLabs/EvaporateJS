@@ -26,8 +26,59 @@ class Evaporate {
   public queuedFiles: any = []
   public filesInProcess: any = []
   public evaporatingCount: any = 0
-  static getLocalTimeOffset: (config: any) => Promise<unknown>
-  static create: (config: any) => Promise<unknown>
+
+  static getLocalTimeOffset(config: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      if (typeof config.localTimeOffset === 'number') {
+        return resolve(config.localTimeOffset)
+      }
+
+      if (config.timeUrl) {
+        const xhr = new XMLHttpRequest()
+        xhr.open('GET', `${config.timeUrl}?requestTime=${new Date().getTime()}`)
+
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+              const server_date = new Date(
+                Date.parse(xhr.responseText)
+              ).getTime()
+              const offset = server_date - new Date().getTime()
+              Global.l.d('localTimeOffset is', offset, 'ms')
+              resolve(offset)
+            }
+          }
+        }
+
+        xhr.onerror = ev => {
+          Global.l.e('xhr error timeUrl', xhr)
+          reject(`Fetching offset time failed with status: ${xhr.status}`)
+        }
+
+        xhr.send()
+      } else {
+        resolve(0)
+      }
+    })
+  }
+
+  static create(config: any): Promise<any> {
+    const evapConfig = extend({}, config)
+
+    return Evaporate.getLocalTimeOffset(evapConfig).then(offset => {
+      evapConfig.localTimeOffset = offset
+
+      return new Promise((resolve, reject) => {
+        const e = new Evaporate(evapConfig)
+
+        if (e.supported === true) {
+          resolve(e)
+        } else {
+          reject(e._instantiationError)
+        }
+      })
+    })
+  }
 
   constructor(config) {
     this.config = extend(
@@ -475,53 +526,5 @@ class Evaporate {
     this.config.evaporateChanged(this, this.evaporatingCount)
   }
 }
-Evaporate.create = config => {
-  const evapConfig = extend({}, config)
-
-  return Evaporate.getLocalTimeOffset(evapConfig).then(offset => {
-    evapConfig.localTimeOffset = offset
-
-    return new Promise((resolve, reject) => {
-      const e = new Evaporate(evapConfig)
-
-      if (e.supported === true) {
-        resolve(e)
-      } else {
-        reject(e._instantiationError)
-      }
-    })
-  })
-}
-Evaporate.getLocalTimeOffset = config =>
-  new Promise((resolve, reject) => {
-    if (typeof config.localTimeOffset === 'number') {
-      return resolve(config.localTimeOffset)
-    }
-
-    if (config.timeUrl) {
-      const xhr = new XMLHttpRequest()
-      xhr.open('GET', `${config.timeUrl}?requestTime=${new Date().getTime()}`)
-
-      xhr.onreadystatechange = () => {
-        if (xhr.readyState === 4) {
-          if (xhr.status === 200) {
-            const server_date = new Date(Date.parse(xhr.responseText)).getTime()
-            const offset = server_date - new Date().getTime()
-            Global.l.d('localTimeOffset is', offset, 'ms')
-            resolve(offset)
-          }
-        }
-      }
-
-      xhr.onerror = ev => {
-        Global.l.e('xhr error timeUrl', xhr)
-        reject(`Fetching offset time failed with status: ${xhr.status}`)
-      }
-
-      xhr.send()
-    } else {
-      resolve(0)
-    }
-  })
 
 export default Evaporate
