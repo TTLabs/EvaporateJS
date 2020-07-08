@@ -74,6 +74,7 @@
    Evaporate.create({
       signerUrl: customAuth ? undefined : $("#signerUrl").val(),
       aws_key: $("#awsKey").val(),
+      awsRegion: ($("#awsRegion").val() || '').trim() || "us-east-1",
       bucket: $("#s3Bucket").val(),
       cloudfront: true,
       computeContentMd5: true,
