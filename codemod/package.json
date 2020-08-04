@@ -1,0 +1,28 @@
+{
+  "name": "evaporate-codemod",
+  "version": "0.0.1",
+  "description": "Fork with an automatic refactor based on an AST. EvaporateJS is a Javascript library for browser to S3 multipart resumable uploads",
+  "main": "dist/bundle.js",
+  "scripts": {
+    "clean": "rm ./output/* || true",
+    "start": "npm run collect-types",
+    "codemod": "npm run clean && node src/index.js",
+    "build": "webpack --config webpack.config.build.js"
+  },
+  "author": "Matheus Moreira",
+  "license": "MIT",
+  "devDependencies": {
+    "js-to-ts-converter": "^0.16.3",
+    "lebab": "^3.1.0",
+    "recast": "^0.18.5",
+    "ts-loader": "^6.2.1",
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.0",
+    "webpack-bundle-analyzer": "^3.6.0",
+    "webpack-cli": "^3.3.11",
+    "webpack-dev-server": "^3.10.3"
+  },
+  "dependencies": {
+    "prettier": "^1.19.1"
+  }
+}

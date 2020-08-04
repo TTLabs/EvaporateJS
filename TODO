@@ -1,0 +1,7 @@
+TRANSFORMER
+- CHECK IF CLASSES ARE BEING CREATED IN THE SAME FILE, BEFORE ADDING THEM TO THE IMPORTS
+
+EVAPORATE.JS
+- FIX THIS BEING USED BEFORE CALLING SUPER
+- Remove AuthorizationMethod.prototype = Object.create(AuthorizationMethod.prototype);
+as this is messing up with the es6 transformer

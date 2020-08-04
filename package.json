@@ -1,12 +1,14 @@
 {
   "name": "evaporate",
-  "version": "2.1.4",
+  "version": "3.0.0-rc",
   "description": "Javascript library for browser to S3 multipart resumable uploads for browsers and with Node FileSystem (fs) Stream Support",
-  "main": "evaporate.js",
+  "main": "codemod/dist/build.js",
   "directories": {
     "example": "example"
   },
   "scripts": {
+    "prepublish": "npm run --prefix ./codemod build",
+    "prettier": "prettier --write ./codemod/output/*.ts",
     "test": "ava -v test/*.spec.js"
   },
   "repository": {
@@ -52,6 +54,7 @@
     "jsdom": "^9.4.2",
     "mime": "1.3.4",
     "nyc": "^7.1.0",
+    "prettier": "^2.0.5",
     "sinon": "^1.17.6",
     "sinon-chai": "^2.8.0",
     "xmldom": "^0.1.22"
@@ -63,11 +66,14 @@
     ]
   },
   "nyc": {
-    "include": ["evaporate.js"]
+    "include": [
+      "evaporate.js"
+    ]
   },
   "babel": {
     "presets": [
       "es2015"
     ]
-  }
+  },
+  "dependencies": {}
 }

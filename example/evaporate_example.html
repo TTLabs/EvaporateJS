@@ -20,6 +20,8 @@
    <dl>
       <dt>AWS Key</dt>
       <dd><input id="awsKey" type="text" placeholder="AWS Key"/></dd>
+      <dt>AWS Url</dt>
+      <dd><input id="awsUrl" type="text" placeholder="AWS Url"/></dd>
       <dt>S3 Bucket</dt>
       <dd><input id="s3Bucket" type="text" placeholder="S3 Bucket"/></dd>
       <dt id="signerLabel">Signer Url</dt>
@@ -63,6 +65,7 @@
        updateSignerUi(cookie_data.useUnsafeJavaScript);
 
        $("#awsKey").val(decodeURIComponent(cookie_data.awsKey || ''));
+       $("#awsUrl").val(decodeURIComponent(cookie_data.awsUrl || ''));
        $("#awsRegion").val(decodeURIComponent(cookie_data.awsRegion || ''));
        $("#s3Bucket").val(decodeURIComponent(cookie_data.s3Bucket || ''));
        $("#signerUrl").val(decodeURIComponent(cookie_data.signerUrl || ''));
@@ -73,6 +76,7 @@
    var customAuth = $("#signingMethod")[0].checked;
    Evaporate.create({
       signerUrl: customAuth ? undefined : $("#signerUrl").val(),
+      aws_url: $("#awsUrl").val(),
       aws_key: $("#awsKey").val(),
       awsRegion: ($("#awsRegion").val() || '').trim() || "us-east-1",
       bucket: $("#s3Bucket").val(),
@@ -345,6 +349,7 @@
 
        cookie_data.persist = v;
        cookie_data.useUnsafeJavaScript = $("#signingMethod")[0].checked;
+       cookie_data.awsUrl = encodeURIComponent($("#awsUrl").val().trim());
        cookie_data.awsKey = encodeURIComponent($("#awsKey").val().trim());
        cookie_data.awsRegion = encodeURIComponent($("#awsRegion").val().trim());
        cookie_data.s3Bucket = encodeURIComponent($("#s3Bucket").val().trim());
