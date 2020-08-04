@@ -1,23 +1,26 @@
 import { AwsSignature } from './AwsSignature'
 import { uri, awsUrl } from './Utils'
 import { Global } from './Global'
+import { PutPart } from './PutPart'
 
 class AwsSignatureV4 extends AwsSignature {
-  public _cr: any
-  public payload: any
+  public _cr: string
+  public payload: ArrayBuffer
 
-  error() {
+  error(): void {
     this._cr = undefined
   }
 
-  getPayload() {
-    return this.awsRequest.getPayload().then(data => {
+  getPayload(): Promise<void> {
+    const awsRequest = this.awsRequest as PutPart
+
+    return awsRequest.getPayload().then((data: ArrayBuffer) => {
       this.payload = data
     })
   }
 
-  authorizationString() {
-    const authParts = []
+  authorizationString(): string {
+    const authParts: string[] = []
     const credentials = this.credentialString()
     const headers = this.canonicalHeaders()
     authParts.push(
@@ -30,8 +33,8 @@ class AwsSignatureV4 extends AwsSignature {
     return authParts.join(', ')
   }
 
-  stringToSign() {
-    const signParts = []
+  stringToSign(): string {
+    const signParts: string[] = []
     signParts.push('AWS4-HMAC-SHA256')
     signParts.push(this.request.dateString)
     signParts.push(this.credentialString())
@@ -41,8 +44,8 @@ class AwsSignatureV4 extends AwsSignature {
     return result
   }
 
-  credentialString() {
-    const credParts = []
+  credentialString(): string {
+    const credParts: string[] = []
     credParts.push(this.request.dateString.slice(0, 8))
     credParts.push(this.con.awsRegion)
     credParts.push('s3')
@@ -50,14 +53,16 @@ class AwsSignatureV4 extends AwsSignature {
     return credParts.join('/')
   }
 
-  canonicalQueryString() {
+  canonicalQueryString(): string {
     const qs = this.awsRequest.request.query_string || ''
     const search = uri([this.awsRequest.awsUrl, this.request.path, qs].join(''))
       .search
     const searchParts = search.length ? search.split('&') : []
-    const encoded = []
-    let nameValue
-    let i
+
+    type EncodedQueryString = { name: string; value: string }
+    const encoded: EncodedQueryString[] = []
+    let nameValue: string | string[]
+    let i: number
 
     for (i = 0; i < searchParts.length; i++) {
       nameValue = searchParts[i].split('=')
@@ -68,17 +73,19 @@ class AwsSignatureV4 extends AwsSignature {
       })
     }
 
-    const sorted = encoded.sort((a, b) => {
-      if (a.name < b.name) {
-        return -1
-      } else if (a.name > b.name) {
-        return 1
+    const sorted = encoded.sort(
+      (a: EncodedQueryString, b: EncodedQueryString) => {
+        if (a.name < b.name) {
+          return -1
+        } else if (a.name > b.name) {
+          return 1
+        }
+
+        return 0
       }
+    )
 
-      return 0
-    })
-
-    const result = []
+    const result: string[] = []
 
     for (i = 0; i < sorted.length; i++) {
       nameValue = sorted[i].value
@@ -90,7 +97,7 @@ class AwsSignatureV4 extends AwsSignature {
     return result.join('&')
   }
 
-  getPayloadSha256Content() {
+  getPayloadSha256Content(): string {
     const result =
       this.request.contentSha256 ||
       this.con.cryptoHexEncodedHash256(this.payload || '')
@@ -98,12 +105,15 @@ class AwsSignatureV4 extends AwsSignature {
     return result
   }
 
-  canonicalHeaders() {
-    const canonicalHeaders = []
-    const keys = []
-    let i
+  canonicalHeaders(): {
+    canonicalHeaders: string
+    signedHeaders: string
+  } {
+    const canonicalHeaders: string[] = []
+    const keys: string[] = []
+    let i: number
 
-    function addHeader(name, value) {
+    function addHeader(name: string, value: string) {
       const key = name.toLowerCase()
       keys.push(key)
       canonicalHeaders[key] = value.replace(/\s+/g, ' ')
@@ -127,7 +137,7 @@ class AwsSignatureV4 extends AwsSignature {
       }
     }
 
-    const sortedKeys = keys.sort((a, b) => {
+    const sortedKeys = keys.sort((a: string, b: string) => {
       if (a < b) {
         return -1
       } else if (a > b) {
@@ -137,10 +147,10 @@ class AwsSignatureV4 extends AwsSignature {
       return 0
     })
 
-    const result = []
-    const unsigned_headers = []
-    const not_signed = this.request.not_signed_headers || []
-    const signed_headers = []
+    const result: string[] = []
+    const unsigned_headers: string[] = []
+    const not_signed = Object.keys(this.request.not_signed_headers) || []
+    const signed_headers: string[] = []
 
     for (i = 0; i < not_signed.length; i++) {
       unsigned_headers.push(not_signed[i].toLowerCase())
@@ -161,12 +171,12 @@ class AwsSignatureV4 extends AwsSignature {
     }
   }
 
-  canonicalRequest() {
+  canonicalRequest(): string {
     if (typeof this._cr !== 'undefined') {
       return this._cr
     }
 
-    const canonParts = []
+    const canonParts: string[] = []
     canonParts.push(this.request.method)
 
     canonParts.push(
@@ -189,7 +199,7 @@ class AwsSignatureV4 extends AwsSignature {
     return this._cr
   }
 
-  setHeaders(xhr) {
+  setHeaders(xhr: XMLHttpRequest): void {
     xhr.setRequestHeader('x-amz-content-sha256', this.getPayloadSha256Content())
   }
 }

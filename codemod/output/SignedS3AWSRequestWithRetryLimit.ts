@@ -1,10 +1,12 @@
 import { CancelableS3AWSRequest } from './CancelableS3AWSRequest'
 import { Global } from './Global'
+import { Request } from './Types'
+import { FileUpload } from './FileUpload'
 
 class SignedS3AWSRequestWithRetryLimit extends CancelableS3AWSRequest {
-  public maxRetries: any = 1
+  public maxRetries: number = 1
 
-  constructor(fileUpload, request?: any, maxRetries?: number) {
+  constructor(fileUpload: FileUpload, request?: Request, maxRetries?: number) {
     super(fileUpload, request)
 
     if (maxRetries > -1) {
@@ -12,7 +14,7 @@ class SignedS3AWSRequestWithRetryLimit extends CancelableS3AWSRequest {
     }
   }
 
-  errorHandler(reason) {
+  errorHandler(reason: string): boolean {
     if (this.attempts > this.maxRetries) {
       const msg = [
         'MaxRetries exceeded. Will re-upload file id ',
@@ -27,7 +29,7 @@ class SignedS3AWSRequestWithRetryLimit extends CancelableS3AWSRequest {
     }
   }
 
-  rejectedSuccess(...args) {
+  rejectedSuccess(...args: Array<string>): boolean {
     const reason = Array.prototype.slice.call(args, 1).join('')
     this.awsDeferred.reject(reason)
     return false

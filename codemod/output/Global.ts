@@ -1,9 +1,11 @@
 import { noOpLogger } from './Utils'
+import { HistoryCache } from './HistoryCache'
+import { LoggerInterface } from './LoggerInterface'
 
 type Global = {
   HOURS_AGO: Date
-  historyCache: any
-  l: any
+  historyCache: HistoryCache
+  l: LoggerInterface
 }
 
 const Global = {} as Global

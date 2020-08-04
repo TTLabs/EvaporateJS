@@ -1,13 +1,16 @@
 import { SignedS3AWSRequest } from './SignedS3AWSRequest'
+import { FileUpload } from './FileUpload'
+import { Request, Dictionary } from './Types'
+import { EvaporateConfigInterface } from './EvaporateConfigInterface'
 
 class AuthorizationMethod {
-  fileUpload: any
+  fileUpload: FileUpload
   awsRequest: SignedS3AWSRequest
-  request: any = {}
-  con: any
+  request: Request
+  con: EvaporateConfigInterface
 
-  static makeSignParamsObject(params) {
-    const out = {}
+  static makeSignParamsObject(params: Dictionary<any>): Dictionary<any> {
+    const out: Dictionary<any> = {}
 
     for (const param in params) {
       if (!params.hasOwnProperty(param)) {
@@ -31,7 +34,7 @@ class AuthorizationMethod {
     this.con = this.fileUpload.con
   }
 
-  getBaseUrl(stringToSign) {
+  getBaseUrl(stringToSign: string): string {
     const url = [
       this.con.signerUrl,
       '?to_sign=',
@@ -48,7 +51,7 @@ class AuthorizationMethod {
     return url.join('')
   }
 
-  authorize() {
+  authorize(): Promise<string> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       this.awsRequest.currentXhr = xhr

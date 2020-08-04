@@ -1,5 +1,7 @@
+import { Dictionary } from './Types'
+
 class HistoryCache {
-  public cacheStore: any
+  public cacheStore: Dictionary<string>
   supported: boolean = false
 
   static supported(): boolean {
@@ -25,7 +27,7 @@ class HistoryCache {
     }
   }
 
-  constructor(mockLocalStorage) {
+  constructor(mockLocalStorage: boolean) {
     const supported = HistoryCache.supported()
     this.cacheStore = mockLocalStorage
       ? {}
@@ -34,19 +36,19 @@ class HistoryCache {
       : undefined
   }
 
-  getItem(key) {
+  getItem(key: string): string {
     if (this.cacheStore) {
       return this.cacheStore[key]
     }
   }
 
-  setItem(key, value) {
+  setItem(key: string, value: string): void {
     if (this.cacheStore) {
       this.cacheStore[key] = value
     }
   }
 
-  removeItem(key) {
+  removeItem(key: string): boolean {
     if (this.cacheStore) {
       return delete this.cacheStore[key]
     }

@@ -5,19 +5,8 @@ import { DeleteMultipartUpload } from './DeleteMultipartUpload'
 import { ResumeInterruptedUpload } from './ResumeInterruptedUpload'
 import { ReuseS3Object } from './ReuseS3Object'
 import { Global } from './Global'
-import {
-  ABORTED,
-  PAUSED,
-  EVAPORATING,
-  ACTIVE_STATUSES,
-  CANCELED,
-  PAUSING,
-  PENDING,
-  COMPLETE,
-  FAR_FUTURE,
-  ETAG_OF_0_LENGTH_BLOB,
-  ERROR
-} from './Constants'
+import { FAR_FUTURE, ETAG_OF_0_LENGTH_BLOB } from './Constants'
+import { EVAPORATE_STATUS, ACTIVE_STATUSES } from './EvaporateStatusEnum'
 import {
   extend,
   defer,
@@ -30,47 +19,60 @@ import {
   removeUpload,
   elementText
 } from './Utils'
+import Evaporate from './Evaporate'
+import { S3UploadInterface, S3UploadStatsInterface } from './S3UploadInterface'
+import { EvaporateConfigInterface } from './EvaporateConfigInterface'
+import {
+  S3Part,
+  CompletedS3Part,
+  S3File,
+  InitialS3Part,
+  StartedS3Part
+} from './S3PartInterface'
+import { UploadFileConfig } from './EvaporateUploadFileInterface'
+import { Defer, Dictionary } from './Types'
 
-class FileUpload {
-  public fileTotalBytesUploaded: any = 0
-  public s3Parts: any = []
-  public partsOnS3: any = []
-  public partsInProcess: any = []
-  public partsToUpload: any = []
-  public numParts: any = -1
-  public con: any
-  public evaporate: any
-  public localTimeOffset: any = 0
-  public deferredCompletion: any
-  public id: any
-  public name: any
-  public signParams: any
-  public loaded: any = 0
-  public sizeBytes: any
-  public totalUploaded: any = 0
-  public startTime: any
-  public status: any = PENDING
-  public progress: any
-  public progressInterval: any
-  public started: any
-  public uploadId: any
-  public firstMd5Digest: any
-  public eTag: any
-  public info: any
-  public abortedByUser: any
-  public pausing: any
-  public paused: any
-  public resumed: any
-  public file: any
-  public complete: any
-  public warn: any
-  public nameChanged: any
-  public lastPartSatisfied: any = Promise.resolve('onStart')
-  public cancelled: any
-  public uploadInitiated: any
+class FileUpload
+  implements
+    UploadFileConfig,
+    Pick<Evaporate, 'localTimeOffset'>,
+    Pick<EvaporateConfigInterface, 'signParams'> {
+  public fileTotalBytesUploaded: number = 0
+  public s3Parts: S3Part[]
+  public partsOnS3: S3File[] = []
+  public partsInProcess: number[] = []
+  public partsToUpload: number[] = []
+  public numParts: number = -1
+  public con: EvaporateConfigInterface
+  public evaporate: Evaporate
+  public localTimeOffset: number = 0
+  public deferredCompletion: Defer<void>
+  public id: string
+  public name: string
+  public signParams: Dictionary<any>
+  public loaded: number = 0
+  public sizeBytes: number
+  public totalUploaded: number = 0
+  public startTime: Date
+  public status: EVAPORATE_STATUS = EVAPORATE_STATUS.PENDING
 
-  constructor(file, con, evaporate) {
-    this.con = extend({}, con)
+  public progressInterval: NodeJS.Timeout
+  public uploadId: string
+  public firstMd5Digest: string
+  public eTag: string
+  public abortedByUser: boolean
+  public file: File
+  public lastPartSatisfied: Promise<string> = Promise.resolve('onStart')
+
+  public contentType: string
+  public awsKey: string
+
+  constructor(
+    file: UploadFileConfig,
+    con: EvaporateConfigInterface,
+    evaporate: Evaporate
+  ) {
+    this.con = extend({}, con) as EvaporateConfigInterface
     this.evaporate = evaporate
     this.localTimeOffset = evaporate.localTimeOffset
     this.deferredCompletion = defer()
@@ -79,12 +81,38 @@ class FileUpload {
     this.signParams = con.signParams
   }
 
-  updateLoaded(loadedNow) {
+  public xAmzHeadersAtInitiate: Dictionary<string> = {}
+  public notSignedHeadersAtInitiate: Dictionary<string> = {}
+  public xAmzHeadersAtUpload: Dictionary<string> = {}
+  public xAmzHeadersAtComplete: Dictionary<string> = {}
+  public xAmzHeadersCommon: Dictionary<string> = null
+
+  public nameChanged: (awsObjectKey: string) => void = () => {}
+  public uploadInitiated: (s3UploadId?: string) => void = () => {}
+  public beforeSigner?: (xhr: XMLHttpRequest, url: string) => void = () => {}
+
+  public started: (file_key: string) => void = () => {}
+  public progress: (p: number, stats: S3UploadStatsInterface) => void = () => {}
+  public paused: (file_key?: string) => void = () => {}
+  public resumed: (file_key?: string) => void = () => {}
+  public pausing: (file_key?: string) => void = () => {}
+  public cancelled: () => void = () => {}
+  public complete: (
+    xhr: XMLHttpRequest,
+    awsObjectKey: string,
+    stats: S3UploadStatsInterface
+  ) => void = () => {}
+
+  public info: (...msg: string[]) => void = () => {}
+  public warn: (...msg: string[]) => void = () => {}
+  public error: (msg: string) => void = () => {}
+
+  updateLoaded(loadedNow: number): void {
     this.loaded += loadedNow
     this.fileTotalBytesUploaded += loadedNow
   }
 
-  progessStats() {
+  progessStats(): S3UploadStatsInterface {
     // Adapted from https://github.com/fkjaekel
     // https://github.com/TTLabs/EvaporateJS/issues/13
     if (this.fileTotalBytesUploaded === 0) {
@@ -100,7 +128,7 @@ class FileUpload {
     }
 
     this.totalUploaded += this.loaded
-    const delta = (new Date().getTime() - this.startTime) / 1000
+    const delta = (new Date().getTime() - this.startTime.getTime()) / 1000
     const avgSpeed = this.totalUploaded / delta
     const remainingSize = this.sizeBytes - this.fileTotalBytesUploaded
 
@@ -121,8 +149,10 @@ class FileUpload {
     return stats
   }
 
-  onProgress() {
-    if (![ABORTED, PAUSED].includes(this.status)) {
+  onProgress(): void {
+    if (
+      ![EVAPORATE_STATUS.ABORTED, EVAPORATE_STATUS.PAUSED].includes(this.status)
+    ) {
       this.progress(
         this.fileTotalBytesUploaded / this.sizeBytes,
         this.progessStats()
@@ -131,7 +161,7 @@ class FileUpload {
     }
   }
 
-  startMonitor() {
+  startMonitor(): void {
     clearInterval(this.progressInterval)
     this.startTime = new Date()
     this.loaded = 0
@@ -143,24 +173,24 @@ class FileUpload {
     )
   }
 
-  stopMonitor() {
+  stopMonitor(): void {
     clearInterval(this.progressInterval)
   }
 
   // Evaporate proxies
-  startNextFile(reason) {
+  startNextFile(reason: string): void {
     this.evaporate.startNextFile(reason)
   }
 
-  evaporatingCnt(incr) {
+  evaporatingCnt(incr: number): void {
     this.evaporate.evaporatingCnt(incr)
   }
 
-  consumeRemainingSlots() {
+  consumeRemainingSlots(): void {
     this.evaporate.consumeRemainingSlots()
   }
 
-  getRemainingSlots() {
+  getRemainingSlots(): number {
     let evapCount = this.evaporate.evaporatingCount
 
     if (!this.partsInProcess.length && evapCount > 0) {
@@ -172,7 +202,7 @@ class FileUpload {
   }
 
   start() {
-    this.status = EVAPORATING
+    this.status = EVAPORATE_STATUS.EVAPORATING
     this.startMonitor()
     this.started(this.id)
 
@@ -204,7 +234,7 @@ class FileUpload {
     }
   }
 
-  uploadFileFromScratch(reason) {
+  uploadFileFromScratch(reason: string) {
     if (!ACTIVE_STATUSES.includes(this.status)) {
       return
     }
@@ -222,7 +252,7 @@ class FileUpload {
 
   stop() {
     Global.l.d('stopping FileUpload ', this.id)
-    this.setStatus(CANCELED)
+    this.setStatus(EVAPORATE_STATUS.CANCELED)
     this.info('Canceling uploads...')
     this.abortedByUser = true
     const self = this
@@ -236,11 +266,11 @@ class FileUpload {
       })
   }
 
-  pause(force) {
+  pause(force?: boolean): Promise<any> {
     Global.l.d('pausing FileUpload, force:', !!force, this.id)
     let promises = []
     this.info('Pausing uploads...')
-    this.status = PAUSING
+    this.status = EVAPORATE_STATUS.PAUSING
 
     if (force) {
       this.abortParts(true)
@@ -254,32 +284,32 @@ class FileUpload {
 
     return Promise.all(promises).then(() => {
       this.stopMonitor()
-      this.status = PAUSED
+      this.status = EVAPORATE_STATUS.PAUSED
       this.startNextFile('pause')
       this.paused()
     })
   }
 
-  resume() {
-    this.status = PENDING
+  resume(): void {
+    this.status = EVAPORATE_STATUS.PENDING
     this.resumed()
   }
 
-  done() {
+  done(): void {
     clearInterval(this.progressInterval)
     this.startNextFile('file done')
     this.partsOnS3 = []
     this.s3Parts = []
   }
 
-  _startCompleteUpload(callComplete) {
+  _startCompleteUpload(callComplete: boolean): () => void {
     return function() {
       const promise = callComplete ? this.completeUpload() : Promise.resolve()
       promise.then(this.deferredCompletion.resolve.bind(this))
     }
   }
 
-  _abortUpload() {
+  _abortUpload(): void {
     if (!this.abortedByUser) {
       const self = this
 
@@ -291,18 +321,18 @@ class FileUpload {
     }
   }
 
-  abortParts(pause) {
+  abortParts(pause: boolean): void {
     const self = this
     const toAbort = this.partsInProcess.slice(0)
 
-    toAbort.forEach(i => {
+    toAbort.forEach((i: number) => {
       const s3Part = self.s3Parts[i]
 
       if (s3Part) {
         s3Part.awsRequest.abort()
 
         if (pause) {
-          s3Part.status = PENDING
+          s3Part.status = EVAPORATE_STATUS.PENDING
         }
 
         removeAtIndex(self.partsInProcess, s3Part.partNumber)
@@ -314,12 +344,12 @@ class FileUpload {
     })
   }
 
-  makeParts(firstPart?) {
+  makeParts(firstPart?: number): Promise<XMLHttpRequest>[] {
     this.numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1 // issue #58
-    const partsDeferredPromises = []
+    const partsDeferredPromises: Promise<XMLHttpRequest>[] = []
     const self = this
 
-    function cleanUpAfterPart(s3Part) {
+    function cleanUpAfterPart(s3Part: S3Part): void {
       removeAtIndex(self.partsToUpload, s3Part.partNumber)
       removeAtIndex(self.partsInProcess, s3Part.partNumber)
 
@@ -328,7 +358,7 @@ class FileUpload {
       }
     }
 
-    function resolve(s3Part) {
+    function resolve(s3Part: S3Part): () => void {
       return () => {
         cleanUpAfterPart(s3Part)
 
@@ -342,7 +372,7 @@ class FileUpload {
       }
     }
 
-    function reject(s3Part) {
+    function reject(s3Part: S3Part): () => void {
       return () => {
         cleanUpAfterPart(s3Part)
       }
@@ -354,11 +384,11 @@ class FileUpload {
       let s3Part = this.s3Parts[part]
 
       if (typeof s3Part !== 'undefined') {
-        if (s3Part.status === COMPLETE) {
+        if (s3Part.status === EVAPORATE_STATUS.COMPLETE) {
           continue
         }
       } else {
-        s3Part = this.makePart(part, PENDING, this.sizeBytes)
+        s3Part = this.makePart(part, EVAPORATE_STATUS.PENDING, this.sizeBytes)
       }
 
       s3Part.awsRequest = new PutPart(this, s3Part)
@@ -375,8 +405,8 @@ class FileUpload {
     return partsDeferredPromises
   }
 
-  makePart(partNumber, status, size) {
-    const s3Part = {
+  makePart(partNumber: number, status: EVAPORATE_STATUS, size: number): S3Part {
+    const s3Part: InitialS3Part = {
       status,
       loadedBytes: 0,
       loadedBytesPrevious: null,
@@ -384,7 +414,6 @@ class FileUpload {
       // issue #58
       isEmpty: size === 0,
 
-      md5_digest: null,
       partNumber
     }
 
@@ -392,12 +421,12 @@ class FileUpload {
     return s3Part
   }
 
-  setStatus(s) {
+  setStatus(s: EVAPORATE_STATUS): void {
     this.status = s
   }
 
-  createUploadFile() {
-    if (this.status === ABORTED) {
+  createUploadFile(): void {
+    if (this.status === EVAPORATE_STATUS.ABORTED) {
       return
     }
 
@@ -418,14 +447,14 @@ class FileUpload {
     saveUpload(fileKey, newUpload)
   }
 
-  updateUploadFile(updates) {
+  updateUploadFile(updates: Partial<S3UploadInterface>): void {
     const fileKey = uploadKey(this)
     const uploads = getSavedUploads()
-    const upload = extend({}, uploads[fileKey], updates)
+    const upload = extend({}, uploads[fileKey], updates) as S3UploadInterface
     saveUpload(fileKey, upload)
   }
 
-  completeUploadFile(xhr) {
+  completeUploadFile(xhr: XMLHttpRequest): void {
     const uploads = getSavedUploads()
     const upload = uploads[uploadKey(this)]
 
@@ -438,19 +467,19 @@ class FileUpload {
     }
 
     this.complete(xhr, this.name, this.progessStats())
-    this.setStatus(COMPLETE)
+    this.setStatus(EVAPORATE_STATUS.COMPLETE)
     this.onProgress()
   }
 
-  removeUploadFile() {
+  removeUploadFile(): void {
     if (typeof this.file !== 'undefined') {
       removeUpload(uploadKey(this))
     }
   }
 
-  getUnfinishedFileUpload() {
+  getUnfinishedFileUpload(): void {
     const savedUploads = getSavedUploads(true)
-    const u = savedUploads[uploadKey(this)]
+    const u: S3UploadInterface = savedUploads[uploadKey(this)]
 
     if (this.canRetryUpload(u)) {
       this.uploadId = u.uploadId
@@ -461,7 +490,7 @@ class FileUpload {
     }
   }
 
-  canRetryUpload(u) {
+  canRetryUpload(u: S3UploadInterface): boolean {
     // Must be the same file name, file size, last_modified, file type as previous upload
     if (typeof u === 'undefined') {
       return false
@@ -479,19 +508,19 @@ class FileUpload {
     )
   }
 
-  partSuccess(eTag, putRequest) {
-    const part = putRequest.part
+  partSuccess(eTag: string, putRequest: PutPart): boolean {
+    const part: CompletedS3Part = putRequest.part as CompletedS3Part
     Global.l.d(putRequest.request.step, 'ETag:', eTag)
 
     if (part.isEmpty || eTag !== ETAG_OF_0_LENGTH_BLOB) {
       // issue #58
       part.eTag = eTag
 
-      part.status = COMPLETE
+      part.status = EVAPORATE_STATUS.COMPLETE
       this.partsOnS3.push(part)
       return true
     } else {
-      part.status = ERROR
+      part.status = EVAPORATE_STATUS.ERROR
       putRequest.resetLoadedBytes()
 
       const msg = [
@@ -505,12 +534,15 @@ class FileUpload {
     }
   }
 
-  listPartsSuccess(listPartsRequest, partsXml) {
+  listPartsSuccess(
+    listPartsRequest: ResumeInterruptedUpload,
+    partsXml: string
+  ): number | undefined {
     this.info(
       'uploadId',
       this.uploadId,
       'is not complete. Fetching parts from part marker',
-      listPartsRequest.partNumberMarker
+      listPartsRequest.partNumberMarker.toString()
     )
 
     partsXml = partsXml.replace(/(\r\n|\n|\r)/gm, '') // strip line breaks to ease the regex requirements
@@ -526,20 +558,22 @@ class FileUpload {
       const partSize = parseInt(elementText(cp, 'Size'), 10)
       this.fileTotalBytesUploaded += partSize
 
-      this.partsOnS3.push({
+      const s3File: S3File = {
         eTag: elementText(cp, 'ETag').replace(/&quot;/g, '"'),
         partNumber: parseInt(elementText(cp, 'PartNumber'), 10),
         size: partSize,
         LastModified: elementText(cp, 'LastModified')
-      })
+      }
+
+      this.partsOnS3.push(s3File)
     }
 
     return elementText(partsXml, 'IsTruncated') === 'true'
-      ? elementText(partsXml, 'NextPartNumberMarker')
+      ? parseInt(elementText(partsXml, 'NextPartNumberMarker'))
       : undefined
   }
 
-  makePartsfromPartsOnS3() {
+  makePartsfromPartsOnS3(): void {
     if (!ACTIVE_STATUSES.includes(this.status)) {
       return
     }
@@ -549,9 +583,10 @@ class FileUpload {
     this.partsOnS3.forEach(cp => {
       const uploadedPart = this.makePart(
         cp.partNumber,
-        COMPLETE,
+        EVAPORATE_STATUS.COMPLETE,
         cp.size
-      ) as any
+      ) as CompletedS3Part
+
       uploadedPart.eTag = cp.eTag
       uploadedPart.loadedBytes = cp.size
       uploadedPart.loadedBytesPrevious = cp.size
@@ -559,7 +594,7 @@ class FileUpload {
     })
   }
 
-  completeUpload() {
+  completeUpload(): Promise<void> {
     const self = this
 
     return new CompleteMultipartUpload(this).send().then(xhr => {
@@ -568,11 +603,11 @@ class FileUpload {
     })
   }
 
-  getCompletedPayload() {
+  getCompletedPayload(): string {
     const completeDoc = []
     completeDoc.push('<CompleteMultipartUpload>')
 
-    this.s3Parts.forEach((part, partNumber) => {
+    this.s3Parts.forEach((part: CompletedS3Part, partNumber: number) => {
       if (partNumber > 0) {
         ;[
           '<Part><PartNumber>',
@@ -590,14 +625,14 @@ class FileUpload {
     return completeDoc.join('')
   }
 
-  consumeSlots() {
+  consumeSlots(): number {
     if (this.partsToUpload.length === 0) {
       return -1
     }
 
     if (
       this.partsToUpload.length !== this.partsInProcess.length &&
-      this.status === EVAPORATING
+      this.status === EVAPORATE_STATUS.EVAPORATING
     ) {
       const partsToUpload = Math.min(
         this.getRemainingSlots(),
@@ -613,7 +648,7 @@ class FileUpload {
       for (let i = 0; i < this.partsToUpload.length; i++) {
         const s3Part = this.s3Parts[this.partsToUpload[i]]
 
-        if (s3Part.status === EVAPORATING) {
+        if (s3Part.status === EVAPORATE_STATUS.EVAPORATING) {
           continue
         }
 
@@ -652,14 +687,14 @@ class FileUpload {
     return 0
   }
 
-  canStartPart(part) {
+  canStartPart(part: S3Part): boolean {
     return (
       !this.partsInProcess.includes(part.partNumber) &&
       !part.awsRequest.errorExceptionStatus()
     )
   }
 
-  uploadFile(awsKey) {
+  uploadFile(awsKey: string): Promise<void> {
     this.removeUploadFile()
     const self = this
 
@@ -669,14 +704,14 @@ class FileUpload {
 
       return self.uploadParts().then(
         () => {},
-        reason => {
+        (reason: string) => {
           throw reason
         }
       )
     })
   }
 
-  uploadParts() {
+  uploadParts(): Promise<XMLHttpRequest[]> {
     this.loaded = 0
     this.totalUploaded = 0
 
@@ -687,14 +722,14 @@ class FileUpload {
     }
 
     const promises = this.makeParts()
-    this.setStatus(EVAPORATING)
+    this.setStatus(EVAPORATE_STATUS.EVAPORATING)
     this.startTime = new Date()
     this.consumeSlots()
     return Promise.all(promises)
   }
 
-  abortUpload() {
-    return new Promise((resolve, reject) => {
+  abortUpload(): Promise<void> {
+    return new Promise((resolve: () => void, reject: () => void) => {
       if (typeof this.uploadId === 'undefined') {
         resolve()
         return
@@ -702,26 +737,26 @@ class FileUpload {
 
       new DeleteMultipartUpload(this).send().then(resolve, reject)
     }).then(() => {
-      this.setStatus(ABORTED)
+      this.setStatus(EVAPORATE_STATUS.ABORTED)
       this.cancelled()
       this.removeUploadFile()
     }, this.deferredCompletion.reject.bind(this))
   }
 
-  resumeInterruptedUpload() {
+  resumeInterruptedUpload(): Promise<XMLHttpRequest> {
     return new ResumeInterruptedUpload(this)
       .send()
       .then(this.uploadParts.bind(this))
   }
 
-  reuseS3Object(awsKey) {
+  reuseS3Object(awsKey: string): Promise<void> {
     const self = this
 
     // Attempt to reuse entire uploaded object on S3
     this.makeParts(1)
 
     this.partsToUpload = []
-    const firstS3Part = this.s3Parts[1]
+    const firstS3Part = this.s3Parts[1] as StartedS3Part
 
     function reject(reason) {
       self.name = awsKey

@@ -2,14 +2,14 @@ import { AwsSignature } from './AwsSignature'
 import { Global } from './Global'
 
 class AwsSignatureV2 extends AwsSignature {
-  authorizationString() {
+  authorizationString(): string {
     return ['AWS ', this.con.aws_key, ':', this.request.auth].join('')
   }
 
-  stringToSign() {
+  stringToSign(): string {
     let x_amz_headers = ''
-    let result
-    const header_key_array = []
+    let result: string
+    const header_key_array: string[] = []
 
     for (const key in this.request.x_amz_headers) {
       if (this.request.x_amz_headers.hasOwnProperty(key)) {
@@ -23,20 +23,20 @@ class AwsSignatureV2 extends AwsSignature {
       x_amz_headers += `${header_key}:${this.request.x_amz_headers[header_key]}\n`
     })
 
-    result = `${this.request.method}\n${this.request.md5_digest || ''}\n${
-      this.request.contentType || ''
-    }\n\n${x_amz_headers}${
+    const { method, md5_digest = '', path, contentType = '' } = this.request
+
+    result = `${method}\n${md5_digest}\n${contentType}\n\n${x_amz_headers}${
       this.con.cloudfront ? `/${this.con.bucket}` : ''
-    }${this.awsRequest.getPath()}${this.request.path}`
+    }${this.awsRequest.getPath()}${path}`
     Global.l.d('V2 stringToSign:', result)
     return result
   }
 
-  dateString(timeOffset) {
+  dateString(timeOffset): string {
     return this.datetime(timeOffset).toUTCString()
   }
 
-  getPayload() {
+  getPayload(): Promise<void> {
     return Promise.resolve()
   }
 }

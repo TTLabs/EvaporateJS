@@ -1,5 +1,5 @@
 import { Global } from './Global'
-import { ERROR, ABORTED } from './Constants'
+import { EVAPORATE_STATUS } from './EvaporateStatusEnum'
 import {
   defer,
   awsUrl,
@@ -9,22 +9,28 @@ import {
   getAwsResponse,
   authorizationMethod
 } from './Utils'
+import { FileUpload } from './FileUpload'
+
+import { AwsSignatureV2 } from './AwsSignatureV2'
+import { AwsSignatureV4 } from './AwsSignatureV4'
+import { Defer, Request, Dictionary } from './Types'
+import { EvaporateConfigInterface } from './EvaporateConfigInterface'
 
 class SignedS3AWSRequest {
-  public fileUpload: any
-  public con: any
-  public attempts: any = 1
-  public localTimeOffset: any = 0
-  public awsDeferred: any
-  public started: any
-  public awsUrl: any
-  public awsHost: any
-  public request: any
-  public signer: any
-  public currentXhr: any
-  public payloadPromise: any
+  public fileUpload: FileUpload
+  public con: EvaporateConfigInterface
+  public attempts: number = 1
+  public localTimeOffset: number = 0
+  public awsDeferred: Defer<XMLHttpRequest>
+  public started: Defer<string>
+  public awsUrl: string
+  public awsHost: string
+  public request: Request
+  public signer: AwsSignatureV2 | AwsSignatureV4
+  public currentXhr: XMLHttpRequest
+  public payloadPromise: Promise<Uint8Array | ArrayBuffer | string | []>
 
-  constructor(fileUpload, request?) {
+  constructor(fileUpload: FileUpload, request?: Request) {
     this.fileUpload = fileUpload
     this.con = fileUpload.con
     this.localTimeOffset = this.fileUpload.localTimeOffset
@@ -32,7 +38,7 @@ class SignedS3AWSRequest {
     this.started = defer()
     this.awsUrl = awsUrl(this.con)
     this.awsHost = uri(this.awsUrl).hostname
-    const r = extend({}, request)
+    const r = extend({}, request) as Request
 
     if (fileUpload.contentType) {
       r.contentType = fileUpload.contentType
@@ -41,7 +47,7 @@ class SignedS3AWSRequest {
     this.updateRequest(r)
   }
 
-  getPath() {
+  getPath(): string {
     let path = `/${this.con.bucket}/${this.fileUpload.name}`
 
     if (this.con.cloudfront || this.awsUrl.includes('cloudfront')) {
@@ -51,16 +57,16 @@ class SignedS3AWSRequest {
     return path
   }
 
-  updateRequest(request) {
+  updateRequest(request: Request): void {
     this.request = request
     this.signer = signingVersion(this)
   }
 
-  success() {
+  success(): void {
     this.awsDeferred.resolve(this.currentXhr)
   }
 
-  backOffWait() {
+  backOffWait(): number {
     return this.attempts === 1
       ? 0
       : 1000 *
@@ -70,7 +76,7 @@ class SignedS3AWSRequest {
           )
   }
 
-  error(reason) {
+  error(reason: string): void {
     if (this.errorExceptionStatus()) {
       return
     }
@@ -83,7 +89,7 @@ class SignedS3AWSRequest {
     }
 
     this.fileUpload.warn('Error in ', this.request.step, reason)
-    this.fileUpload.setStatus(ERROR)
+    this.fileUpload.setStatus(EVAPORATE_STATUS.ERROR)
     const self = this
     const backOffWait = this.backOffWait()
     this.attempts += 1
@@ -97,30 +103,34 @@ class SignedS3AWSRequest {
 
   errorHandler(reason) {}
 
-  errorExceptionStatus() {
+  errorExceptionStatus(): boolean {
     return false
   }
 
-  getPayload() {
+  getPayload(): Promise<void> {
     return Promise.resolve(null)
   }
 
-  success_status(xhr) {
+  success_status(xhr: XMLHttpRequest): boolean {
     return (
       (xhr.status >= 200 && xhr.status <= 299) ||
       (this.request.success404 && xhr.status === 404)
     )
   }
 
-  stringToSign() {
+  stringToSign(): string {
     return encodeURIComponent(this.signer.stringToSign())
   }
 
-  canonicalRequest() {
+  canonicalRequest(): string {
     return this.signer.canonicalRequest()
   }
 
-  signResponse(payload, stringToSign, signatureDateTime) {
+  signResponse(
+    payload,
+    stringToSign: string,
+    signatureDateTime: string
+  ): Promise<string> {
     const self = this
 
     return new Promise(resolve => {
@@ -134,14 +144,14 @@ class SignedS3AWSRequest {
     })
   }
 
-  sendRequestToAWS() {
+  sendRequestToAWS(): Promise<string> {
     const self = this
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       self.currentXhr = xhr
       let url = [self.awsUrl, self.getPath(), self.request.path].join('')
-      const all_headers = {}
+      const all_headers: Dictionary<string> = {}
 
       if (self.request.query_string) {
         url += self.request.query_string
@@ -191,7 +201,7 @@ class SignedS3AWSRequest {
         xhr.setRequestHeader('Content-MD5', self.request.md5_digest)
       }
 
-      xhr.onerror = ev => {
+      xhr.onerror = (ev: ProgressEvent) => {
         const reason = xhr.responseText
           ? getAwsResponse(xhr)
           : 'transport error'
@@ -215,30 +225,30 @@ class SignedS3AWSRequest {
   }
 
   //see: http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#ConstructingTheAuthenticationHeader
-  authorize() {
+  authorize(): Promise<string> {
     this.request.dateString = this.signer.dateString(this.localTimeOffset)
 
     this.request.x_amz_headers = extend(this.request.x_amz_headers, {
       'x-amz-date': this.request.dateString
-    })
+    }) as Dictionary<string>
 
     return this.signer
       .getPayload()
       .then(() => authorizationMethod(this).authorize())
   }
 
-  authorizationSuccess(authorization) {
+  authorizationSuccess(authorization: string): void {
     Global.l.d(this.request.step, 'signature:', authorization)
     this.request.auth = authorization
   }
 
-  trySend() {
+  trySend(): Promise<void> {
     const self = this
 
-    return this.authorize().then(value => {
+    return this.authorize().then((value: string) => {
       self.authorizationSuccess(value)
 
-      if (self.fileUpload.status === ABORTED) {
+      if (self.fileUpload.status === EVAPORATE_STATUS.ABORTED) {
         return
       }
 
@@ -248,7 +258,7 @@ class SignedS3AWSRequest {
     }, self.error.bind(self))
   }
 
-  send() {
+  send(): Promise<XMLHttpRequest> {
     this.trySend()
     return this.awsDeferred.promise
   }

@@ -5,16 +5,25 @@ import { S3_EXTRA_ENCODED_CHARS, FAR_FUTURE } from './Constants'
 import { AwsSignatureV4 } from './AwsSignatureV4'
 import { AwsSignatureV2 } from './AwsSignatureV2'
 import { SignedS3AWSRequest } from './SignedS3AWSRequest'
+import { FileUpload } from './FileUpload'
+import { Defer, Dictionary } from './Types'
+import { S3UploadInterface } from './S3UploadInterface'
+import { EvaporateConfigInterface } from './EvaporateConfigInterface'
 
-function signingVersion(awsRequest: SignedS3AWSRequest) {
+type AwsSignature = AwsSignatureV2 | AwsSignatureV4
+
+function signingVersion(awsRequest: SignedS3AWSRequest): AwsSignature {
   const { awsSignatureVersion } = awsRequest.con
 
   const AwsSignature =
     awsSignatureVersion === '4' ? AwsSignatureV4 : AwsSignatureV2
+
   return new AwsSignature(awsRequest)
 }
 
-function authorizationMethod(awsRequest) {
+type Authorization = AuthorizationMethod | AuthorizationCustom
+
+function authorizationMethod(awsRequest: SignedS3AWSRequest): Authorization {
   const con = awsRequest.fileUpload.con
 
   if (typeof con.customAuthMethod === 'function') {
@@ -24,7 +33,7 @@ function authorizationMethod(awsRequest) {
   return new AuthorizationMethod(awsRequest)
 }
 
-function awsUrl(con) {
+function awsUrl(con: EvaporateConfigInterface): string {
   let url
 
   if (con.aws_url) {
@@ -47,11 +56,11 @@ function awsUrl(con) {
   return url.join('')
 }
 
-function s3EncodedObjectName(fileName) {
+function s3EncodedObjectName(fileName: string): string {
   const fileParts = fileName.split('/')
   const encodedParts = []
 
-  fileParts.forEach(p => {
+  fileParts.forEach((p: string) => {
     const buf = []
     const enc = encodeURIComponent(p)
 
@@ -65,8 +74,8 @@ function s3EncodedObjectName(fileName) {
   return encodedParts.join('/')
 }
 
-function uri(url) {
-  let p
+function uri(url: string) {
+  let p: URL | HTMLAnchorElement
   const href = url || '/'
 
   try {
@@ -102,27 +111,35 @@ function uri(url) {
   }
 }
 
-function dateISOString(date) {
+function dateISOString(date: number): string {
   // Try to get the modified date as an ISO String, if the date exists
   return date ? new Date(date).toISOString() : ''
 }
 
-function getAwsResponse(xhr) {
+function getAwsResponse(xhr: XMLHttpRequest): string {
   const code = elementText(xhr.responseText, 'Code')
   const msg = elementText(xhr.responseText, 'Message')
   return code.length ? ['AWS Code: ', code, ', Message:', msg].join('') : ''
 }
 
-function elementText(source, element) {
+function elementText(source: string, element: string): string {
   const match = source.match(['<', element, '>(.+)</', element, '>'].join(''))
   return match ? match[1] : ''
 }
 
-function defer() {
-  let deferred = {} as any
+function defer<T>(): Defer<T> {
+  type ResolveCallback = (value: T) => void
+  type RejectCallback = (value: any) => void
+
+  type Deferred = {
+    resolve?: ResolveCallback
+    reject?: RejectCallback
+  }
+
+  let deferred: Deferred = {}
   let promise
 
-  promise = new Promise((resolve, reject) => {
+  promise = new Promise((resolve: ResolveCallback, reject: RejectCallback) => {
     deferred = {
       resolve,
       reject
@@ -136,8 +153,8 @@ function defer() {
   }
 }
 
-function extend(obj1, obj2, obj3?) {
-  function ext(target, source) {
+function extend(obj1: object, obj2: object, obj3?: object): object {
+  function ext(target: object, source: object) {
     if (typeof source !== 'object') {
       return
     }
@@ -157,8 +174,10 @@ function extend(obj1, obj2, obj3?) {
   return obj1
 }
 
-function getSavedUploads(purge?) {
-  const uploads = JSON.parse(Global.historyCache.getItem('awsUploads') || '{}')
+function getSavedUploads(purge?: boolean): Dictionary<S3UploadInterface> {
+  const uploads: Dictionary<S3UploadInterface> = JSON.parse(
+    Global.historyCache.getItem('awsUploads') || '{}'
+  )
 
   if (purge) {
     for (const key in uploads) {
@@ -179,7 +198,7 @@ function getSavedUploads(purge?) {
   return uploads
 }
 
-function uploadKey(fileUpload) {
+function uploadKey(fileUpload: FileUpload): string {
   // The key tries to give a signature to a file in the absence of its path.
   // "<filename>-<mimetype>-<modifieddate>-<filesize>"
   return [
@@ -190,19 +209,19 @@ function uploadKey(fileUpload) {
   ].join('-')
 }
 
-function saveUpload(uploadKey, upload) {
+function saveUpload(uploadKey: string, upload: S3UploadInterface): void {
   const uploads = getSavedUploads()
   uploads[uploadKey] = upload
   Global.historyCache.setItem('awsUploads', JSON.stringify(uploads))
 }
 
-function removeUpload(uploadKey) {
+function removeUpload(uploadKey: string): void {
   const uploads = getSavedUploads()
   delete uploads[uploadKey]
   Global.historyCache.setItem('awsUploads', JSON.stringify(uploads))
 }
 
-function removeAtIndex(a, i) {
+function removeAtIndex<T>(a: Array<T>, i: T): boolean {
   const idx = a.indexOf(i)
 
   if (idx > -1) {
@@ -211,7 +230,7 @@ function removeAtIndex(a, i) {
   }
 }
 
-function readableFileSize(size) {
+function readableFileSize(size: number): string {
   // Adapted from https://github.com/fkjaekel
   // https://github.com/TTLabs/EvaporateJS/issues/13
   const units = ['B', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Eb', 'Zb', 'Yb']
@@ -234,13 +253,15 @@ function noOpLogger() {
   }
 }
 
-function getSupportedBlobSlice() {
+function getSupportedBlobSlice(): string | null {
   if (typeof Blob === 'undefined') {
     return null
   }
 
   const blobProperties = Object.keys(Blob.prototype)
-  return blobProperties.find(key => key.toLowerCase().includes('slice'))
+  return blobProperties.find((key: string) =>
+    key.toLowerCase().includes('slice')
+  )
 }
 
 export {

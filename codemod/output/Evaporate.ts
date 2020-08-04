@@ -1,13 +1,14 @@
 import { HistoryCache } from './HistoryCache'
 import { FileUpload } from './FileUpload'
 import { Global } from './Global'
+
+import { IMMUTABLE_OPTIONS } from './Constants'
 import {
-  PENDING,
-  IMMUTABLE_OPTIONS,
+  EVAPORATE_STATUS,
   ACTIVE_STATUSES,
-  PAUSED,
   PAUSED_STATUSES
-} from './Constants'
+} from './EvaporateStatusEnum'
+
 import {
   extend,
   noOpLogger,
@@ -17,29 +18,41 @@ import {
   getSupportedBlobSlice
 } from './Utils'
 
+import {
+  EvaporateConfigInterface,
+  EvaporateOverrideConfigInterface
+} from './EvaporateConfigInterface'
+
+import { UploadFileConfig } from './EvaporateUploadFileInterface'
+import { EvaporateValidationEnum } from './EvaporateValidationEnum'
+import { Dictionary } from './Types'
+
 class Evaporate {
-  public config: any = {}
-  public _instantiationError: any
-  public supported: any = false
-  public localTimeOffset: any = 0
-  public pendingFiles: any = {}
-  public queuedFiles: any = []
-  public filesInProcess: any = []
-  public evaporatingCount: any = 0
+  public config: EvaporateConfigInterface = null
+  public _instantiationError: EvaporateValidationEnum
+  public supported: boolean = false
+  public localTimeOffset: number = 0
+  public pendingFiles: Dictionary<FileUpload> = {}
+  public queuedFiles: Array<FileUpload> = []
+  public filesInProcess: Array<FileUpload> = []
+  public evaporatingCount: number = 0
 
-  static getLocalTimeOffset(config: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      if (typeof config.localTimeOffset === 'number') {
-        return resolve(config.localTimeOffset)
-      }
+  static getLocalTimeOffset(config: EvaporateConfigInterface): Promise<number> {
+    return new Promise(
+      (resolve: (value: number) => void, reject: (value: string) => void) => {
+        if (typeof config.localTimeOffset === 'number') {
+          return resolve(config.localTimeOffset)
+        }
 
-      if (config.timeUrl) {
-        const xhr = new XMLHttpRequest()
-        xhr.open('GET', `${config.timeUrl}?requestTime=${new Date().getTime()}`)
+        if (config.timeUrl) {
+          const xhr = new XMLHttpRequest()
+          xhr.open(
+            'GET',
+            `${config.timeUrl}?requestTime=${new Date().getTime()}`
+          )
 
-        xhr.onreadystatechange = () => {
-          if (xhr.readyState === 4) {
-            if (xhr.status === 200) {
+          xhr.onreadystatechange = () => {
+            if (xhr.readyState === 4 && xhr.status === 200) {
               const server_date = new Date(
                 Date.parse(xhr.responseText)
               ).getTime()
@@ -48,39 +61,44 @@ class Evaporate {
               resolve(offset)
             }
           }
-        }
 
-        xhr.onerror = ev => {
-          Global.l.e('xhr error timeUrl', xhr)
-          reject(`Fetching offset time failed with status: ${xhr.status}`)
-        }
+          xhr.onerror = ev => {
+            Global.l.e('xhr error timeUrl', xhr)
+            reject(`Fetching offset time failed with status: ${xhr.status}`)
+          }
 
-        xhr.send()
-      } else {
-        resolve(0)
+          xhr.send()
+        } else {
+          resolve(0)
+        }
       }
-    })
+    )
   }
 
-  static create(config: any): Promise<any> {
-    const evapConfig = extend({}, config)
+  static create(config: EvaporateConfigInterface): Promise<Evaporate> {
+    const evapConfig = extend({}, config) as EvaporateConfigInterface
 
-    return Evaporate.getLocalTimeOffset(evapConfig).then(offset => {
+    return Evaporate.getLocalTimeOffset(evapConfig).then((offset: number) => {
       evapConfig.localTimeOffset = offset
 
-      return new Promise((resolve, reject) => {
-        const e = new Evaporate(evapConfig)
+      return new Promise(
+        (
+          resolve: (evaporate: Evaporate) => void,
+          reject: (validationStatus: EvaporateValidationEnum) => void
+        ) => {
+          const e = new Evaporate(evapConfig)
 
-        if (e.supported === true) {
-          resolve(e)
-        } else {
-          reject(e._instantiationError)
+          if (e.supported === true) {
+            resolve(e)
+          } else {
+            reject(e._instantiationError)
+          }
         }
-      })
+      )
     })
   }
 
-  constructor(config) {
+  constructor(config: EvaporateConfigInterface) {
     this.config = extend(
       {
         readableStreams: false,
@@ -124,18 +142,20 @@ class Evaporate {
         abortCompletionThrottlingMs: 1000
       },
       config
-    )
+    ) as EvaporateConfigInterface
 
     if (typeof window !== 'undefined' && window.console) {
-      Global.l = window.console
-      Global.l.d = Global.l.log
-      Global.l.w = window.console.warn ? Global.l.warn : Global.l.d
-      Global.l.e = window.console.error ? Global.l.error : Global.l.d
+      Global.l = {
+        ...window.console,
+        d: Global.l.log,
+        w: window.console.warn ? Global.l.warn : Global.l.d,
+        e: window.console.error ? Global.l.error : Global.l.d
+      }
     }
 
     this._instantiationError = this.validateEvaporateOptions()
 
-    if (typeof this._instantiationError === 'string') {
+    if (this._instantiationError !== EvaporateValidationEnum.OK) {
       this.supported = false
       return
     } else {
@@ -168,7 +188,7 @@ class Evaporate {
     Global.historyCache = new HistoryCache(this.config.mockLocalStorage)
   }
 
-  startNextFile(reason) {
+  startNextFile(reason: string) {
     if (
       !this.queuedFiles.length ||
       this.evaporatingCount >= this.config.maxConcurrentParts
@@ -176,9 +196,9 @@ class Evaporate {
       return
     }
 
-    const fileUpload = this.queuedFiles.shift()
+    const fileUpload: FileUpload = this.queuedFiles.shift()
 
-    if (fileUpload.status === PENDING) {
+    if (fileUpload.status === EVAPORATE_STATUS.PENDING) {
       Global.l.d(
         'Starting',
         decodeURIComponent(fileUpload.name),
@@ -202,7 +222,7 @@ class Evaporate {
     }
   }
 
-  fileCleanup(fileUpload) {
+  fileCleanup(fileUpload: FileUpload) {
     removeAtIndex(this.queuedFiles, fileUpload)
 
     if (removeAtIndex(this.filesInProcess, fileUpload)) {
@@ -213,7 +233,7 @@ class Evaporate {
     this.consumeRemainingSlots()
   }
 
-  queueFile(fileUpload) {
+  queueFile(fileUpload: FileUpload) {
     this.filesInProcess.push(fileUpload)
     this.queuedFiles.push(fileUpload)
 
@@ -222,94 +242,80 @@ class Evaporate {
     }
   }
 
-  add(file, pConfig) {
+  add(
+    uploadFileConfig: UploadFileConfig,
+    overrideEvaporateConfig?: EvaporateOverrideConfigInterface
+  ): Promise<string> {
     const self = this
-    let fileConfig
+    let evaporateConfig
 
-    return new Promise((resolve, reject) => {
-      const c = extend(pConfig, {})
+    return new Promise(
+      (resolve: (value: string) => void, reject: (error: string) => void) => {
+        const c = extend(overrideEvaporateConfig, {})
 
-      IMMUTABLE_OPTIONS.forEach(a => {
-        delete c[a]
-      })
+        IMMUTABLE_OPTIONS.forEach((a: string) => {
+          delete c[a]
+        })
 
-      fileConfig = extend(self.config, c)
+        evaporateConfig = extend(self.config, c)
 
-      if (typeof file === 'undefined' || typeof file.file === 'undefined') {
-        return reject('Missing file')
-      }
+        if (
+          typeof uploadFileConfig === 'undefined' ||
+          typeof uploadFileConfig.file === 'undefined'
+        ) {
+          return reject('Missing file')
+        }
 
-      if (fileConfig.maxFileSize && file.file.size > fileConfig.maxFileSize) {
-        return reject(
-          `File size too large. Maximum size allowed is ${readableFileSize(
-            fileConfig.maxFileSize
-          )}`
+        if (
+          evaporateConfig.maxFileSize &&
+          uploadFileConfig.file.size > evaporateConfig.maxFileSize
+        ) {
+          return reject(
+            `File size too large. Maximum size allowed is ${readableFileSize(
+              evaporateConfig.maxFileSize
+            )}`
+          )
+        }
+
+        if (typeof uploadFileConfig.name === 'undefined') {
+          return reject('Missing attribute: name')
+        }
+
+        if (evaporateConfig.encodeFilename) {
+          // correctly encode to an S3 object name, considering '/' and ' '
+          uploadFileConfig.name = s3EncodedObjectName(uploadFileConfig.name)
+        }
+
+        const fileConfig = extend({}, uploadFileConfig, {
+          status: EVAPORATE_STATUS.PENDING,
+          priority: 0,
+          loadedBytes: 0,
+          sizeBytes: uploadFileConfig.file.size,
+          eTag: ''
+        }) as UploadFileConfig
+
+        const fileUpload = new FileUpload(fileConfig, evaporateConfig, self)
+
+        const fileKey = fileUpload.id
+        self.pendingFiles[fileKey] = fileUpload
+        self.queueFile(fileUpload)
+
+        // Resolve or reject the Add promise based on how the fileUpload completes
+        fileUpload.deferredCompletion.promise.then(
+          () => {
+            self.fileCleanup(fileUpload)
+            resolve(decodeURIComponent(fileUpload.name))
+          },
+          (reason: string) => {
+            self.fileCleanup(fileUpload)
+            reject(reason)
+          }
         )
       }
-
-      if (typeof file.name === 'undefined') {
-        return reject('Missing attribute: name')
-      }
-
-      if (fileConfig.encodeFilename) {
-        // correctly encode to an S3 object name, considering '/' and ' '
-        file.name = s3EncodedObjectName(file.name)
-      }
-
-      const fileUpload = new FileUpload(
-        extend(
-          {
-            started() {},
-            uploadInitiated() {},
-            progress() {},
-            complete() {},
-            cancelled() {},
-            paused() {},
-            resumed() {},
-            pausing() {},
-            nameChanged() {},
-            info() {},
-            warn() {},
-            error() {},
-            beforeSigner: undefined,
-            xAmzHeadersAtInitiate: {},
-            notSignedHeadersAtInitiate: {},
-            xAmzHeadersCommon: null,
-            xAmzHeadersAtUpload: {},
-            xAmzHeadersAtComplete: {}
-          },
-          file,
-          {
-            status: PENDING,
-            priority: 0,
-            loadedBytes: 0,
-            sizeBytes: file.file.size,
-            eTag: ''
-          }
-        ),
-        fileConfig,
-        self
-      )
-
-      const fileKey = fileUpload.id
-      self.pendingFiles[fileKey] = fileUpload
-      self.queueFile(fileUpload)
-
-      // Resolve or reject the Add promise based on how the fileUpload completes
-      fileUpload.deferredCompletion.promise.then(
-        () => {
-          self.fileCleanup(fileUpload)
-          resolve(decodeURIComponent(fileUpload.name))
-        },
-        reason => {
-          self.fileCleanup(fileUpload)
-          reject(reason)
-        }
-      )
-    })
+    )
   }
 
-  cancel(id) {
+  cancel(id: string) {
     return typeof id === 'undefined' ? this._cancelAll() : this._cancelOne(id)
   }
 
@@ -334,7 +340,7 @@ class Evaporate {
     return Promise.all(promises)
   }
 
-  _cancelOne(id) {
+  _cancelOne(id: string) {
     const promise = []
 
     if (this.pendingFiles[id]) {
@@ -346,14 +352,16 @@ class Evaporate {
     return Promise.all(promise)
   }
 
-  pause(id, options = {} as any) {
-    const force = typeof options.force === 'undefined' ? false : options.force
+  pause(id: string, options: { force?: boolean } = {}): Promise<any> {
+    const force: boolean =
+      typeof options.force === 'undefined' ? false : options.force
+
     return typeof id === 'undefined'
       ? this._pauseAll(force)
       : this._pauseOne(id, force)
   }
 
-  _pauseAll(force) {
+  _pauseAll(force: boolean): Promise<any> {
     Global.l.d('Pausing all file uploads')
     const promises = []
 
@@ -370,7 +378,7 @@ class Evaporate {
     return Promise.all(promises)
   }
 
-  _pauseOne(id, force) {
+  _pauseOne(id: string, force: boolean) {
     const promises = []
     const file = this.pendingFiles[id]
 
@@ -378,7 +386,7 @@ class Evaporate {
       promises.push(
         Promise.reject('Cannot pause a file that has not been added.')
       )
-    } else if (file.status === PAUSED) {
+    } else if (file.status === EVAPORATE_STATUS.PAUSED) {
       promises.push(
         Promise.reject('Cannot pause a file that is already paused.')
       )
@@ -391,13 +399,13 @@ class Evaporate {
     return Promise.all(promises)
   }
 
-  _pause(fileUpload, force, promises) {
+  _pause(fileUpload: FileUpload, force: boolean, promises): void {
     promises.push(fileUpload.pause(force))
     removeAtIndex(this.filesInProcess, fileUpload)
     removeAtIndex(this.queuedFiles, fileUpload)
   }
 
-  resume(id) {
+  resume(id: string): Promise<string[] | void> {
     return typeof id === 'undefined' ? this._resumeAll() : this._resumeOne(id)
   }
 
@@ -417,7 +425,7 @@ class Evaporate {
     return Promise.resolve()
   }
 
-  _resumeOne(id) {
+  _resumeOne(id: string): Promise<string[]> {
     const file = this.pendingFiles[id]
     const promises = []
 
@@ -434,14 +442,14 @@ class Evaporate {
     return Promise.all(promises)
   }
 
-  resumeFile(fileUpload) {
+  resumeFile(fileUpload: FileUpload): void {
     fileUpload.resume()
     this.queueFile(fileUpload)
   }
 
   forceRetry() {}
 
-  consumeRemainingSlots() {
+  consumeRemainingSlots(): void {
     let avail = this.config.maxConcurrentParts - this.evaporatingCount
 
     if (!avail) {
@@ -464,22 +472,22 @@ class Evaporate {
     }
   }
 
-  validateEvaporateOptions() {
+  validateEvaporateOptions(): EvaporateValidationEnum {
     this.supported = !(
       typeof File === 'undefined' || typeof Promise === 'undefined'
     )
 
     if (!this.supported) {
-      return 'Evaporate requires support for File and Promise'
+      return EvaporateValidationEnum.MISSING_SUPPORT_FILE_PROMISE
     }
 
     if (this.config.readableStreams) {
       if (typeof this.config.readableStreamPartMethod !== 'function') {
-        return 'Option readableStreamPartMethod is required when readableStreams is set.'
+        return EvaporateValidationEnum.MISSING_READABLE_STREAM_PART_METHOD
       }
     } else {
       if (!getSupportedBlobSlice()) {
-        return 'Evaporate requires support for Blob [webkitSlice || mozSlice || slice]'
+        return EvaporateValidationEnum.MISSING_SUPPORT_BLOB
       }
     }
 
@@ -487,11 +495,11 @@ class Evaporate {
       !this.config.signerUrl &&
       typeof this.config.customAuthMethod !== 'function'
     ) {
-      return 'Option signerUrl is required unless customAuthMethod is present.'
+      return EvaporateValidationEnum.MISSING_SIGNER_URL
     }
 
     if (!this.config.bucket) {
-      return "The AWS 'bucket' option must be present."
+      return EvaporateValidationEnum.MISSING_BUCKET
     }
 
     if (this.config.computeContentMd5) {
@@ -499,26 +507,26 @@ class Evaporate {
         typeof FileReader.prototype.readAsArrayBuffer !== 'undefined'
 
       if (!this.supported) {
-        return "The browser's FileReader object does not support readAsArrayBuffer"
+        return EvaporateValidationEnum.MISSING_SUPPORT_READ_AS_ARRAY_BUFFER
       }
 
       if (typeof this.config.cryptoMd5Method !== 'function') {
-        return 'Option computeContentMd5 has been set but cryptoMd5Method is not defined.'
+        return EvaporateValidationEnum.MISSING_COMPUTE_CONTENT_MD5
       }
 
       if (this.config.awsSignatureVersion === '4') {
         if (typeof this.config.cryptoHexEncodedHash256 !== 'function') {
-          return 'Option awsSignatureVersion is 4 but cryptoHexEncodedHash256 is not defined.'
+          return EvaporateValidationEnum.MISSING_V4_CRYPTO_HEX_ENCODED_HASH256
         }
       }
     } else if (this.config.awsSignatureVersion === '4') {
-      return 'Option awsSignatureVersion is 4 but computeContentMd5 is not enabled.'
+      return EvaporateValidationEnum.MISSING_V4_COMPUTE_CONTENT_MD5
     }
 
-    return true
+    return EvaporateValidationEnum.OK
   }
 
-  evaporatingCnt(incr) {
+  evaporatingCnt(incr: number): void {
     this.evaporatingCount = Math.max(0, this.evaporatingCount + incr)
     this.config.evaporateChanged(this, this.evaporatingCount)
   }

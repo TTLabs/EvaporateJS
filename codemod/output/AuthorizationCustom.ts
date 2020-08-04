@@ -1,7 +1,7 @@
 import { AuthorizationMethod } from './AuthorizationMethod'
 
 class AuthorizationCustom extends AuthorizationMethod {
-  authorize() {
+  authorize(): Promise<string> {
     return this.con
       .customAuthMethod(
         AuthorizationMethod.makeSignParamsObject(this.fileUpload.signParams),

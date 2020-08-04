@@ -1,11 +1,25 @@
 import { CancelableS3AWSRequest } from './CancelableS3AWSRequest'
+import { Request } from './Types'
+import { FileUpload } from './FileUpload'
+
+type PartialCancelableS3AWSRequest = new (
+  fileUpload: FileUpload,
+  request: Request
+) => {
+  [P in Exclude<
+    keyof CancelableS3AWSRequest,
+    'getPayload'
+  >]: CancelableS3AWSRequest[P]
+}
+
+const PartialCancelableS3AWSRequest: PartialCancelableS3AWSRequest = CancelableS3AWSRequest
 
 //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadComplete.html
-class CompleteMultipartUpload extends CancelableS3AWSRequest {
-  constructor(fileUpload) {
+class CompleteMultipartUpload extends PartialCancelableS3AWSRequest {
+  constructor(fileUpload: FileUpload) {
     fileUpload.info('will attempt to complete upload')
 
-    const request = {
+    const request: Request = {
       method: 'POST',
       contentType: 'application/xml; charset=UTF-8',
       path: `?uploadId=${fileUpload.uploadId}`,
@@ -17,7 +31,7 @@ class CompleteMultipartUpload extends CancelableS3AWSRequest {
     super(fileUpload, request)
   }
 
-  getPayload() {
+  getPayload(): Promise<string> {
     return Promise.resolve(this.fileUpload.getCompletedPayload())
   }
 }

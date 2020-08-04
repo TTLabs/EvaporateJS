@@ -1,7 +1,14 @@
+import { EvaporateConfigInterface } from './EvaporateConfigInterface'
+import { Request } from './Types'
+import { SignedS3AWSRequest } from './SignedS3AWSRequest'
+import { PutPart } from './PutPart'
+import { CompleteMultipartUpload } from './CompleteMultipartUpload'
+
 class AwsSignature {
-  request: any = {}
-  awsRequest: any
-  con: any
+  request: Request
+  awsRequest: SignedS3AWSRequest | PutPart | CompleteMultipartUpload
+  con: EvaporateConfigInterface
+  payload: ArrayBuffer
 
   constructor(awsRequest) {
     this.awsRequest = awsRequest
@@ -12,14 +19,17 @@ class AwsSignature {
   error() {}
   authorizationString() {}
   stringToSign() {}
-  canonicalRequest() {}
+  canonicalRequest() {
+    return ''
+  }
+
   setHeaders(xhr: XMLHttpRequest) {}
 
-  datetime(timeOffset) {
+  datetime(timeOffset: number): Date {
     return new Date(new Date().getTime() + timeOffset)
   }
 
-  dateString(timeOffset) {
+  dateString(timeOffset: number): string {
     return `${this.datetime(timeOffset)
       .toISOString()
       .slice(0, 19)
