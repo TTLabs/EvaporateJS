@@ -10,13 +10,6 @@ engines:
           mass_threshold: 50
   eslint:
     enabled: true
-    exclude_fingerprints:
-       # Complexity of closure EvaporateJS
-       - 45b312c6fbfa974e43be1533a0971213
-       # assignment in return for 1 line method
-       - 8499a50a63a4af2e254ca72df30a329b
-        # Too many lines in the main closure
-       - ca1d8427879787289fb956bae139ffda
   fixme:
     enabled: true
   radon:
@@ -25,17 +18,16 @@ engines:
     enabled: true
 ratings:
   paths:
-  - "**.css"
-  - "**.inc"
-  - "**.js"
-  - "**.jsx"
-  - "**.module"
-  - "**.php"
-  - "**.py"
-  - "**.rb"
+    - '**.css'
+    - '**.inc'
+    - '**.js'
+    - '**.ts'
+    - '**.jsx'
+    - '**.module'
+    - '**.php'
+    - '**.py'
+    - '**.rb'
 exclude_paths:
-- test/
-- "example/assets/*"
-- "codemod"
-- "!codemod/output"
-- "./evaporate.js"
+  - test/
+  - 'example/assets/*'
+  - dist/
