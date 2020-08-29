@@ -9,7 +9,23 @@ and control over pausing / resuming the upload.
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
-**Help us test our v3!**
+**Table of Contents**
+
+- [Help us test our v3!](#help-us-test-our-v3)
+- [Features](#features)
+  - [Configurable](#configurable)
+  - [Resilient](#resilient)
+  - [Performant](#performant)
+  - [Monitorable](#monitorable)
+  - [Cross Platform](#cross-platform)
+- [Installation](#installation)
+- [API & Usage](#api--usage)
+- [Authors](#authors)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Help us test our v3!
 
 We're in the final stages of migrating the library to Typescript and Webpack, and we're doing it to increase the maintainability of the project, but we also had reports of increased performance and lower memory usage!
 
@@ -24,21 +40,6 @@ npm install evaporate@TTLabs/EvaporateJS#pull/448/head
 ```
 
 And that's it! It should immediately work. If you have some feedback about it, please [post it here](https://github.com/TTLabs/EvaporateJS/pull/448).
-
-**Table of Contents**
-
-- [Features](#features)
-  - [Configurable](#configurable)
-  - [Resilient](#resilient)
-  - [Performant](#performant)
-  - [Monitorable](#monitorable)
-  - [Cross Platform](#cross-platform)
-- [Installation](#installation)
-- [API & Usage](#api--usage)
-- [Authors](#authors)
-- [Maintainers](#maintainers)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## Features
 
