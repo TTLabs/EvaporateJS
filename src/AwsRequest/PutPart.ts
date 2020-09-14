@@ -31,7 +31,7 @@ class PutPart extends PartialSignedS3AWSRequest {
   public partNumber: number
   public start: number = 0
   public end: number = 0
-  public stalledInterval: number = null
+  public stalledInterval: ReturnType<typeof setInterval> = null
   public result: any
   static size: number
 
