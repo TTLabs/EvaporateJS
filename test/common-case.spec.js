@@ -6,6 +6,11 @@ import test from 'ava'
 
 let server
 
+if (!global.DOMException) {
+	global.DOMException = function() {
+		this.error = undefined
+	}
+}
 function testCommon(t, addConfig, initConfig) {
   let evapConfig = Object.assign({}, {awsSignatureVersion: '2'}, initConfig)
   return testBase(t, addConfig, evapConfig)
@@ -404,4 +409,37 @@ test('should fail with the correctly ordered requests when PUT part 404s and DEL
       .catch(function () {
         expect(requestOrder(t)).to.match(/initiate,PUT:partNumber=1,cancel,cancel/)
       })
+})
+
+// Failure on FileReader read error is propagated
+test.serial('should propagate error when FileReader api fails', (t) => {
+	var arrayBuffer = global['FileReader'].prototype.readAsArrayBuffer;
+
+	global.FileReader.prototype.readAsArrayBuffer = function(blob)
+	{
+		this.error = new DOMException();
+		this.onloadend();
+	};
+
+	const config = {
+		name: randomAwsKey(),
+		file: new File({
+			path: '/tmp/file',
+			size: 8,
+			name: randomAwsKey()
+		}),
+		computeContentMd5: true,
+		cryptoMd5Method: function () { return 'MD5Value'; },
+	}
+
+	return testCommon(t, config, config)
+		.then(
+			function (result) {
+				global['FileReader'].prototype.readAsArrayBuffer = arrayBuffer
+				t.fail('Expected upload to fail but it did not.')
+			},
+			function (reason) {
+				global['FileReader'].prototype.readAsArrayBuffer = arrayBuffer
+				expect(reason).to.match(/aborted/i)
+			})
 })
