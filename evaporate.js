@@ -2067,6 +2067,7 @@
     // The key tries to give a signature to a file in the absence of its path.
     // "<filename>-<mimetype>-<modifieddate>-<filesize>"
     return [
+      fileUpload.awsKey, // fix for parallel uploads of identical files
       fileUpload.file.name,
       fileUpload.file.type,
       dateISOString(fileUpload.file.lastModified),
