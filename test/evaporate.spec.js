@@ -544,15 +544,15 @@ test('should call a callback on successful add()', (t) => {
 })
 
 test('should call a callback on successful initiate()', (t) => {
-  const initated_spy = sinon.spy()
+  const initiated_spy = sinon.spy()
 
   const config = Object.assign({}, baseAddConfig, {
-    uploadInitiated: initated_spy
+    uploadInitiated: initiated_spy
   })
 
   return testCommon(t, config)
       .then(function () {
-        expect(initated_spy.withArgs('Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--').calledOnce).to.be.true
+        expect(initiated_spy.withArgs('Hzr2sK034dOrV4gMsYK.MMrtWIS8JVBPKgeQ.LWd6H8V2PsLecsBqoA1cG1hjD3G4KRX_EBEwxWWDu8lNKezeA--').calledOnce).to.be.true
       })
 })
 
