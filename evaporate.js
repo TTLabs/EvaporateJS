@@ -216,6 +216,18 @@
 
       IMMUTABLE_OPTIONS.forEach(function (a) { delete c[a]; });
 
+      // Extract metadata
+      if (file.metadata) {
+        // Convert them into x-amz-meta-*
+        var keys = Object.keys(file.metadata);;
+        var metaHeaders = {};
+        keys.forEach(function (key) {
+          metaHeaders['x-amz-meta-' + key] = file.metadata[key];
+        });
+        file.xAmzHeadersAtInitiate = metaHeaders;
+        delete file['metadata'];
+      }
+
       fileConfig = extend(self.config, c);
 
       if (typeof file === 'undefined' || typeof file.file === 'undefined') {
@@ -260,7 +272,6 @@
             eTag: ''
           }), fileConfig, self),
           fileKey = fileUpload.id;
-
       self.pendingFiles[fileKey] = fileUpload;
 
       self.queueFile(fileUpload);
@@ -1022,7 +1033,6 @@
     if (fileUpload.contentType) {
       r.contentType = fileUpload.contentType;
     }
-
     this.updateRequest(r);
   }
   SignedS3AWSRequest.prototype.fileUpload = undefined;
@@ -1150,6 +1160,10 @@
       if (self.request.md5_digest) {
         xhr.setRequestHeader('Content-MD5', self.request.md5_digest);
       }
+
+      if (self.request.contentDisposition) {
+        xhr.setRequestHeader('Content-Disposition', self.request.contentDisposition);
+      }
       xhr.onerror = function (xhr) {
         var reason = xhr.responseText ? getAwsResponse(xhr) : 'transport error';
         reject(reason);
@@ -1242,6 +1256,9 @@
       not_signed_headers: fileUpload.notSignedHeadersAtInitiate,
       response_match: '<UploadId>(.+)<\/UploadId>'
     };
+    if (fileUpload.downloadName) {
+      request.contentDisposition = 'attachment; filename="' + fileUpload.downloadName + '"';
+    }
 
     CancelableS3AWSRequest.call(this, fileUpload, request);
     this.awsKey = awsKey;

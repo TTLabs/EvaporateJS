@@ -46,6 +46,11 @@
           var promise = _e_.add({
             name: 'test_' + Math.floor(1000000000*Math.random()),
             file: files[i],
+            downloadName: 'test.png"',
+            contentType: 'image/png',
+            metadata: {
+              'my-meta': 'dddd'
+            },
             progress: function (progress) {
               console.log('making progress: ' + progress);
             }
