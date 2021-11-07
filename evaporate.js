@@ -2097,7 +2097,7 @@
   function readableFileSize(size) {
     // Adapted from https://github.com/fkjaekel
     // https://github.com/TTLabs/EvaporateJS/issues/13
-    var units = ['B', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Eb', 'Zb', 'Yb'],
+    var units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
         i = 0;
     while(size >= 1024) {
       size /= 1024;
