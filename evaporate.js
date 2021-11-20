@@ -1016,6 +1016,7 @@
     this.started = defer();
 
     this.awsUrl = awsUrl(this.con);
+
     this.awsHost = uri(this.awsUrl).hostname;
       /*
        * ShreeDee : for compatibility with S3 clones, that are hosted on a non std port. Add the port number

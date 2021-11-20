@@ -1,117 +1,172 @@
-Evaporate
-=========
+# Evaporate
+
+**A Complete File Upload API for AWS S3**
+
+Evaporate is a JS library for uploading files from a browser to
+AWS S3, using parallel S3's multipart uploads with MD5 checksum support
+and control over pausing / resuming the upload.
 
 ## This branch allows to use Custom port for S3 endpoint
 
 [![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
-## File Upload API for AWS S3
+**Table of Contents**
 
-Evaporate is a javascript library for uploading files from a browser to
-AWS S3, using parallel S3's multipart uploads with MD5 checksum support
-and control over pausing / resuming the upload.
+- [Help us test our v3!](#help-us-test-our-v3)
+- [Features](#features)
+  - [Configurable](#configurable)
+  - [Resilient](#resilient)
+  - [Performant](#performant)
+  - [Monitorable](#monitorable)
+  - [Cross Platform](#cross-platform)
+- [Installation](#installation)
+- [API & Usage](#api--usage)
+- [Authors](#authors)
+- [Maintainers](#maintainers)
+- [Contributing](#contributing)
+- [License](#license)
 
-Major features include:
+## Help us test our v3!
+
+We're in the final stages of migrating the library to Typescript and Webpack, and we're doing it to increase the maintainability of the project, but we also had reports of increased performance and lower memory usage!
+
+The new version will foster an increase in the ease of contributing and onboarding of new maintainers.
+
+But don't worry, as there were no contract changes, if you're using our `v2` it should work out of the box.
+
+To test it, it's very simple, you just have to install the library like this:
+
+```bash
+npm install evaporate@TTLabs/EvaporateJS#pull/448/head
+```
+
+And that's it! It should immediately work. If you have some feedback about it, please [post it here](https://github.com/TTLabs/EvaporateJS/pull/448).
+
+## Features
+
+### Configurable
 
 - Configurable number of parallel uploads for each part (`maxConcurrentParts`)
+
 - Configurable MD5 Checksum calculations and handling for each uploaded
   part (`computeContentMd5`)
-- AWS Signature Version 2 and 4 (`awsSignatureVersion`)
+
+- Pluggable signing methods with `customAuthMethod` to support AWS Lambda, async functions and more.
+
+### Resilient
+
 - S3 Transfer Acceleration (`s3Acceleration`)
+
 - Robust recovery when uploading huge files. Only parts that
   have not been fully uploaded again. (`s3FileCacheHoursAgo`, `allowS3ExistenceOptimization`)
-- Ability to pause and resume downloads at will
-- Pluggable signing methods to support AWS Lambda, async functions and more.
 
-New Features in v2.0:
+- Ability to pause and resume downloads at will
+
+- Signing methods can respond to 401 and 403 response statuses and not trigger the automatic retry feature.
+
+- AWS Signature Version 2 and 4 (`awsSignatureVersion`)
+
+### Performant
+
+- Reduced memory footprint when calculating MD5 digests.
+
 - Parallel file uploads while respecting `maxConcurrentParts`.
+
 - If Evaporate reuses an interrupted upload or avoids uploading a file that is already available on S3, the new
   callback `nameChanged` will be invoked with the previous object name at the earliest moment. This indicates
   that requested object name was not used.
-- Pause, Resume, Cancel now can act on all in-progress file uploads
-- Pluggable signing methods with `customAuthMethod`. AWS Lambda functions must be implemented through this option.
-- Signing methods can respond to 401 and 403 response statuses and not trigger the automatic retry feature.
-- The `progress()` and `complete()` callbacks now provide upload stats like transfer rate and time remaining.
-- Reduced memory footprint when calculating MD5 digests.
 
-New Features in v2.0.5:
+### Monitorable
+
+- The `progress()` and `complete()` callbacks provide upload stats like transfer rate and time remaining.
+
+- Pause, Resume, Cancel can act on all in-progress file uploads
+
+### Cross Platform
+
 - Support for Node.js FileSystem (fs) ReadbleStreams. This means you can use Electron to upload a file directly from
   the file system's native File picker and avoid the usual browser restrictions.
 
-To migrate to v2.0, [follow these instructions](https://github.com/TTLabs/EvaporateJS/wiki/Migrating-from-v1-to-v2).
-
 ## Installation
-
-Evaporate is published as a Node module:
 
 ```bash
 $ npm install evaporate
 ```
 
-Otherwise, include it in your HTML:
+## API & Usage
 
-```html
-<script language="javascript" type="text/javascript" src="../evaporate.js"></script>
-```
+The documentation for the usage of the whole API is [available here](https://github.com/TTLabs/EvaporateJS/wiki/API).
 
-## Example
+This is a simple example of how you can configure it:
 
 ```javascript
-require('crypto');
+const Evaporate = require('EvaporateJS');
+const Crypto = require('crypto');
 
-var config = {
-     signerUrl: <SIGNER_URL>,
-     aws_key: <AWS_KEY>,
-     bucket: <AWS_BUCKET>,
-     cloudfront: true,
-     computeContentMd5: true,
-     cryptoMd5Method: function (data) { return crypto.createHash('md5').update(data).digest('base64'); }
+const config = {
+  signerUrl: SIGNER_URL,
+  aws_key: AWS_KEY,
+  bucket: AWS_BUCKET,
+  cloudfront: true,
+  computeContentMd5: true,
+  cryptoMd5Method: data => Crypto
+  .createHash('md5')
+  .update(data)
+  .digest('base64');
 };
 
-return Evaporate.create(config)
-    .then(function (evaporate) {
+const uploadFile = evaporate => {
+  const file = new File([""], "file_object_to_upload");
 
-      var file = new File([""], "file_object_to_upload"),
-          addConfig = {
-            name: file.name,
-            file: file,
-            progress: function (progressValue) { console.log('Progress', progressValue); },
-            complete: function (_xhr, awsKey) { console.log('Complete!'); },
-          },
-          overrides = {
-            bucket: AWS_BUCKET // Shows that the bucket can be changed per
-          };
-      evaporate.add(addConfig, overrides)
-          .then(function (awsObjectKey) {
-                console.log('File successfully uploaded to:', awsObjectKey);
-              },
-              function (reason) {
-                console.log('File did not upload sucessfully:', reason);
-              });
-    });
+  const addConfig = {
+    name: file.name,
+    file: file,
+    progress: progressValue => console.log('Progress', progressValue),
+    complete: (_xhr, awsKey) => console.log('Complete!'),
+  }
+
+  /*
+    The bucket and some other properties
+    can be changed per upload
+  */
+
+  const overrides = {
+    bucket: AWS_BUCKET_2
+  };
+
+  evaporate.add(addConfig, overrides)
+    .then(
+      awsObjectKey =>
+        console.log('File successfully uploaded to:', awsObjectKey),
+      reason =>
+        console.log('File did not upload sucessfully:', reason);
+    )
+}
+
+return Evaporate.create(config).then(uploadFile);
 ```
 
-See more examples on [wiki](https://github.com/TTLabs/EvaporateJS/wiki/Examples).
+More examples are available [here](https://github.com/TTLabs/EvaporateJS/wiki/Examples).
 
-
-## API documentation
-
-- [#create()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.create())
-- [#add()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.add())
-- [#cancel()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.cancel())
-- [#pause()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.pause())
-- [#resume()](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.resume())
-- [#supported](https://github.com/TTLabs/EvaporateJS/wiki/Evaporate.prototype.supported)
-
-Check out [Browser Compatibility](https://github.com/TTLabs/EvaporateJS/wiki/Browser-Compatibility) and [Important Usage Notes](https://github.com/TTLabs/EvaporateJS/wiki/Important-Usage-Notes) for usage details.
+Don't forget to check out the [Browser Compatibility](https://github.com/TTLabs/EvaporateJS/wiki/Browser-Compatibility) and [Important Usage Notes](https://github.com/TTLabs/EvaporateJS/wiki/Important-Usage-Notes) pages for usage details.
 
 ## Authors
 
-  - Bobby Wallace ([bikeath1337](http://github.com/bikeath1337))
-  - Tom Saffell ([tomsaffell](http://github.com/tomsaffell))
+- Bobby Wallace - [@bikeath1337](http://github.com/bikeath1337)
+- Tom Saffell - [@tomsaffell](http://github.com/tomsaffell)
+
+## Maintainers
+
+- Jakub Zitny - [@jakubzitny](http://github.com/jakubzitny)
+- Matheus Moreira - [@mattmoreira](http://github.com/mattmoreira)
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
 
 ## License
 
-EvaporateJS is licensed under the BSD 3-Clause License
-http://opensource.org/licenses/BSD-3-Clause
+This package is licensed under the [BSD 3-Clause](http://opensource.org/licenses/BSD-3-Clause) license
