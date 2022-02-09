@@ -8,6 +8,7 @@ using System.Text;
 using System.Web.Http;
 
 [RoutePrefix("signAuth")]
+// AWS V2 Signing
 public class SigningExampleController : ApiController
 {
     [HttpGet]
