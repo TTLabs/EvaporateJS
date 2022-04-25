@@ -1948,7 +1948,7 @@
       } else {
         url = ["https://", (con.cloudfront ? con.bucket + "." : ""), "s3"];
         if (con.awsRegion !== "us-east-1") {
-          url.push("-", con.awsRegion);
+          url.push(".", con.awsRegion);
         }
       }
       url.push(".amazonaws.com");
