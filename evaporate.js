@@ -1769,9 +1769,14 @@
 
       addHeader('Host', awsRequest.awsHost);
 
-      if (this.request.contentType) {
-        addHeader('Content-Type', this.request.contentType || '');
-      }
+    /**
+     * Removed, reference `getHeaderBlacklist()` in https://github.com/aws/aws-sdk-php/blob/master/src/Signature/SignatureV4.php
+     *  "The following headers are not signed because signing these header would potentially cause a signature
+     *   mismatch when sending a request through a proxy or if modified at the HTTP client level."
+     */
+//       if (this.request.contentType) {
+//         addHeader('Content-Type', this.request.contentType || '');
+//       }
 
       var amzHeaders = this.request.x_amz_headers || {};
       for (var key in amzHeaders) {
