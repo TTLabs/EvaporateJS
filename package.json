@@ -54,7 +54,7 @@
     "nyc": "^7.1.0",
     "sinon": "^1.17.6",
     "sinon-chai": "^2.8.0",
-    "xmldom": "^0.1.22"
+    "xmldom": "^0.6.0"
   },
   "ava": {
     "require": [
