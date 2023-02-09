@@ -483,7 +483,23 @@
     this.loaded += loadedNow;
     this.fileTotalBytesUploaded += loadedNow;
   };
+  /**
+   * @deprecated since version 2.1.5
+   * Will be deleted in version 2.2.
+   *
+   * Please change your implementation to use the
+   * correctly spelled function `progressStats`
+   */
   FileUpload.prototype.progessStats = function () {
+    if(console && console.warn) {
+      console.warn(
+        'progessStats is deprecated. Please change to the function '
+        + 'progressStats as this function will be removed in a future version');
+    }
+    return this.progressStats();
+  }
+
+  FileUpload.prototype.progressStats = function () {
     // Adapted from https://github.com/fkjaekel
     // https://github.com/TTLabs/EvaporateJS/issues/13
     if (this.fileTotalBytesUploaded === 0) {
@@ -521,7 +537,7 @@
   };
   FileUpload.prototype.onProgress = function () {
     if ([ABORTED, PAUSED].indexOf(this.status) === -1) {
-      this.progress(this.fileTotalBytesUploaded / this.sizeBytes, this.progessStats());
+      this.progress(this.fileTotalBytesUploaded / this.sizeBytes, this.progressStats());
       this.loaded = 0;
     }
   };
@@ -773,7 +789,7 @@
       historyCache.setItem('awsUploads', JSON.stringify(uploads));
     }
 
-    this.complete(xhr, this.name, this.progessStats());
+    this.complete(xhr, this.name, this.progressStats());
     this.setStatus(COMPLETE);
     this.onProgress();
   };
