@@ -6,7 +6,7 @@ Evaporate is a JS library for uploading files from a browser to
 AWS S3, using parallel S3's multipart uploads with MD5 checksum support
 and control over pausing / resuming the upload.
 
-[![Build Status](https://travis-ci.org/bikeath1337/EvaporateJS.svg?branch=master)](https://travis-ci.org/bikeath1337/EvaporateJS)
+[![Build Status](https://travis-ci.org/TTLabs/EvaporateJS.svg?branch=master)](https://travis-ci.org/TTLabs/EvaporateJS)
 [![Code Climate](https://codeclimate.com/github/TTLabs/EvaporateJS/badges/gpa.svg)](https://codeclimate.com/github/TTLabs/EvaporateJS)
 
 **Table of Contents**
