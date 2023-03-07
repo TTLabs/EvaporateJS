@@ -1422,6 +1422,7 @@
             SignedS3AWSRequest.prototype.send.call(self);
           });
     }
+    return Promise.resolve();
   };
   PutPart.prototype.success = function () {
     clearInterval(this.stalledInterval);
@@ -1467,14 +1468,31 @@
     return [CANCELED, ABORTED, PAUSED, PAUSING].indexOf(this.fileUpload.status) > -1;
   };
   PutPart.prototype.delaySend = function () {
+    var that = this;
     var backOffWait = this.backOffWait();
     this.attempts += 1;
-    setTimeout(this.send.bind(this), backOffWait);
+    setTimeout(function() {
+      that.send().catch(
+        function(e) {
+        l.w(e);
+      });
+     }, backOffWait);
   };
   PutPart.prototype.errorHandler = function (reason) {
     clearInterval(this.stalledInterval);
-    if (reason.match(/status:404/)) {
-      var errMsg = '404 error on part PUT. The part and the file will abort. ' + reason;
+    var hasError = false;
+    var errMsg = "Unexpected error occured";
+    if (reason instanceof DOMException) {
+      this.fileUpload.stopMonitor();
+      errMsg = "Error reading file. " + reason;
+      hasError = true;
+    }
+    else if (reason.match(/status:404/)) {
+      errMsg = '404 error on part PUT. The part and the file will abort. ' + reason;
+      hasError = true;
+    }
+
+    if (hasError) {
       l.w(errMsg);
       this.fileUpload.error(errMsg);
       this.part.status = ABORTED;
@@ -1555,13 +1573,19 @@
     // 2nd parameter changed. For example Gecko went from slice(start,length) -> mozSlice(start, end) -> slice(start, end).
     // As of 12/12/12, it seems that the unified 'slice' is the best bet, hence it being first in the list. See
     // https://developer.mozilla.org/en-US/docs/DOM/Blob for more info.
+    var that = this;
     var file = this.fileUpload.file,
         slicerFn = (file.slice ? 'slice' : (file.mozSlice ? 'mozSlice' : 'webkitSlice')),
         blob = file[slicerFn](this.start, this.end);
     if (this.con.computeContentMd5) {
-      return new Promise(function (resolve) {
+      return new Promise(function (resolve, reject) {
         var reader = new FileReader();
         reader.onloadend = function () {
+          if (this.error) {
+            that.errorHandler(this.error);
+            reject(this.error.message);
+            return;
+          }
           var buffer = this.result && typeof this.result.buffer !== 'undefined',
               result = buffer ? new Uint8Array(this.result.buffer) : this.result;
           resolve(result);
