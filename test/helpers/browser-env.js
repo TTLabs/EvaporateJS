@@ -45,7 +45,8 @@ const baseConfig = {
   bucket: AWS_BUCKET,
   logging: false,
   maxRetryBackoffSecs: 0.1,
-  abortCompletionThrottlingMs: 0
+  abortCompletionThrottlingMs: 0,
+  enablePartSizeOptimization: false
 }
 
 function LocalStorage() {
@@ -74,7 +75,8 @@ let requestMap = {
   'POST:uploads': 'initiate',
   'POST:uploadId': 'complete',
   'DELETE:uploadId': 'cancel',
-  'GET:uploadId': 'check for parts'
+  'GET:uploadId': 'check for parts',
+  'PUT': 'put object'
 }
 
 global.requestOrder = function (t) {

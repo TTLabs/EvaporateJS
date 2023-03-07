@@ -60,6 +60,7 @@
       logging: true,
       maxConcurrentParts: 5,
       partSize: 6 * 1024 * 1024,
+      enablePartSizeOptimization: true,
       retryBackoffPower: 2,
       maxRetryBackoffSecs: 300,
       progressIntervalMS: 1000,
@@ -459,6 +460,7 @@
     this.id = decodeURIComponent(this.con.bucket + '/' + this.name);
 
     this.signParams = con.signParams;
+    this.numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1; // issue #58
   }
   FileUpload.prototype.con = undefined;
   FileUpload.prototype.evaporate = undefined;
@@ -677,7 +679,6 @@
     });
   };
   FileUpload.prototype.makeParts = function (firstPart) {
-    this.numParts = Math.ceil(this.sizeBytes / this.con.partSize) || 1; // issue #58
     var partsDeferredPromises = [];
 
     var self = this;
@@ -711,7 +712,7 @@
       } else {
         s3Part = this.makePart(part, PENDING, this.sizeBytes);
       }
-      s3Part.awsRequest = new PutPart(this, s3Part);
+      s3Part.awsRequest = this.numParts === 1 && this.con.enablePartSizeOptimization ?  new PutObject(this, s3Part) : new PutPart(this, s3Part);
       s3Part.awsRequest.awsDeferred.promise
           .then(resolve(s3Part), reject(s3Part));
 
@@ -862,7 +863,11 @@
         .send()
         .then(
             function (xhr) {
-              self.eTag = elementText(xhr.responseText, "ETag").replace(/&quot;/g, '"');
+              if (self.numParts === 1 && self.con.enablePartSizeOptimization) {
+                self.eTag = self.partsOnS3[0].eTag;
+              } else {
+                self.eTag = elementText(xhr.responseText, "ETag").replace(/&quot;/g, '"');
+              }
               self.completeUploadFile(xhr);
             });
   };
@@ -1209,6 +1214,20 @@
     return [ABORTED, CANCELED].indexOf(this.fileUpload.status) > -1;
   };
 
+  function CancelableS3MultipartRequest(fileUpload, request) {
+    CancelableS3AWSRequest.call(this, fileUpload, request);
+  }
+  CancelableS3MultipartRequest.prototype = Object.create(CancelableS3AWSRequest.prototype);
+  CancelableS3MultipartRequest.prototype.constructor = CancelableS3MultipartRequest;
+  CancelableS3MultipartRequest.prototype.send = function () {
+    if (this.fileUpload.numParts === 1 && this.con.enablePartSizeOptimization) {
+      this.awsDeferred.resolve();
+    } else {
+      this.trySend();
+    }
+    return this.awsDeferred.promise;
+  };
+
   function SignedS3AWSRequestWithRetryLimit(fileUpload, request, maxRetries) {
     if (maxRetries > -1) {
       this.maxRetries = maxRetries;
@@ -1243,10 +1262,10 @@
       response_match: '<UploadId>(.+)<\/UploadId>'
     };
 
-    CancelableS3AWSRequest.call(this, fileUpload, request);
+    CancelableS3MultipartRequest.call(this, fileUpload, request);
     this.awsKey = awsKey;
   }
-  InitiateMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
+  InitiateMultipartUpload.prototype = Object.create(CancelableS3MultipartRequest.prototype);
   InitiateMultipartUpload.prototype.constructor = InitiateMultipartUpload;
   InitiateMultipartUpload.prototype.success = function () {
     var match = this.currentXhr.response.match(new RegExp(this.request.response_match));
@@ -1267,9 +1286,9 @@
       x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtComplete,
       step: 'complete'
     };
-    CancelableS3AWSRequest.call(this, fileUpload, request);
+    CancelableS3MultipartRequest.call(this, fileUpload, request);
   }
-  CompleteMultipartUpload.prototype = Object.create(CancelableS3AWSRequest.prototype);
+  CompleteMultipartUpload.prototype = Object.create(CancelableS3MultipartRequest.prototype);
   CompleteMultipartUpload.prototype.constructor = CompleteMultipartUpload;
   CompleteMultipartUpload.prototype.getPayload = function () {
     return Promise.resolve(this.fileUpload.getCompletedPayload());
@@ -1381,8 +1400,8 @@
     return new Promise(function (resolve, reject) {
       if (self.con.computeContentMd5 && !part.md5_digest) {
         self.getPayload()
-            .then(function (data) {
-              var md5_digest = self.con.cryptoMd5Method(data);
+            .then(self.con.cryptoMd5Method)
+            .then(function (md5_digest) {
               if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
                 self.fileUpload.firstMd5Digest = md5_digest;
                 self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
@@ -1575,6 +1594,27 @@
   PutPart.prototype.getStartedPromise = function () {
     return this.started.promise;
   };
+
+
+  //http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
+  function PutObject(fileUpload, part) {
+    this.part = part;
+
+    this.partNumber = 1;
+    this.start = 0;
+    this.end = fileUpload.sizeBytes;
+
+    var request = {
+      method: 'PUT',
+      step: 'upload #' + this.partNumber,
+      x_amz_headers: fileUpload.xAmzHeadersCommon || fileUpload.xAmzHeadersAtUpload,
+      onProgress: this.onProgress.bind(this)
+    };
+
+    SignedS3AWSRequest.call(this, fileUpload, request);
+  }
+  PutObject.prototype = Object.create(PutPart.prototype);
+  PutObject.prototype.constructor = PutObject;
 
 
   //http://docs.amazonwebservices.com/AmazonS3/latest/API/mpUploadAbort.html
