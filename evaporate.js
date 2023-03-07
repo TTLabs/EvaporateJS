@@ -1381,8 +1381,8 @@
     return new Promise(function (resolve, reject) {
       if (self.con.computeContentMd5 && !part.md5_digest) {
         self.getPayload()
-            .then(function (data) {
-              var md5_digest = self.con.cryptoMd5Method(data);
+            .then(self.con.cryptoMd5Method)
+            .then(function (md5_digest) {
               if (self.partNumber === 1 && self.con.computeContentMd5 && typeof self.fileUpload.firstMd5Digest === "undefined") {
                 self.fileUpload.firstMd5Digest = md5_digest;
                 self.fileUpload.updateUploadFile({firstMd5Digest: md5_digest})
