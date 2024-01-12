@@ -1018,6 +1018,11 @@
     this.awsUrl = awsUrl(this.con);
     this.awsHost = uri(this.awsUrl).host;
 
+    const port = uri(this.awsUrl).port;
+    if (!!port && 80 != port && 443 != port) {
+      this.awsHost += (':' + port);
+    }
+
     var r = extend({}, request);
     if (fileUpload.contentType) {
       r.contentType = fileUpload.contentType;
